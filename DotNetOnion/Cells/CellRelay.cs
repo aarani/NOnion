@@ -7,63 +7,67 @@ using DotNetOnion.Helpers;
 
 namespace DotNetOnion.Cells
 {
-    public class CellRelay : Cell
+    public class CellRelayEncrypted : Cell
+    {
+        public byte[] EncryptedData { get; set; }
+
+        public override byte Command => 0x03;
+
+        public override void Deserialize(BinaryReader reader)
+        {
+            EncryptedData = reader.ReadBytes(Constants.FixedPayloadLength);
+        }
+
+        public override void Serialize(BinaryWriter writer)
+        {
+            writer.Write(EncryptedData);
+        }
+    }
+
+    public class CellRelayPlain
     {
         public RelayCommand RelayCommand { get; set; }
         public ushort Recognized { get; set; }
         public ushort StreamId { get; set; }
         public byte[] Digest { get; set; }
         public byte[] Data { get; set; }
-        public byte[] Padding { get; set; }
-
-        public override byte Command => 0x03;
+        private byte[] padding;
 
         private void InitializePadding()
         {
-            if (Padding == null)
+            if (padding == null)
             {
-                Padding = new byte[Constants.FixedPayloadLength - 11 - Data.Length];
-                RandomNumberGenerator.Create().GetNonZeroBytes(Padding);
-                Array.Clear(Padding, 0, Math.Min(Padding.Length, 4));
+                padding = new byte[Constants.FixedPayloadLength - 11 - Data.Length];
+                RandomNumberGenerator.Create().GetNonZeroBytes(padding);
+                Array.Clear(padding, 0, Math.Min(padding.Length, 4));
             }
         }
 
-        public override void Deserialize(BinaryReader reader)
+        public void FromBytes(byte[] bytes)
         {
+            using MemoryStream memStream = new (bytes);
+            using BinaryReader reader = new (memStream);
             RelayCommand = (RelayCommand)reader.ReadByte();
             Recognized = reader.ReadUInt16BigEndian();
             StreamId = reader.ReadUInt16BigEndian();
             Digest = reader.ReadBytes(4);
             Data = reader.ReadBytes(reader.ReadUInt16BigEndian());
-            Padding = reader.ReadBytes(Constants.FixedPayloadLength - 11 - Data.Length);
+            padding = reader.ReadBytes(Constants.FixedPayloadLength - 11 - Data.Length);
         }
 
-        public override void Serialize(BinaryWriter writer)
+        public byte[] ToBytes(bool emptyDigest = false)
         {
             InitializePadding();
+            using MemoryStream memStream = new(Constants.FixedPayloadLength);
+            using BinaryWriter writer = new(memStream);
             writer.Write((byte)RelayCommand);
             writer.WriteBigEndian(Recognized);
             writer.WriteBigEndian(StreamId);
-            writer.Write(Digest);
+            writer.Write(emptyDigest ? new byte[4] : Digest);
             writer.WriteBigEndian((ushort)Data.Length);
             writer.Write(Data);
-            writer.Write(Padding);
-        }
-
-        public bool IsRecognized()
-        {
-            return Array.TrueForAll(Digest, b => b == 0x00);
-        }
-
-        public void SerializeForDigest(BinaryWriter writer)
-        {
-            InitializePadding();
-            writer.Write((byte)RelayCommand);
-            writer.WriteBigEndian(Recognized);
-            writer.WriteBigEndian(StreamId);
-            writer.Write(new byte[4]);
-            writer.WriteBigEndian((ushort)Data.Length);
-            writer.Write(Padding);
+            writer.Write(padding);
+            return memStream.ToArray();
         }
     }
 

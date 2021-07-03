@@ -19,7 +19,7 @@ namespace DotNetOnion.Helpers
             return command switch
             {
                 0 => new CellPadding(),
-                3 => new CellRelay(),
+                3 => new CellRelayEncrypted(),
                 4 => new CellDestroy(),
                 5 => new CellCreateFast(),
                 6 => new CellCreatedFast(),

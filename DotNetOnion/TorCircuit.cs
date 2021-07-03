@@ -41,7 +41,7 @@ namespace DotNetOnion
             this.id = id;
             this.guardCryptoState = guardCryptoState;
             //FIXME: HACK
-            guard.CircuitDataHandlers.AddOrUpdate(id, Guard_NewMessageReceived, (_,_) => Guard_NewMessageReceived);
+            guard.CircuitDataHandlers.AddOrUpdate(id, Guard_NewMessageReceived, (_, _) => Guard_NewMessageReceived);
         }
 
         //TODO: Add parameter for hops
@@ -90,36 +90,50 @@ namespace DotNetOnion
 
         private void Guard_NewMessageReceived(Cell cell)
         {
+            switch (cell)
+            {
+                case CellRelayEncrypted encryptedRelayCell:
+                    HandleEncryptedRelayPacket(encryptedRelayCell);
+                    break;
+            }
+        }
+
+        private void HandleEncryptedRelayPacket(CellRelayEncrypted encryptedRelayCell)
+        {
+            var decryptedRelayCellBytes =
+                guardCryptoState.backwardCipher.Encrypt(encryptedRelayCell.EncryptedData);
+            var recognized = BitConverter.ToUInt16(decryptedRelayCellBytes, 1);
+            if (recognized != 0) throw new Exception("wat?!");
+            var digest = decryptedRelayCellBytes.Skip(5).Take(4).ToArray();
+            
+            Array.Clear(decryptedRelayCellBytes, 5, 4);
+            var computedDigest =
+                guardCryptoState.backwardDigest.PeekDigest(decryptedRelayCellBytes, 0, decryptedRelayCellBytes.Length).Take(4);
+
+            if (!digest.SequenceEqual(computedDigest))
+                throw new Exception("wat?");
+
+            guardCryptoState.backwardDigest.Update(decryptedRelayCellBytes, 0, decryptedRelayCellBytes.Length);
+
+            CellRelayPlain decryptedRelayCell = new ();
+            decryptedRelayCell.FromBytes(decryptedRelayCellBytes);
 
         }
 
-        //FIXME: this is stupid, 3 memStream for this?!
-        public async Task SendRelayCell(CellRelay cellRelay)
+        public async Task SendRelayCell(CellRelayPlain plainRelayCell)
         {
-            using (MemoryStream memStreamForDigestCalculation = new(Constants.FixedPayloadLength))
-            using (BinaryWriter writer = new(memStreamForDigestCalculation))
-            {
-                cellRelay.SerializeForDigest(writer);
-                guardCryptoState.forwardDigest.Update(memStreamForDigestCalculation.ToArray());
-            }
+            guardCryptoState.forwardDigest.Update(plainRelayCell.ToBytes(true));
+            var digest =
+                guardCryptoState.forwardDigest.GetDigestBytes();
 
-            var digest = guardCryptoState.forwardDigest.GetDigestBytes();
-            cellRelay.Digest = digest.Take(4).ToArray();
+            plainRelayCell.Digest = new byte[4];
+            Buffer.BlockCopy(digest, 0, plainRelayCell.Digest, 0, 4);
 
-            byte[] encryptedCell;
-            using (MemoryStream memStreamForEncryption = new(Constants.FixedPayloadLength))
-            using (BinaryWriter writer = new(memStreamForEncryption))
-            {
-                cellRelay.Serialize(writer);
-                encryptedCell = guardCryptoState.forwardCipher.Encrypt(memStreamForEncryption.ToArray());
-            }
-
-            await guard.Send(new TorFrame
-            {
-                CircuitId = id,
-                Command = cellRelay.Command,
-                Payload = encryptedCell
-            });
+            await guard.Send(id,
+                new CellRelayEncrypted()
+                {
+                    EncryptedData = guardCryptoState.forwardCipher.Encrypt(plainRelayCell.ToBytes(false))
+                });
         }
 
         private static ushort RegisterCircuitId(TorGuard guard, CircuitDataReceived preCreateHandler)

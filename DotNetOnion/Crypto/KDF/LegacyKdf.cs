@@ -30,7 +30,7 @@ namespace DotNetOnion.Crypto.KDF
                 ForwardDigest = kdfResult.Skip(Constants.HashLength).Take(Constants.HashLength).ToArray(),
                 BackwardDigest = kdfResult.Skip(2 * Constants.HashLength).Take(Constants.HashLength).ToArray(),
                 ForwardKey = kdfResult.Skip(3 * Constants.HashLength).Take(Constants.KeyLength).ToArray(),
-                BackwardKey = kdfResult.Skip(2 * Constants.HashLength + Constants.KeyLength).Take(Constants.KeyLength).ToArray(),
+                BackwardKey = kdfResult.Skip(3 * Constants.HashLength + Constants.KeyLength).Take(Constants.KeyLength).ToArray(),
             };
         }
     }

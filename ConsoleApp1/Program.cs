@@ -15,7 +15,7 @@ namespace ConsoleApp1
             TorCircuit circuit = 
                 await TorCircuit.Create(socket, true);
 
-            await circuit.SendRelayCell(new DotNetOnion.Cells.CellRelay
+            await circuit.SendRelayCell(new DotNetOnion.Cells.CellRelayPlain
             {
                 Data = new byte[0],
                 Digest = new byte[4],

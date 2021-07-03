@@ -102,8 +102,8 @@ namespace DotNetOnion
                 //TODO: should this happen in separate thread?
                 handler.Invoke(torMessage.Cell);
             }
-
-            Console.WriteLine($"Orphan message with CircuitId = {torMessage.CircuitId} Command = {torMessage.Cell.GetType()}");
+            else
+                Console.WriteLine($"Orphan message with CircuitId = {torMessage.CircuitId} Command = {torMessage.Cell.GetType()}");
         }
 
         private async void CloseAsync()
