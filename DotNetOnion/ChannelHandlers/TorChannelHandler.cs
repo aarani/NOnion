@@ -10,6 +10,7 @@ using DotNetty.Common.Concurrency;
 using DotNetty.Common.Utilities;
 using DotNetty.Handlers;
 using DotNetty.Transport.Channels;
+using static DotNetOnion.Cells.CellNetInfo;
 
 namespace DotNetOnion.ChannelHandlers
 {
@@ -97,18 +98,21 @@ namespace DotNetOnion.ChannelHandlers
         private void CompleteHandshake(IChannelHandlerContext context)
         {
             if (!authentication)
+            {
                 context.WriteAndFlushAsync(
                     new TorMessage
                     {
                         CircuitId = 0,
                         Cell = new CellNetInfo
                         {
-                            MyAddress = handshakeState.NetInfo.OtherAddress, //TODO: DO NOT TRUST THIS
-                            OtherAddress = handshakeState.NetInfo.MyAddress, //TODO: CHECK THIS!!!
+                            MyAddresses = new List<ORAddress> { handshakeState.NetInfo.OtherAddress }, //TODO: DO NOT TRUST THIS
+                            OtherAddress = handshakeState.NetInfo.MyAddresses[0], //TODO: CHECK THIS!!!
                             Time = DateTime.UtcNow.ToUnixTimestamp()
                         }
                     }
-                );
+                ).ContinueWith((_) => completionSource.TryComplete(), TaskContinuationOptions.OnlyOnRanToCompletion | TaskContinuationOptions.ExecuteSynchronously);
+                
+            }
             else
                 throw new NotImplementedException();
         }
@@ -135,6 +139,16 @@ namespace DotNetOnion.ChannelHandlers
                 throw new Exception("//FIXME");
 
             handshakeState.AuthChallenge = authChallengeCell;
+        }
+
+        public override void ChannelInactive(IChannelHandlerContext context)
+        {
+            base.ChannelInactive(context);
+        }
+
+        public override void ExceptionCaught(IChannelHandlerContext context, Exception exception)
+        {
+            base.ExceptionCaught(context, exception);
         }
     }
 }

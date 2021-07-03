@@ -10,15 +10,19 @@ namespace DotNetOnion.Cells
     {
         public uint Time { get; set; }
         public ORAddress OtherAddress { get; set; }
-        public ORAddress MyAddress { get; set; }
+        public List<ORAddress> MyAddresses { get; set; } = new List<ORAddress>();
 
-        public override byte Command => 0x07;
+        public override byte Command => 0x08;
 
         public override void Deserialize(BinaryReader reader)
         {
             Time = reader.ReadUInt32BigEndian();
             OtherAddress = ReadORAddress(reader);
-            MyAddress = ReadORAddress(reader);
+            int myAddressCount = reader.ReadByte();
+            for (int i = 0; i < myAddressCount; i++)
+            {
+                MyAddresses.Add(ReadORAddress(reader));
+            }
         }
 
         private ORAddress ReadORAddress (BinaryReader reader)
@@ -41,7 +45,9 @@ namespace DotNetOnion.Cells
         {
             writer.WriteBigEndian(Time);
             WriteORAddress(OtherAddress, writer);
-            WriteORAddress(MyAddress, writer);
+            writer.Write((byte)MyAddresses.Count);
+            foreach (var address in MyAddresses)
+                WriteORAddress(address, writer);
         }
 
         public class ORAddress

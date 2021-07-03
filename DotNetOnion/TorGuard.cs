@@ -9,6 +9,7 @@ using DotNetty.Transport.Bootstrapping;
 using DotNetty.Transport.Channels;
 using DotNetty.Transport.Channels.Sockets;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Security;
@@ -23,20 +24,28 @@ namespace DotNetOnion
     {
         private readonly IPEndPoint endpoint;
         private readonly string fingerprint;
+        private readonly bool authenticate;
         private readonly TaskCompletionSource closeCompletionSource;
         private readonly TorChannelHandler handler;
         IEventLoopGroup eventLoopGroup;
         IChannel channel;
-        public delegate void CircuitDataReceived (Cell cell);
+        public delegate void CircuitDataReceived(Cell cell);
 
-        public Dictionary<ushort, CircuitDataReceived> CircuitDataHandlers = new ();
-        public TorGuard(IPEndPoint endpoint, string fingerprint)
+        public ConcurrentDictionary<ushort, CircuitDataReceived> CircuitDataHandlers = new();
+
+        public TorGuard(IPEndPoint endpoint, string fingerprint, bool authenticate = false)
         {
             this.endpoint = endpoint;
             this.fingerprint = fingerprint;
+            this.authenticate = authenticate;
+
+            if (authenticate)
+                throw new NotImplementedException();
 
             closeCompletionSource = new TaskCompletionSource();
-            handler = new(false);
+
+            handler = new(authenticate);
+            handler.DataReceived += Handler_DataReceived;
         }
 
         public async Task<bool> ConnectAsync(int threadCount = 1, CancellationToken token = default)
@@ -44,8 +53,6 @@ namespace DotNetOnion
             try
             {
                 eventLoopGroup = new MultithreadEventLoopGroup(threadCount);
-
-                handler.DataReceived += Handler_DataReceived;
 
                 Bootstrap bootstrap = new();
                 bootstrap
@@ -79,10 +86,10 @@ namespace DotNetOnion
             }
         }
 
-        private async Task Send (ushort circuitId, Cell cell)
+        public async Task Send(ushort circuitId, Cell cell)
         {
             await channel.WriteAndFlushAsync(new TorMessage
-            {
+            { 
                 Cell = cell,
                 CircuitId = circuitId
             });
@@ -98,6 +105,7 @@ namespace DotNetOnion
 
             Console.WriteLine($"Orphan message with CircuitId = {torMessage.CircuitId} Command = {torMessage.Cell.GetType()}");
         }
+
         private async void CloseAsync()
         {
             try
@@ -115,6 +123,11 @@ namespace DotNetOnion
             {
                 closeCompletionSource.TryComplete();
             }
+        }
+
+        internal async Task Send(TorFrame frame)
+        {
+            await channel.WriteAndFlushAsync(frame);
         }
 
         public void Dispose()

@@ -10,7 +10,7 @@ namespace DotNetOnion.Helpers
         public static bool IsVariableLength(byte command) =>
             command == 7 || command >= 128;
 
-        public static bool IsPaddingRandom(byte command) =>
+        public static bool IsRelayCell(byte command) =>
             command == 9 || command == 3;
 
         //FIXME: Maybe reflection is cleaner?
@@ -20,6 +20,7 @@ namespace DotNetOnion.Helpers
             {
                 0 => new CellPadding(),
                 3 => new CellRelay(),
+                4 => new CellDestroy(),
                 5 => new CellCreateFast(),
                 6 => new CellCreatedFast(),
                 7 => new CellVersions(),

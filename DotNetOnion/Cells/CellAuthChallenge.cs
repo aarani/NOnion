@@ -10,7 +10,7 @@ namespace DotNetOnion.Cells
     {
         public byte[] Challenge { get; set; }
         public List<ushort> Methods { get; set; } = new List<ushort>();
-        public override byte Command => 0x07;
+        public override byte Command => 130;
 
         public override void Deserialize(BinaryReader reader)
         {

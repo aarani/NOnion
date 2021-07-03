@@ -12,10 +12,10 @@ namespace DotNetOnion.Codecs
 {
     public class TorMessageCodec : MessageToMessageCodec<TorFrame, TorMessage>
     {
-        private readonly RandomNumberGenerator rngSoruce = RandomNumberGenerator.Create();
         protected override void Decode(IChannelHandlerContext ctx, TorFrame msg, List<object> output)
         {
             var cell = CommandsHelper.GetCell(msg.Command);
+
             using (MemoryStream payloadStream = new MemoryStream(msg.Payload))
             using (BinaryReader payloadReader = new BinaryReader(payloadStream))
                 cell.Deserialize(payloadReader);
@@ -38,10 +38,6 @@ namespace DotNetOnion.Codecs
             if (!CommandsHelper.IsVariableLength(msg.Cell.Command))
             {
                 byte[] padding = new byte[Constants.FixedPayloadLength - payloadWriter.BaseStream.Position];
-
-                if (CommandsHelper.IsPaddingRandom(msg.Cell.Command))
-                    rngSoruce.GetNonZeroBytes(padding);
-
                 payloadWriter.Write(padding);
             }
 

@@ -17,6 +17,14 @@ namespace DotNetOnion.Helpers
             return bytes;
         }
 
+        public static ushort ToUInt16BigEndian(this byte[] bytes)
+        {
+            if (BitConverter.IsLittleEndian)
+                Array.Reverse(bytes);
+
+            return BitConverter.ToUInt16(bytes, 0);
+        }
+
         public static byte[] ToBigEndianByteArray(this uint num)
         {
             var bytes = BitConverter.GetBytes(num);
@@ -31,6 +39,7 @@ namespace DotNetOnion.Helpers
         {
             writer.Write(num.ToBigEndianByteArray());
         }
+
         public static void WriteBigEndian(this BinaryWriter writer, uint num)
         {
             writer.Write(num.ToBigEndianByteArray());
