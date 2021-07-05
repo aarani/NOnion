@@ -27,7 +27,7 @@ namespace DotNetOnion.Cells
 
         public override void Serialize(BinaryWriter writer)
         {
-            writer.WriteBigEndian((ushort)Certs.Count);
+            writer.Write((byte)Certs.Count);
 
             foreach (var cert in Certs)
             {

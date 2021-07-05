@@ -13,7 +13,7 @@ namespace DotNetOnion.Cells
 
         public override void Deserialize(BinaryReader reader)
         {
-            if (reader.BaseStream.Length % 2 != 0)
+            if ((reader.BaseStream.Length - reader.BaseStream.Position) % 2 != 0)
                 throw new Exception("Version packet payload is invalid, payload length should be divisable by 2");
 
             while (reader.BaseStream.Length != reader.BaseStream.Position)

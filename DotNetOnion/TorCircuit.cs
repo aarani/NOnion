@@ -66,7 +66,8 @@ namespace DotNetOnion
                     throw new NotImplementedException()
             };
 
-            CircuitDataReceived preCreateHandler = (cell) => {
+            void preCreateHandler(Cell cell)
+            {
                 var result = cell switch
                 {
                     CellCreatedFast createdFast =>
@@ -74,7 +75,7 @@ namespace DotNetOnion
                     _ => throw new NotImplementedException()
                 };
                 creationCompleted.SetResult(result);
-            };
+            }
 
             var id =
                 RegisterCircuitId(guard, preCreateHandler);
@@ -93,19 +94,19 @@ namespace DotNetOnion
             switch (cell)
             {
                 case CellRelayEncrypted encryptedRelayCell:
-                    HandleEncryptedRelayPacket(encryptedRelayCell);
+                    HandleEncryptedRelayCell(encryptedRelayCell);
                     break;
             }
         }
 
-        private void HandleEncryptedRelayPacket(CellRelayEncrypted encryptedRelayCell)
+        private void HandleEncryptedRelayCell(CellRelayEncrypted encryptedRelayCell)
         {
             var decryptedRelayCellBytes =
                 guardCryptoState.backwardCipher.Encrypt(encryptedRelayCell.EncryptedData);
             var recognized = BitConverter.ToUInt16(decryptedRelayCellBytes, 1);
             if (recognized != 0) throw new Exception("wat?!");
             var digest = decryptedRelayCellBytes.Skip(5).Take(4).ToArray();
-            
+
             Array.Clear(decryptedRelayCellBytes, 5, 4);
             var computedDigest =
                 guardCryptoState.backwardDigest.PeekDigest(decryptedRelayCellBytes, 0, decryptedRelayCellBytes.Length).Take(4);
@@ -115,8 +116,12 @@ namespace DotNetOnion
 
             guardCryptoState.backwardDigest.Update(decryptedRelayCellBytes, 0, decryptedRelayCellBytes.Length);
 
-            CellRelayPlain decryptedRelayCell = new ();
+            CellRelayPlain decryptedRelayCell = new();
             decryptedRelayCell.FromBytes(decryptedRelayCellBytes);
+        }
+
+        private void HandleDecryptedRelayCell(CellRelayPlain plainRelayCell)
+        {
 
         }
 
@@ -144,7 +149,7 @@ namespace DotNetOnion
             {
                 var randomBytes = new byte[2];
                 rngSource.GetBytes(randomBytes);
-                var tempId = randomBytes.ToUInt16BigEndian();
+                var tempId = SerializationHelper.ToUInt16BigEndian(randomBytes);
 
                 if (tempId == 0)
                     continue;
