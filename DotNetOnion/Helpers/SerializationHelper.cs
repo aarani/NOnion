@@ -17,7 +17,7 @@ namespace DotNetOnion.Helpers
             return bytes;
         }
 
-        public static ushort ToUInt16BigEndian(this byte[] bytes)
+        public static ushort ToUInt16BigEndian(byte[] bytes)
         {
             if (BitConverter.IsLittleEndian)
                 Array.Reverse(bytes);
