@@ -10,10 +10,10 @@ type Cert = {
     Certificate: array<byte>
 }
 
-type CellCerts (certs: seq<Cert>) =
-
-    member self.Certs =
-        certs
+type CellCerts = 
+    {
+        Certs: seq<Cert>
+    }
 
     static member Deserialize (reader : BinaryReader) =
 
@@ -34,7 +34,7 @@ type CellCerts (certs: seq<Cert>) =
 
         let certs = readCertificates List.empty certificatesCount
 
-        CellCerts certs :> ICell
+        { Certs = certs } :> ICell
 
     interface ICell with
 

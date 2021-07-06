@@ -5,16 +5,16 @@ open System.IO
 open NOnion
 open NOnion.Extensions.BinaryIOExtensions
 
-type CellCreatedFast (y: array<byte>, derivativeKeyData: array<byte>) =
+type CellCreatedFast = 
+    {
+        Y: array<byte>
+        DerivativeKeyData: array<byte>
+    }
 
-    member self.Y = y
-
-    member self.DerivativeKeyData = derivativeKeyData
-    
     static member Deserialize (reader : BinaryReader) =
         let y = reader.ReadBytes Constants.HashLength
         let derivativeKeyData = reader.ReadBytes Constants.HashLength
-        CellCreatedFast (y, derivativeKeyData) :> ICell
+        { Y = y; DerivativeKeyData = derivativeKeyData } :> ICell
 
     interface ICell with
     

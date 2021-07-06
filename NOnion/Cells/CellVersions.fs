@@ -5,9 +5,10 @@ open System.IO
 open NOnion
 open NOnion.Extensions.BinaryIOExtensions
 
-type CellVersions (versions: seq<uint16>) =
-
-    member this.Versions = versions
+type CellVersions = 
+    {
+        Versions: seq<uint16>
+    }
 
     static member Deserialize (reader : BinaryReader) =
 
@@ -22,7 +23,7 @@ type CellVersions (versions: seq<uint16>) =
 
         let versions = readVersions List.empty
 
-        CellVersions versions :> ICell
+        { Versions = versions } :> ICell
     
     interface ICell with
 

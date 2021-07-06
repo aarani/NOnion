@@ -10,12 +10,13 @@ type RouterAddress = {
     Value: array<byte>
 }
 
-type CellNetInfo (time: uint32, myAddresses: seq<RouterAddress>, otherAddress: RouterAddress) =
+type CellNetInfo = 
+    {
+        Time: uint32
+        MyAddresses: seq<RouterAddress>
+        OtherAddress: RouterAddress
+    }
 
-    member self.Time = time
-    member self.MyAddresses = myAddresses
-    member self.OtherAddress = otherAddress
-            
     static member Deserialize (reader : BinaryReader) =
 
         let readAddress (): RouterAddress =
@@ -34,7 +35,7 @@ type CellNetInfo (time: uint32, myAddresses: seq<RouterAddress>, otherAddress: R
         let otherAddress = readAddress ()
         let myAddressesCount = reader.ReadByte ()
         let myAddresses = readAddresses List.Empty myAddressesCount
-        CellNetInfo (time, myAddresses, otherAddress) :> ICell
+        { Time = time; MyAddresses = myAddresses; OtherAddress = otherAddress } :> ICell
 
     interface ICell with
 

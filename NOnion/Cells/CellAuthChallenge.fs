@@ -5,11 +5,11 @@ open System.IO
 open NOnion
 open NOnion.Extensions.BinaryIOExtensions
 
-type CellAuthChallenge (challenge: array<byte>, methods: seq<uint16>) =
-
-    member self.Challenge = challenge
-
-    member self.Methods = methods
+type CellAuthChallenge = 
+    {
+        Challenge: array<byte>
+        Methods: seq<uint16>
+    }
 
     static member Deserialize (reader : BinaryReader) =
         
@@ -28,7 +28,7 @@ type CellAuthChallenge (challenge: array<byte>, methods: seq<uint16>) =
         let methods =
             readMethod [] methodsCount
 
-        CellAuthChallenge (challenge, methods) :> ICell
+        { Challenge = challenge; Methods = methods } :> ICell
     
     interface ICell with
 
