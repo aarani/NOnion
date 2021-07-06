@@ -1,5 +1,7 @@
 ﻿namespace NOnion.Helpers
 
+open System.IO
+
 open NOnion.Cells
 
 module CommandsHelper =
@@ -19,18 +21,18 @@ module CommandsHelper =
     let IsVariableLength (command: byte): bool =
         command = 7uy || command >= 128uy
 
-    let GetCell (command: byte): ICell =
+    let GetCell (command: byte) (reader: BinaryReader): ICell =
         match command with 
         | CellAuthChallengeCommand ->
-            CellAuthChallenge() :> ICell
+            CellAuthChallenge.Deserialize reader
         | CellCertsCommand ->
-            CellCerts() :> ICell
+            CellCerts.Deserialize reader
         | CellVersionCommand ->
-            CellVersions() :> ICell
+            CellVersions.Deserialize reader
         | CellNetInfoCommand ->
-            CellNetInfo() :> ICell
+            CellNetInfo.Deserialize reader
         | CellCreateFastCommand ->
-            CellCreateFast() :> ICell
+            CellCreateFast.Deserialize reader
         | CellCreatedFastCommand ->
-            CellCreatedFast() :> ICell
+            CellCreatedFast.Deserialize reader
         | _ -> failwith "not implemented!"

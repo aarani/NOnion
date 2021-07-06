@@ -58,10 +58,7 @@ namespace DotNetOnion
             ICell cell = isFast switch
             {
                 true =>
-                    new CellCreateFast
-                    {
-                        X = keyAgreement.CreateClientMaterial()
-                    },
+                    new CellCreateFast(keyAgreement.CreateClientMaterial()),
                 false =>
                     throw new NotImplementedException()
             };

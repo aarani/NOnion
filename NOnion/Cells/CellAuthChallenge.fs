@@ -1,14 +1,34 @@
 ﻿namespace NOnion.Cells
 
+open System.IO
+
 open NOnion
 open NOnion.Extensions.BinaryIOExtensions
 
-type CellAuthChallenge () =
+type CellAuthChallenge (challenge: array<byte>, methods: seq<uint16>) =
 
-    [<DefaultValue>]
-    val mutable Challenge: array<byte>
-    [<DefaultValue>]
-    val mutable Methods: seq<uint16>
+    member self.Challenge = challenge
+
+    member self.Methods = methods
+
+    static member Deserialize (reader : BinaryReader) =
+        
+        let challenge = reader.ReadBytes Constants.ChallangeLength
+
+        let methodsCount = 
+            reader.ReadBigEndianUInt16()
+            |> int
+
+        let rec readMethod methods n = 
+            if n = 0 then
+                methods
+            else
+                readMethod (methods @ [reader.ReadBigEndianUInt16()]) (n-1)
+
+        let methods =
+            readMethod [] methodsCount
+
+        CellAuthChallenge (challenge, methods) :> ICell
     
     interface ICell with
 
@@ -34,19 +54,3 @@ type CellAuthChallenge () =
             |> writer.WriteUInt16BigEndian
 
             writeMethods self.Methods
-
-        member self.Deserialize reader = 
-            self.Challenge <- 
-                reader.ReadBytes Constants.ChallangeLength
-            let methodsCount = 
-                reader.ReadBigEndianUInt16()
-                |> int
-
-            let rec readMethod methods n = 
-                if n = 0 then
-                    methods
-                else
-                    readMethod (methods @ [reader.ReadBigEndianUInt16()]) (n-1)
-
-            self.Methods <-
-                readMethod [] methodsCount

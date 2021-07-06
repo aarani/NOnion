@@ -2,6 +2,7 @@
 using DotNetOnion.Helpers;
 using DotNetty.Codecs;
 using DotNetty.Transport.Channels;
+using NOnion.Cells;
 using NOnion.Helpers;
 using System;
 using System.Collections.Generic;
@@ -15,11 +16,9 @@ namespace DotNetOnion.Codecs
     {
         protected override void Decode(IChannelHandlerContext ctx, TorFrame msg, List<object> output)
         {
-            var cell = CommandsHelper.GetCell(msg.Command);
-
-            using (MemoryStream payloadStream = new MemoryStream(msg.Payload))
-            using (BinaryReader payloadReader = new BinaryReader(payloadStream))
-                cell.Deserialize(payloadReader);
+            using MemoryStream payloadStream = new MemoryStream(msg.Payload);
+            using BinaryReader payloadReader = new BinaryReader(payloadStream);
+            var cell = CommandsHelper.GetCell(msg.Command, payloadReader);
 
             output.Add(new TorMessage
             {

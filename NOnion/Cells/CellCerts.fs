@@ -1,5 +1,7 @@
 ﻿namespace NOnion.Cells
 
+open System.IO
+
 open NOnion
 open NOnion.Extensions.BinaryIOExtensions
 
@@ -8,10 +10,31 @@ type Cert = {
     Certificate: array<byte>
 }
 
-type CellCerts () =
+type CellCerts (certs: seq<Cert>) =
 
-    [<DefaultValue>]
-    val mutable Certs: seq<Cert>
+    member self.Certs =
+        certs
+
+    static member Deserialize (reader : BinaryReader) =
+
+        let certificatesCount = 
+            reader.ReadByte()
+            |> int
+
+        let rec readCertificates certificates n = 
+            if n = 0 then
+                certificates
+            else
+                let certificate = { 
+                    Cert.Type = reader.ReadByte()
+                    Cert.Certificate = reader.ReadBigEndianUInt16() |> int |> reader.ReadBytes
+                }
+
+                readCertificates (certificates @ [certificate]) (n-1)
+
+        let certs = readCertificates List.empty certificatesCount
+
+        CellCerts certs :> ICell
 
     interface ICell with
 
@@ -42,22 +65,3 @@ type CellCerts () =
             |> writer.Write
 
             writeCertificates self.Certs
-
-        member self.Deserialize reader = 
-            let certificatesCount = 
-                reader.ReadByte()
-                |> int
-
-            let rec readCertificates certificates n = 
-                if n = 0 then
-                    certificates
-                else
-                    let certificate = { 
-                        Cert.Type = reader.ReadByte()
-                        Cert.Certificate = reader.ReadBigEndianUInt16() |> int |> reader.ReadBytes
-                    }
-
-                    readCertificates (certificates @ [certificate]) (n-1)
-
-            self.Certs <-
-                readCertificates List.empty certificatesCount

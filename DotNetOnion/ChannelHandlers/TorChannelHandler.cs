@@ -45,7 +45,7 @@ namespace DotNetOnion.ChannelHandlers
                     new TorMessage
                     {
                         CircuitId = 0,
-                        Cell = new CellVersions() { Versions = Constants.SupportedVersion.ToList() }
+                        Cell = new CellVersions(Constants.SupportedVersion.ToList())
                     }
                 );
         }
@@ -102,15 +102,14 @@ namespace DotNetOnion.ChannelHandlers
                     new TorMessage
                     {
                         CircuitId = 0,
-                        Cell = new CellNetInfo()
-                        {
-                            MyAddresses = new List<RouterAddress> { handshakeState.NetInfo.OtherAddress }, //TODO: DO NOT TRUST THIS
-                            OtherAddress = handshakeState.NetInfo.MyAddresses.First(), //TODO: CHECK THIS!!!
-                            Time = DateTime.UtcNow.ToUnixTimestamp()
-                        }
+                        Cell =
+                            new CellNetInfo(
+                                DateTime.UtcNow.ToUnixTimestamp(),
+                                new List<RouterAddress> { handshakeState.NetInfo.OtherAddress }, //TODO: DO NOT TRUST THIS
+                                handshakeState.NetInfo.MyAddresses.First()) //TODO: CHECK THIS!!!
                     }
                 ).ContinueWith((_) => completionSource.TryComplete(), TaskContinuationOptions.OnlyOnRanToCompletion | TaskContinuationOptions.ExecuteSynchronously);
-                
+
             }
             else
                 throw new NotImplementedException();

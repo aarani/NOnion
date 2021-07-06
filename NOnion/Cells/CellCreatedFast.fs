@@ -1,16 +1,20 @@
 ﻿namespace NOnion.Cells
 
+open System.IO
+
 open NOnion
 open NOnion.Extensions.BinaryIOExtensions
 
+type CellCreatedFast (y: array<byte>, derivativeKeyData: array<byte>) =
 
+    member self.Y = y
 
-type CellCreatedFast () =
-
-    [<DefaultValue>]
-    val mutable Y: array<byte>
-    [<DefaultValue>]
-    val mutable DerivativeKeyData: array<byte>
+    member self.DerivativeKeyData = derivativeKeyData
+    
+    static member Deserialize (reader : BinaryReader) =
+        let y = reader.ReadBytes Constants.HashLength
+        let derivativeKeyData = reader.ReadBytes Constants.HashLength
+        CellCreatedFast (y, derivativeKeyData) :> ICell
 
     interface ICell with
     
@@ -20,9 +24,3 @@ type CellCreatedFast () =
         member self.Serialize writer = 
             writer.Write self.Y
             writer.Write self.DerivativeKeyData
-
-        member self.Deserialize reader = 
-            self.Y <-
-                reader.ReadBytes Constants.HashLength
-            self.DerivativeKeyData <-
-                reader.ReadBytes Constants.HashLength

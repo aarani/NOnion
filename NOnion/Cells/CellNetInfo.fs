@@ -1,22 +1,40 @@
 ﻿namespace NOnion.Cells
 
+open System.IO
+
 open NOnion
 open NOnion.Extensions.BinaryIOExtensions
-
 
 type RouterAddress = {
     Type: byte
     Value: array<byte>
 }
 
-type CellNetInfo () =
+type CellNetInfo (time: uint32, myAddresses: seq<RouterAddress>, otherAddress: RouterAddress) =
 
-    [<DefaultValue>]
-    val mutable Time: uint32
-    [<DefaultValue>]
-    val mutable MyAddresses: seq<RouterAddress>
-    [<DefaultValue>]
-    val mutable OtherAddress: RouterAddress
+    member self.Time = time
+    member self.MyAddresses = myAddresses
+    member self.OtherAddress = otherAddress
+            
+    static member Deserialize (reader : BinaryReader) =
+
+        let readAddress (): RouterAddress =
+            {
+                RouterAddress.Type = reader.ReadByte()
+                Value = reader.ReadByte () |> int |> reader.ReadBytes
+            }
+
+        let rec readAddresses (addresses) (n) =
+            if n = 0uy then
+                addresses
+            else
+                readAddresses (addresses @ [readAddress()]) (n-1uy)
+
+        let time = reader.ReadBigEndianUInt32 ()
+        let otherAddress = readAddress ()
+        let myAddressesCount = reader.ReadByte ()
+        let myAddresses = readAddresses List.Empty myAddressesCount
+        CellNetInfo (time, myAddresses, otherAddress) :> ICell
 
     interface ICell with
 
@@ -50,26 +68,3 @@ type CellNetInfo () =
             |> byte
             |> writer.Write 
             writeAddresses self.MyAddresses
-
-        member self.Deserialize reader = 
-            let readAddress (): RouterAddress =
-                {
-                    RouterAddress.Type = reader.ReadByte()
-                    Value = reader.ReadByte () |> int |> reader.ReadBytes
-                }
-
-            let rec readAddresses (addresses) (n) =
-                if n = 0uy then
-                    addresses
-                else
-                    readAddresses (addresses @ [readAddress()]) (n-1uy)
-
-            self.Time <-
-                reader.ReadBigEndianUInt32 ()
-            self.OtherAddress <- 
-                readAddress ()
-
-            let myAddressesCount = 
-                reader.ReadByte ()
-            self.MyAddresses <-
-                readAddresses List.Empty myAddressesCount
