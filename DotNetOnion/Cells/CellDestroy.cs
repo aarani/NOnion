@@ -7,18 +7,18 @@ using NOnion.Cells;
 
 namespace DotNetOnion.Cells
 {
-    public class CellDestroy : Cell
+    public class CellDestroy : ICell
     {
         public byte Reason { get; set; }
 
-        public override byte Command => 0x04;
+        public byte Command => 0x04;
 
-        public override void Deserialize(BinaryReader reader)
+        public void Deserialize(BinaryReader reader)
         {
             Reason = reader.ReadByte();
         }
 
-        public override void Serialize(BinaryWriter writer)
+        public void Serialize(BinaryWriter writer)
         {
             throw new NotImplementedException();
         }

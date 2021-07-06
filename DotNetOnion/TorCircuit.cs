@@ -56,7 +56,7 @@ namespace DotNetOnion
                 false => throw new NotImplementedException()
             };
 
-            Cell cell = isFast switch
+            ICell cell = isFast switch
             {
                 true =>
                     new CellCreateFast
@@ -67,7 +67,7 @@ namespace DotNetOnion
                     throw new NotImplementedException()
             };
 
-            void preCreateHandler(Cell cell)
+            void preCreateHandler(ICell cell)
             {
                 var result = cell switch
                 {
@@ -90,7 +90,7 @@ namespace DotNetOnion
             return new TorCircuit(guard, id, TorCryptoState.CreateFromKdfResult(kdfResult));
         }
 
-        private void Guard_NewMessageReceived(Cell cell)
+        private void Guard_NewMessageReceived(ICell cell)
         {
             switch (cell)
             {

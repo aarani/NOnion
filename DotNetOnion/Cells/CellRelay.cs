@@ -8,18 +8,18 @@ using NOnion.Cells;
 
 namespace DotNetOnion.Cells
 {
-    public class CellRelayEncrypted : Cell
+    public class CellRelayEncrypted : ICell
     {
         public byte[] EncryptedData { get; set; }
 
-        public override byte Command => 0x03;
+        public byte Command => 0x03;
 
-        public override void Deserialize(BinaryReader reader)
+        public void Deserialize(BinaryReader reader)
         {
             EncryptedData = reader.ReadBytes(Constants.FixedPayloadLength);
         }
 
-        public override void Serialize(BinaryWriter writer)
+        public void Serialize(BinaryWriter writer)
         {
             writer.Write(EncryptedData);
         }

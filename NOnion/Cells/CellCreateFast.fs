@@ -5,18 +5,19 @@ open NOnion.Extensions.BinaryIOExtensions
 
 
 
-type CellCreateFast ()=
-    inherit Cell ()
+type CellCreateFast () =
 
     [<DefaultValue>]
     val mutable X: array<byte>
+
+    interface ICell with
     
-    override self.Command =
-        5uy
+        member self.Command =
+            5uy
 
-    override self.Serialize writer = 
-        writer.Write self.X
+        member self.Serialize writer = 
+            writer.Write self.X
 
-    override self.Deserialize reader = 
-        self.X <-
-            reader.ReadBytes Constants.HashLength
+        member self.Deserialize reader = 
+            self.X <-
+                reader.ReadBytes Constants.HashLength

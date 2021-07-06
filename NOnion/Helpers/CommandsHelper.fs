@@ -19,18 +19,18 @@ module CommandsHelper =
     let IsVariableLength (command: byte): bool =
         command = 7uy || command >= 128uy
 
-    let GetCell (command: byte): Cell =
+    let GetCell (command: byte): ICell =
         match command with 
         | CellAuthChallengeCommand ->
-            CellAuthChallenge() :> Cell
+            CellAuthChallenge() :> ICell
         | CellCertsCommand ->
-            CellCerts() :> Cell
+            CellCerts() :> ICell
         | CellVersionCommand ->
-            CellVersions() :> Cell
+            CellVersions() :> ICell
         | CellNetInfoCommand ->
-            CellNetInfo() :> Cell
+            CellNetInfo() :> ICell
         | CellCreateFastCommand ->
-            CellCreateFast() :> Cell
+            CellCreateFast() :> ICell
         | CellCreatedFastCommand ->
-            CellCreatedFast() :> Cell
+            CellCreatedFast() :> ICell
         | _ -> failwith "not implemented!"

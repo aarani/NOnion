@@ -7,11 +7,11 @@ using NOnion.Cells;
 
 namespace DotNetOnion.Cells
 {
-    public class CellPadding : Cell
+    public class CellPadding : ICell
     {
-        public override byte Command => 0x00;
+        public byte Command => 0x00;
 
-        public override void Deserialize(BinaryReader reader)
+        public void Deserialize(BinaryReader reader)
         {
             _ = reader.ReadByte();
             _ = reader.ReadByte();
@@ -19,7 +19,7 @@ namespace DotNetOnion.Cells
             _ = reader.ReadUInt16BigEndian();
         }
 
-        public override void Serialize(BinaryWriter writer)
+        public void Serialize(BinaryWriter writer)
         {
             throw new NotImplementedException();
         }
