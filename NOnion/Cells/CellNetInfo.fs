@@ -1,58 +1,24 @@
 ﻿namespace NOnion.Cells
 
+open System.IO
+
 open NOnion
 open NOnion.Extensions.BinaryIOExtensions
-
 
 type RouterAddress = {
     Type: byte
     Value: array<byte>
 }
 
-type CellNetInfo ()=
-    inherit Cell ()
+type CellNetInfo = 
+    {
+        Time: uint32
+        MyAddresses: seq<RouterAddress>
+        OtherAddress: RouterAddress
+    }
 
-    [<DefaultValue>]
-    val mutable Time: uint32
-    [<DefaultValue>]
-    val mutable MyAddresses: seq<RouterAddress>
-    [<DefaultValue>]
-    val mutable OtherAddress: RouterAddress
+    static member Deserialize (reader : BinaryReader) =
 
-
-
-    override self.Command =
-        8uy
-
-    override self.Serialize writer = 
-        let writeAddress (addr: RouterAddress) =
-            writer.Write addr.Type
-            
-            addr.Value.Length 
-            |> byte
-            |> writer.Write 
-            
-            writer.Write addr.Value
-
-        let rec writeAddresses (addresses: seq<RouterAddress>) =
-            match Seq.tryHead addresses with
-            | None -> 
-                ()
-            | Some addr -> 
-                writeAddress addr
-                writeAddresses (Seq.tail addresses)
-
-        writer.WriteUInt32BigEndian self.Time
-
-        writeAddress self.OtherAddress
-        
-        self.MyAddresses
-        |> Seq.length
-        |> byte
-        |> writer.Write 
-        writeAddresses self.MyAddresses
-
-    override self.Deserialize reader = 
         let readAddress (): RouterAddress =
             {
                 RouterAddress.Type = reader.ReadByte()
@@ -65,12 +31,41 @@ type CellNetInfo ()=
             else
                 readAddresses (addresses @ [readAddress()]) (n-1uy)
 
-        self.Time <-
-            reader.ReadBigEndianUInt32 ()
-        self.OtherAddress <- 
-            readAddress ()
+        let time = reader.ReadBigEndianUInt32 ()
+        let otherAddress = readAddress ()
+        let myAddressesCount = reader.ReadByte ()
+        let myAddresses = readAddresses List.Empty myAddressesCount
+        { Time = time; MyAddresses = myAddresses; OtherAddress = otherAddress } :> ICell
 
-        let myAddressesCount = 
-            reader.ReadByte ()
-        self.MyAddresses <-
-            readAddresses List.Empty myAddressesCount
+    interface ICell with
+
+        member self.Command =
+            8uy
+
+        member self.Serialize writer = 
+            let writeAddress (addr: RouterAddress) =
+                writer.Write addr.Type
+            
+                addr.Value.Length 
+                |> byte
+                |> writer.Write 
+            
+                writer.Write addr.Value
+
+            let rec writeAddresses (addresses: seq<RouterAddress>) =
+                match Seq.tryHead addresses with
+                | None -> 
+                    ()
+                | Some addr -> 
+                    writeAddress addr
+                    writeAddresses (Seq.tail addresses)
+
+            writer.WriteUInt32BigEndian self.Time
+
+            writeAddress self.OtherAddress
+        
+            self.MyAddresses
+            |> Seq.length
+            |> byte
+            |> writer.Write 
+            writeAddresses self.MyAddresses

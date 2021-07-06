@@ -30,9 +30,8 @@ namespace DotNetOnion
         private readonly TorChannelHandler handler;
         IEventLoopGroup eventLoopGroup;
         IChannel channel;
-        public delegate void CircuitDataReceived(Cell cell);
 
-        public ConcurrentDictionary<ushort, CircuitDataReceived> CircuitDataHandlers = new();
+        public ConcurrentDictionary<ushort, Action<ICell>> CircuitDataHandlers = new();
 
         public TorGuard(IPEndPoint endpoint, string fingerprint, bool authenticate = false)
         {
@@ -87,7 +86,7 @@ namespace DotNetOnion
             }
         }
 
-        public async Task Send(ushort circuitId, Cell cell)
+        public async Task Send(ushort circuitId, ICell cell)
         {
             await channel.WriteAndFlushAsync(new TorMessage
             { 

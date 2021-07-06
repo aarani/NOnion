@@ -35,12 +35,12 @@ namespace DotNetOnion.Tests
             {
                 var testBytes = HexHelpers.HexToByteArray(testHexString);
 
-                Cell cell;
+                ICell cell;
                 using (MemoryStream payloadStream = new MemoryStream(testBytes))
                 using (BinaryReader payloadReader = new BinaryReader(payloadStream))
                 {
-                    cell = CommandsHelper.GetCell(payloadReader.ReadByte());
-                    cell.Deserialize(payloadReader);
+                    var command = payloadReader.ReadByte();
+                    cell = CommandsHelper.GetCell(command, payloadReader);
                 }
 
                 using (MemoryStream payloadStream = new MemoryStream())

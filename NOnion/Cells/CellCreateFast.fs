@@ -1,22 +1,23 @@
 ﻿namespace NOnion.Cells
 
+open System.IO
+
 open NOnion
 open NOnion.Extensions.BinaryIOExtensions
 
+type CellCreateFast = 
+    {
+        X: array<byte>
+    }
 
+    static member Deserialize (reader : BinaryReader) =
+        let x = reader.ReadBytes Constants.HashLength
+        { X = x } :> ICell
 
-type CellCreateFast ()=
-    inherit Cell ()
-
-    [<DefaultValue>]
-    val mutable X: array<byte>
+    interface ICell with
     
-    override self.Command =
-        5uy
+        member self.Command =
+            5uy
 
-    override self.Serialize writer = 
-        writer.Write self.X
-
-    override self.Deserialize reader = 
-        self.X <-
-            reader.ReadBytes Constants.HashLength
+        member self.Serialize writer = 
+            writer.Write self.X

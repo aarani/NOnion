@@ -1,42 +1,20 @@
 ﻿namespace NOnion.Cells
 
+open System.IO
+
 open NOnion
 open NOnion.Extensions.BinaryIOExtensions
 
-type CellAuthChallenge ()=
-    inherit Cell ()
+type CellAuthChallenge = 
+    {
+        Challenge: array<byte>
+        Methods: seq<uint16>
+    }
 
-    [<DefaultValue>]
-    val mutable Challenge: array<byte>
-    [<DefaultValue>]
-    val mutable Methods: seq<uint16>
+    static member Deserialize (reader : BinaryReader) =
+        
+        let challenge = reader.ReadBytes Constants.ChallangeLength
 
-    override self.Command =
-        130uy
-
-    override self.Serialize writer = 
-        writer.Write self.Challenge
-
-        let rec writeMethods (methods: seq<uint16>) =
-            if Seq.isEmpty methods then
-                ()
-            else
-                methods
-                |> Seq.head
-                |> writer.WriteUInt16BigEndian
-
-                writeMethods (Seq.tail methods)
-
-        self.Methods
-        |> Seq.length
-        |> uint16
-        |> writer.WriteUInt16BigEndian
-
-        writeMethods self.Methods
-
-    override self.Deserialize reader = 
-        self.Challenge <- 
-            reader.ReadBytes Constants.ChallangeLength
         let methodsCount = 
             reader.ReadBigEndianUInt16()
             |> int
@@ -47,5 +25,32 @@ type CellAuthChallenge ()=
             else
                 readMethod (methods @ [reader.ReadBigEndianUInt16()]) (n-1)
 
-        self.Methods <-
+        let methods =
             readMethod [] methodsCount
+
+        { Challenge = challenge; Methods = methods } :> ICell
+    
+    interface ICell with
+
+        member self.Command =
+            130uy
+
+        member self.Serialize writer = 
+            writer.Write self.Challenge
+
+            let rec writeMethods (methods: seq<uint16>) =
+                if Seq.isEmpty methods then
+                    ()
+                else
+                    methods
+                    |> Seq.head
+                    |> writer.WriteUInt16BigEndian
+
+                    writeMethods (Seq.tail methods)
+
+            self.Methods
+            |> Seq.length
+            |> uint16
+            |> writer.WriteUInt16BigEndian
+
+            writeMethods self.Methods

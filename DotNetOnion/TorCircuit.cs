@@ -41,8 +41,7 @@ namespace DotNetOnion
             this.guard = guard;
             this.id = id;
             this.guardCryptoState = guardCryptoState;
-            //FIXME: HACK
-            guard.CircuitDataHandlers.AddOrUpdate(id, Guard_NewMessageReceived, (_, _) => Guard_NewMessageReceived);
+            guard.CircuitDataHandlers[id] = Guard_NewMessageReceived;
         }
 
         //TODO: Add parameter for hops
@@ -56,18 +55,15 @@ namespace DotNetOnion
                 false => throw new NotImplementedException()
             };
 
-            Cell cell = isFast switch
+            ICell cell = isFast switch
             {
                 true =>
-                    new CellCreateFast
-                    {
-                        X = keyAgreement.CreateClientMaterial()
-                    },
+                    new CellCreateFast(keyAgreement.CreateClientMaterial()),
                 false =>
                     throw new NotImplementedException()
             };
 
-            void preCreateHandler(Cell cell)
+            void preCreateHandler(ICell cell)
             {
                 var result = cell switch
                 {
@@ -90,7 +86,7 @@ namespace DotNetOnion
             return new TorCircuit(guard, id, TorCryptoState.CreateFromKdfResult(kdfResult));
         }
 
-        private void Guard_NewMessageReceived(Cell cell)
+        private void Guard_NewMessageReceived(ICell cell)
         {
             switch (cell)
             {
@@ -142,7 +138,7 @@ namespace DotNetOnion
                 });
         }
 
-        private static ushort RegisterCircuitId(TorGuard guard, CircuitDataReceived preCreateHandler)
+        private static ushort RegisterCircuitId(TorGuard guard, Action<ICell> preCreateHandler)
         {
             RandomNumberGenerator rngSource = RandomNumberGenerator.Create();
 
