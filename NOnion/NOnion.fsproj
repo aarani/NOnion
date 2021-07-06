@@ -1,0 +1,23 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="Constants.fs" />
+    <Compile Include="Extensions\IntegerExtensions.fs" />
+    <Compile Include="Extensions\BinaryIOExtensions.fs" />
+    <Compile Include="Cells\Cell.fs" />
+    <Compile Include="Cells\CellCerts.fs" />
+    <Compile Include="Cells\CellAuthChallenge.fs" />
+    <Compile Include="Cells\CellVersions.fs" />
+    <Compile Include="Cells\CellNetInfo.fs" />
+    <Compile Include="Cells\CellCreateFast.fs" />
+    <Compile Include="Cells\CellCreatedFast.fs" />
+    <Compile Include="Helpers\CommandsHelper.fs" />
+    <Compile Include="Helpers\HexHelpers.fs" />
+  </ItemGroup>
+
+</Project>

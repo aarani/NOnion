@@ -10,7 +10,8 @@ using DotNetty.Common.Concurrency;
 using DotNetty.Common.Utilities;
 using DotNetty.Handlers;
 using DotNetty.Transport.Channels;
-using static DotNetOnion.Cells.CellNetInfo;
+using static NOnion.Cells.CellNetInfo;
+using NOnion.Cells;
 
 namespace DotNetOnion.ChannelHandlers
 {
@@ -103,10 +104,10 @@ namespace DotNetOnion.ChannelHandlers
                     new TorMessage
                     {
                         CircuitId = 0,
-                        Cell = new CellNetInfo
+                        Cell = new CellNetInfo()
                         {
-                            MyAddresses = new List<ORAddress> { handshakeState.NetInfo.OtherAddress }, //TODO: DO NOT TRUST THIS
-                            OtherAddress = handshakeState.NetInfo.MyAddresses[0], //TODO: CHECK THIS!!!
+                            MyAddresses = new List<RouterAddress> { handshakeState.NetInfo.OtherAddress }, //TODO: DO NOT TRUST THIS
+                            OtherAddress = handshakeState.NetInfo.MyAddresses.First(), //TODO: CHECK THIS!!!
                             Time = DateTime.UtcNow.ToUnixTimestamp()
                         }
                     }

@@ -4,6 +4,7 @@ using System.IO;
 using System.Security.Cryptography;
 using System.Text;
 using DotNetOnion.Helpers;
+using NOnion.Cells;
 
 namespace DotNetOnion.Cells
 {

@@ -2,6 +2,7 @@
 using DotNetOnion.Helpers;
 using DotNetty.Codecs;
 using DotNetty.Transport.Channels;
+using NOnion.Helpers;
 using System;
 using System.Collections.Generic;
 using System.IO;

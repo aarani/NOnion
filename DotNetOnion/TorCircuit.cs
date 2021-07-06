@@ -11,6 +11,7 @@ using DotNetOnion.Crypto.KDF;
 using DotNetOnion.Helpers;
 using DotNetOnion.KeyAgreements;
 using static DotNetOnion.TorGuard;
+using NOnion.Cells;
 
 namespace DotNetOnion
 {
