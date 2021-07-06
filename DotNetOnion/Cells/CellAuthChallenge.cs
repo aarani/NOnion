@@ -25,10 +25,10 @@ namespace DotNetOnion.Cells
         public override void Serialize(BinaryWriter writer)
         {
             writer.Write(Challenge);
-            writer.WriteBigEndian((ushort)Methods.Count);
+            writer.WriteUInt16BigEndian((ushort)Methods.Count);
             foreach (var method in Methods)
             {
-                writer.WriteBigEndian(method);
+                writer.WriteUInt16BigEndian(method);
             }
         }
     }

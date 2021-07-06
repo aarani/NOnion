@@ -43,10 +43,10 @@ namespace DotNetOnion.Cells
             using MemoryStream memStream = new(Constants.FixedPayloadLength);
             using BinaryWriter writer = new(memStream);
             writer.Write((byte)RelayCommand);
-            writer.WriteBigEndian(Recognized);
-            writer.WriteBigEndian(StreamId);
+            writer.WriteUInt16BigEndian(Recognized);
+            writer.WriteUInt16BigEndian(StreamId);
             writer.Write(emptyDigest ? new byte[4] : Digest);
-            writer.WriteBigEndian((ushort)Data.Length);
+            writer.WriteUInt16BigEndian((ushort)Data.Length);
             writer.Write(Data);
             writer.Write(padding);
             return memStream.ToArray();

@@ -26,7 +26,7 @@ namespace DotNetOnion.Cells
         {
             foreach (var version in Versions)
             {
-                writer.WriteBigEndian(version);
+                writer.WriteUInt16BigEndian(version);
             }
         }
     }

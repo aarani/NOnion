@@ -43,7 +43,7 @@ namespace DotNetOnion.Cells
 
         public override void Serialize(BinaryWriter writer)
         {
-            writer.WriteBigEndian(Time);
+            writer.WriteUInt32BigEndian(Time);
             WriteORAddress(OtherAddress, writer);
             writer.Write((byte)MyAddresses.Count);
             foreach (var address in MyAddresses)

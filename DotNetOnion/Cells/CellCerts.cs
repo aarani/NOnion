@@ -32,7 +32,7 @@ namespace DotNetOnion.Cells
             foreach (var cert in Certs)
             {
                 writer.Write(cert.Type);
-                writer.WriteBigEndian((ushort)cert.Certificate.Length);
+                writer.WriteUInt16BigEndian((ushort)cert.Certificate.Length);
                 writer.Write(cert.Certificate);
             }
         }
