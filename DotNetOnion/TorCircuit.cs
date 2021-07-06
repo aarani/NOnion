@@ -41,8 +41,7 @@ namespace DotNetOnion
             this.guard = guard;
             this.id = id;
             this.guardCryptoState = guardCryptoState;
-            //FIXME: HACK
-            guard.CircuitDataHandlers.AddOrUpdate(id, Guard_NewMessageReceived, (_, _) => Guard_NewMessageReceived);
+            guard.CircuitDataHandlers[id] = Guard_NewMessageReceived;
         }
 
         //TODO: Add parameter for hops
