@@ -21,9 +21,7 @@ namespace DotNetOnion.ChannelHandlers
         private readonly TaskCompletionSource completionSource;
         private readonly HandshakeResult handshakeState = new HandshakeResult();
 
-        public delegate void ChannelDataReceived(TorMessage torMessage);
-
-        public event ChannelDataReceived DataReceived;
+        public event Action<TorMessage> DataReceived;
 
         private readonly bool authentication;
 

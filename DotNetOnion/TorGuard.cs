@@ -30,9 +30,8 @@ namespace DotNetOnion
         private readonly TorChannelHandler handler;
         IEventLoopGroup eventLoopGroup;
         IChannel channel;
-        public delegate void CircuitDataReceived(ICell cell);
 
-        public ConcurrentDictionary<ushort, CircuitDataReceived> CircuitDataHandlers = new();
+        public ConcurrentDictionary<ushort, Action<ICell>> CircuitDataHandlers = new();
 
         public TorGuard(IPEndPoint endpoint, string fingerprint, bool authenticate = false)
         {

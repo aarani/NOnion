@@ -142,7 +142,7 @@ namespace DotNetOnion
                 });
         }
 
-        private static ushort RegisterCircuitId(TorGuard guard, CircuitDataReceived preCreateHandler)
+        private static ushort RegisterCircuitId(TorGuard guard, Action<ICell> preCreateHandler)
         {
             RandomNumberGenerator rngSource = RandomNumberGenerator.Create();
 
