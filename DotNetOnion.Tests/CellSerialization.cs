@@ -5,7 +5,9 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using DotNetOnion.Helpers;
+using NOnion;
+using NOnion.Cells;
+using NOnion.Helpers;
 using NUnit.Framework;
 
 namespace DotNetOnion.Tests
@@ -33,7 +35,7 @@ namespace DotNetOnion.Tests
             {
                 var testBytes = HexHelpers.HexToByteArray(testHexString);
 
-                Cells.Cell cell;
+                Cell cell;
                 using (MemoryStream payloadStream = new MemoryStream(testBytes))
                 using (BinaryReader payloadReader = new BinaryReader(payloadStream))
                 {

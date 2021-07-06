@@ -4,6 +4,7 @@ using DotNetOnion.Helpers;
 
 namespace DotNetOnion.Tests
 {
+
     public class AesCtrTest
     {
         [SetUp]

@@ -14,6 +14,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\DotNetOnion\DotNetOnion.csproj" />
+    <ProjectReference Include="..\NOnion\NOnion.fsproj" />
   </ItemGroup>
 
 </Project>

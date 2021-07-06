@@ -2,6 +2,7 @@
 using DotNetty.Buffers;
 using DotNetty.Codecs;
 using DotNetty.Transport.Channels;
+using NOnion.Helpers;
 using System;
 using System.Collections.Generic;
 using System.Text;
