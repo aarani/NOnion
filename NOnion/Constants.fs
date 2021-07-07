@@ -1,11 +1,8 @@
 ﻿namespace NOnion
 
+[<RequireQualifiedAccess>]
 module Constants =
-    [<Literal>]
-    let ChallangeLength = 32
 
-    [<Literal>]
-    let FixedPayloadLength = 509
-    
-    [<Literal>]
-    let HashLength = 20
+    let [<Literal>] ChallangeLength = 32
+    let [<Literal>] FixedPayloadLength = 509
+    let [<Literal>] HashLength = 20
