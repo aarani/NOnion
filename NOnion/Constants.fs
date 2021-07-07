@@ -6,6 +6,6 @@ module Constants =
 
     [<Literal>]
     let FixedPayloadLength = 509
-    
+
     [<Literal>]
     let HashLength = 20

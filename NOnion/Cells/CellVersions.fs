@@ -5,34 +5,38 @@ open System.IO
 open NOnion
 open NOnion.Extensions.BinaryIOExtensions
 
-type CellVersions = 
+type CellVersions =
     {
         Versions: seq<uint16>
     }
 
-    static member Deserialize (reader : BinaryReader) =
+    static member Deserialize (reader: BinaryReader) =
 
-        let rec readVersions versions = 
-            if (reader.BaseStream.Length - reader.BaseStream.Position) % 2L <> 0L then
-                failwith "Version packet payload is invalid, payload length should be divisable by 2"
+        let rec readVersions versions =
+            if (reader.BaseStream.Length - reader.BaseStream.Position) % 2L
+               <> 0L then
+                failwith
+                    "Version packet payload is invalid, payload length should be divisable by 2"
 
             if reader.BaseStream.Length = reader.BaseStream.Position then
                 versions
             else
-                readVersions (versions @ [reader.ReadBigEndianUInt16()])
+                readVersions (versions @ [ reader.ReadBigEndianUInt16 () ])
 
         let versions = readVersions List.empty
 
-        { Versions = versions } :> ICell
-    
+        {
+            Versions = versions
+        }
+        :> ICell
+
     interface ICell with
 
-        member self.Command =
-            7uy
+        member self.Command = 7uy
 
-        member self.Serialize writer = 
+        member self.Serialize writer =
             let rec writeVersions (versions: seq<uint16>) =
-                match Seq.tryHead versions with 
+                match Seq.tryHead versions with
                 | None -> ()
                 | Some version ->
                     writer.WriteUInt16BigEndian version

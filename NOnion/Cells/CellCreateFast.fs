@@ -5,19 +5,22 @@ open System.IO
 open NOnion
 open NOnion.Extensions.BinaryIOExtensions
 
-type CellCreateFast = 
+type CellCreateFast =
     {
         X: array<byte>
     }
 
-    static member Deserialize (reader : BinaryReader) =
+    static member Deserialize (reader: BinaryReader) =
         let x = reader.ReadBytes Constants.HashLength
-        { X = x } :> ICell
+
+        {
+            X = x
+        }
+        :> ICell
 
     interface ICell with
-    
-        member self.Command =
-            5uy
 
-        member self.Serialize writer = 
+        member self.Command = 5uy
+
+        member self.Serialize writer =
             writer.Write self.X
