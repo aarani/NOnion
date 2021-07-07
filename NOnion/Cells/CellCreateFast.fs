@@ -3,7 +3,6 @@
 open System.IO
 
 open NOnion
-open NOnion.Extensions.BinaryIOExtensions
 
 type CellCreateFast =
     {
@@ -20,7 +19,7 @@ type CellCreateFast =
 
     interface ICell with
 
-        member self.Command = 5uy
+        member __.Command = 5uy
 
         member self.Serialize writer =
             writer.Write self.X

@@ -3,12 +3,12 @@
 open System
 
 module HexHelpers =
-    let ByteArrayToHex (bytes: byte []): string =
+    let ByteArrayToHex (bytes: array<byte>): string =
         bytes
         |> Array.map (fun (x: byte) -> System.String.Format ("{0:X2}", x))
-        |> String.concat System.String.Empty
+        |> String.concat String.Empty
 
-    let HexToByteArray (hex: string): byte [] =
+    let HexToByteArray (hex: string): array<byte> =
         if hex.Length % 2 <> 0 then
             invalidArg "hex" "hex.Length is not even"
 

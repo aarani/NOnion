@@ -2,8 +2,7 @@
 
 open System.IO
 
-open NOnion
-open NOnion.Extensions.BinaryIOExtensions
+open NOnion.Extensions
 
 type Cert =
     {
@@ -28,7 +27,8 @@ type CellCerts =
                     {
                         Cert.Type = reader.ReadByte ()
                         Cert.Certificate =
-                            reader.ReadBigEndianUInt16 ()
+                            BinaryIOExtensions.BinaryReader.ReadBigEndianUInt16
+                                reader
                             |> int
                             |> reader.ReadBytes
                     }
@@ -44,7 +44,7 @@ type CellCerts =
 
     interface ICell with
 
-        member self.Command = 129uy
+        member __.Command = 129uy
 
         member self.Serialize writer =
             let rec writeCertificates (certificates: seq<Cert>) =
@@ -57,7 +57,8 @@ type CellCerts =
 
                     certificate.Certificate.Length
                     |> uint16
-                    |> writer.WriteUInt16BigEndian
+                    |> BinaryIOExtensions.BinaryWriter.WriteUInt16BigEndian
+                        writer
 
                     writer.Write certificate.Certificate
 

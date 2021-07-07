@@ -3,36 +3,38 @@
 open System
 
 module IntegerExtensions =
-    type System.UInt16 with
+    module UInt16 =
+        let ToBigEndianByteArray (value: uint16): array<byte> =
+            let maybeLittleEndianBytes = BitConverter.GetBytes value
 
-        member self.ToBigEndianByteArray (): array<byte> =
-            let maybeLEbytes = BitConverter.GetBytes self
+            if BitConverter.IsLittleEndian then
+                maybeLittleEndianBytes |> Array.rev
+            else
+                maybeLittleEndianBytes
 
-            match BitConverter.IsLittleEndian with
-            | true -> maybeLEbytes |> Array.rev
-            | false -> maybeLEbytes
-
-        static member FromBigEndianByteArray (bytes: array<byte>): uint16 =
+        let FromBigEndianByteArray (bytes: array<byte>): uint16 =
             let bytesForBitConverter =
-                match BitConverter.IsLittleEndian with
-                | true -> bytes |> Array.rev
-                | false -> bytes
+                if BitConverter.IsLittleEndian then
+                    bytes |> Array.rev
+                else
+                    bytes
 
             BitConverter.ToUInt16 (bytesForBitConverter, 0)
 
-    type System.UInt32 with
+    module UInt32 =
+        let ToBigEndianByteArray (value: uint32): array<byte> =
+            let maybeLittleEndianBytes = BitConverter.GetBytes value
 
-        member self.ToBigEndianByteArray (): array<byte> =
-            let maybeLEbytes = BitConverter.GetBytes self
+            if BitConverter.IsLittleEndian then
+                maybeLittleEndianBytes |> Array.rev
+            else
+                maybeLittleEndianBytes
 
-            match BitConverter.IsLittleEndian with
-            | true -> maybeLEbytes |> Array.rev
-            | false -> maybeLEbytes
-
-        static member FromBigEndianByteArray (bytes: array<byte>): uint32 =
+        let FromBigEndianByteArray (bytes: array<byte>): uint32 =
             let bytesForBitConverter =
-                match BitConverter.IsLittleEndian with
-                | true -> bytes |> Array.rev
-                | false -> bytes
+                if BitConverter.IsLittleEndian then
+                    bytes |> Array.rev
+                else
+                    bytes
 
             BitConverter.ToUInt32 (bytesForBitConverter, 0)

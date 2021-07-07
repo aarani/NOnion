@@ -1,22 +1,23 @@
 ﻿namespace NOnion.Extensions
 
-open System
-
-open NOnion.Extensions.IntegerExtensions
+open System.IO
 
 module BinaryIOExtensions =
-    type System.IO.BinaryWriter with
+    module BinaryWriter =
+        let WriteUInt16BigEndian (writer: BinaryWriter) (num: uint16): unit =
+            num |> IntegerExtensions.UInt16.ToBigEndianByteArray |> writer.Write
 
-        member self.WriteUInt16BigEndian (num: uint16): unit =
-            num.ToBigEndianByteArray () |> self.Write
+        let WriteUInt32BigEndian (writer: BinaryWriter) (num: uint32): unit =
+            num |> IntegerExtensions.UInt32.ToBigEndianByteArray |> writer.Write
 
-        member self.WriteUInt32BigEndian (num: uint32): unit =
-            num.ToBigEndianByteArray () |> self.Write
+    module BinaryReader =
 
-    type System.IO.BinaryReader with
+        let ReadBigEndianUInt16 (reader: BinaryReader): uint16 =
+            sizeof<uint16>
+            |> reader.ReadBytes
+            |> IntegerExtensions.UInt16.FromBigEndianByteArray
 
-        member self.ReadBigEndianUInt16 (): uint16 =
-            sizeof<uint16> |> self.ReadBytes |> UInt16.FromBigEndianByteArray
-
-        member self.ReadBigEndianUInt32 (): uint32 =
-            sizeof<uint32> |> self.ReadBytes |> UInt32.FromBigEndianByteArray
+        let ReadBigEndianUInt32 (reader: BinaryReader): uint32 =
+            sizeof<uint32>
+            |> reader.ReadBytes
+            |> IntegerExtensions.UInt32.FromBigEndianByteArray

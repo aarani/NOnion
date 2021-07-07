@@ -3,7 +3,7 @@
 open System.IO
 
 open NOnion
-open NOnion.Extensions.BinaryIOExtensions
+open NOnion.Extensions
 
 type CellAuthChallenge =
     {
@@ -15,13 +15,20 @@ type CellAuthChallenge =
 
         let challenge = reader.ReadBytes Constants.ChallangeLength
 
-        let methodsCount = reader.ReadBigEndianUInt16 () |> int
+        let methodsCount =
+            BinaryIOExtensions.BinaryReader.ReadBigEndianUInt16 reader |> int
 
         let rec readMethod methods n =
             if n = 0 then
                 methods
             else
-                readMethod (methods @ [ reader.ReadBigEndianUInt16 () ]) (n - 1)
+                readMethod
+                    (methods
+                     @ [
+                         BinaryIOExtensions.BinaryReader.ReadBigEndianUInt16
+                             reader
+                     ])
+                    (n - 1)
 
         let methods = readMethod [] methodsCount
 
@@ -33,7 +40,7 @@ type CellAuthChallenge =
 
     interface ICell with
 
-        member self.Command = 130uy
+        member __.Command = 130uy
 
         member self.Serialize writer =
             writer.Write self.Challenge
@@ -42,10 +49,16 @@ type CellAuthChallenge =
                 if Seq.isEmpty methods then
                     ()
                 else
-                    methods |> Seq.head |> writer.WriteUInt16BigEndian
+                    methods
+                    |> Seq.head
+                    |> BinaryIOExtensions.BinaryWriter.WriteUInt16BigEndian
+                        writer
 
                     writeMethods (Seq.tail methods)
 
-            self.Methods |> Seq.length |> uint16 |> writer.WriteUInt16BigEndian
+            self.Methods
+            |> Seq.length
+            |> uint16
+            |> BinaryIOExtensions.BinaryWriter.WriteUInt16BigEndian writer
 
             writeMethods self.Methods
