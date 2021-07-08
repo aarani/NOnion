@@ -2,7 +2,8 @@
 
 open System.IO
 
-open NOnion.Extensions
+open NOnion.Utility.BinaryReaderExtension
+open NOnion.Utility.BinaryWriterExtension
 
 type CellVersions =
     {
@@ -20,13 +21,7 @@ type CellVersions =
             if reader.BaseStream.Length = reader.BaseStream.Position then
                 versions
             else
-                readVersions (
-                    versions
-                    @ [
-                        BinaryIOExtensions.BinaryReader.ReadBigEndianUInt16
-                            reader
-                    ]
-                )
+                readVersions (versions @ [ ReadBigEndianUInt16 reader ])
 
         let versions = readVersions List.empty
 
@@ -40,14 +35,12 @@ type CellVersions =
         member __.Command = 7uy
 
         member self.Serialize writer =
+
             let rec writeVersions (versions: seq<uint16>) =
                 match Seq.tryHead versions with
                 | None -> ()
                 | Some version ->
-                    version
-                    |> BinaryIOExtensions.BinaryWriter.WriteUInt16BigEndian
-                        writer
-
+                    WriteUInt16BigEndian writer version
                     writeVersions (Seq.tail versions)
 
             writeVersions self.Versions

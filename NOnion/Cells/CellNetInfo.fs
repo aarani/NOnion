@@ -2,7 +2,8 @@
 
 open System.IO
 
-open NOnion.Extensions
+open NOnion.Utility.BinaryReaderExtension
+open NOnion.Utility.BinaryWriterExtension
 
 type RouterAddress =
     {
@@ -31,7 +32,7 @@ type CellNetInfo =
             else
                 readAddresses (addresses @ [ readAddress () ]) (n - 1uy)
 
-        let time = BinaryIOExtensions.BinaryReader.ReadBigEndianUInt32 reader
+        let time = ReadBigEndianUInt32 reader
         let otherAddress = readAddress ()
         let myAddressesCount = reader.ReadByte ()
         let myAddresses = readAddresses List.Empty myAddressesCount
@@ -48,11 +49,10 @@ type CellNetInfo =
         member __.Command = 8uy
 
         member self.Serialize writer =
+
             let writeAddress (addr: RouterAddress) =
                 writer.Write addr.Type
-
                 addr.Value.Length |> byte |> writer.Write
-
                 writer.Write addr.Value
 
             let rec writeAddresses (addresses: seq<RouterAddress>) =
@@ -62,11 +62,7 @@ type CellNetInfo =
                     writeAddress addr
                     writeAddresses (Seq.tail addresses)
 
-            BinaryIOExtensions.BinaryWriter.WriteUInt32BigEndian
-                writer
-                self.Time
-
+            WriteUInt32BigEndian writer self.Time
             writeAddress self.OtherAddress
-
             self.MyAddresses |> Seq.length |> byte |> writer.Write
             writeAddresses self.MyAddresses

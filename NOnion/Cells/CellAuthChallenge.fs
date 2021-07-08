@@ -3,7 +3,8 @@
 open System.IO
 
 open NOnion
-open NOnion.Extensions
+open NOnion.Utility.BinaryReaderExtension
+open NOnion.Utility.BinaryWriterExtension
 
 type CellAuthChallenge =
     {
@@ -13,23 +14,14 @@ type CellAuthChallenge =
 
     static member Deserialize (reader: BinaryReader) =
 
-        let challenge = reader.ReadBytes Constants.ChallangeLength
-
-        let methodsCount =
-            BinaryIOExtensions.BinaryReader.ReadBigEndianUInt16 reader |> int
-
         let rec readMethod methods n =
             if n = 0 then
                 methods
             else
-                readMethod
-                    (methods
-                     @ [
-                         BinaryIOExtensions.BinaryReader.ReadBigEndianUInt16
-                             reader
-                     ])
-                    (n - 1)
+                readMethod (methods @ [ ReadBigEndianUInt16 reader ]) (n - 1)
 
+        let challenge = reader.ReadBytes Constants.ChallangeLength
+        let methodsCount = ReadBigEndianUInt16 reader |> int
         let methods = readMethod [] methodsCount
 
         {
@@ -43,22 +35,14 @@ type CellAuthChallenge =
         member __.Command = 130uy
 
         member self.Serialize writer =
-            writer.Write self.Challenge
 
             let rec writeMethods (methods: seq<uint16>) =
-                if Seq.isEmpty methods then
-                    ()
-                else
-                    methods
-                    |> Seq.head
-                    |> BinaryIOExtensions.BinaryWriter.WriteUInt16BigEndian
-                        writer
+                match Seq.tryHead methods with
+                | None -> ()
+                | Some method ->
+                    WriteUInt16BigEndian writer method
+                    methods |> Seq.tail |> writeMethods
 
-                    writeMethods (Seq.tail methods)
-
-            self.Methods
-            |> Seq.length
-            |> uint16
-            |> BinaryIOExtensions.BinaryWriter.WriteUInt16BigEndian writer
-
+            writer.Write self.Challenge
+            self.Methods |> Seq.length |> uint16 |> WriteUInt16BigEndian writer
             writeMethods self.Methods
