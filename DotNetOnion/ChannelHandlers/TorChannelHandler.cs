@@ -5,13 +5,13 @@ using System.Text;
 using System.Threading.Tasks;
 using DotNetOnion.Cells;
 using DotNetOnion.Codecs;
-using DotNetOnion.Helpers;
 using DotNetty.Common.Concurrency;
 using DotNetty.Common.Utilities;
 using DotNetty.Handlers;
 using DotNetty.Transport.Channels;
 using static NOnion.Cells.CellNetInfo;
 using NOnion.Cells;
+using NOnion.Utility;
 
 namespace DotNetOnion.ChannelHandlers
 {
@@ -104,7 +104,7 @@ namespace DotNetOnion.ChannelHandlers
                         CircuitId = 0,
                         Cell =
                             new CellNetInfo(
-                                DateTime.UtcNow.ToUnixTimestamp(),
+                                DateTimeUtils.ToUnixTimestamp(DateTime.UtcNow),
                                 new List<RouterAddress> { handshakeState.NetInfo.OtherAddress }, //TODO: DO NOT TRUST THIS
                                 handshakeState.NetInfo.MyAddresses.First()) //TODO: CHECK THIS!!!
                     }

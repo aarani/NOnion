@@ -3,8 +3,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Security.Cryptography;
 using System.Text;
-using DotNetOnion.Helpers;
 using NOnion.Cells;
+using NOnion.Utility;
 
 namespace DotNetOnion.Cells
 {
@@ -49,10 +49,10 @@ namespace DotNetOnion.Cells
             using MemoryStream memStream = new (bytes);
             using BinaryReader reader = new (memStream);
             RelayCommand = (RelayCommand)reader.ReadByte();
-            Recognized = reader.ReadUInt16BigEndian();
-            StreamId = reader.ReadUInt16BigEndian();
+            Recognized = BinaryReaderExtension.ReadBigEndianUInt16(reader);
+            StreamId = BinaryReaderExtension.ReadBigEndianUInt16(reader);
             Digest = reader.ReadBytes(4);
-            Data = reader.ReadBytes(reader.ReadUInt16BigEndian());
+            Data = reader.ReadBytes(BinaryReaderExtension.ReadBigEndianUInt16(reader));
             padding = reader.ReadBytes(Constants.FixedPayloadLength - 11 - Data.Length);
         }
 
@@ -62,10 +62,10 @@ namespace DotNetOnion.Cells
             using MemoryStream memStream = new(Constants.FixedPayloadLength);
             using BinaryWriter writer = new(memStream);
             writer.Write((byte)RelayCommand);
-            writer.WriteBigEndian(Recognized);
-            writer.WriteBigEndian(StreamId);
+            BinaryWriterExtension.WriteUInt16BigEndian(writer, Recognized);
+            BinaryWriterExtension.WriteUInt16BigEndian(writer, StreamId);
             writer.Write(emptyDigest ? new byte[4] : Digest);
-            writer.WriteBigEndian((ushort)Data.Length);
+            BinaryWriterExtension.WriteUInt16BigEndian(writer, (ushort)Data.Length);
             writer.Write(Data);
             writer.Write(padding);
             return memStream.ToArray();

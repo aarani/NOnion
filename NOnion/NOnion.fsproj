@@ -8,6 +8,7 @@
   <ItemGroup>
     <Compile Include="Constants.fs" />
     <Compile Include="Utility\BigIntegerSerialization.fs" />
+    <Compile Include="Utility\DateTimeUtils.fs" />
     <Compile Include="Utility\IntegerExtensions.fs" />
     <Compile Include="Utility\BinaryIOExtensions.fs" />
     <Compile Include="Utility\Hex.fs" />

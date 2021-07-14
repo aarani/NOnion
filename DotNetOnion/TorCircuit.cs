@@ -7,11 +7,11 @@ using System.Text;
 using System.Threading.Tasks;
 using DotNetOnion.Cells;
 using DotNetOnion.Crypto;
-using DotNetOnion.Helpers;
 using DotNetOnion.KeyAgreements;
 using static DotNetOnion.TorGuard;
 using NOnion.Cells;
 using NOnion.Crypto.Kdf;
+using NOnion.Utility;
 
 namespace DotNetOnion
 {
@@ -146,7 +146,7 @@ namespace DotNetOnion
             {
                 var randomBytes = new byte[2];
                 rngSource.GetBytes(randomBytes);
-                var tempId = SerializationHelper.ToUInt16BigEndian(randomBytes);
+                var tempId = UInt16Extension.FromBigEndianByteArrayToUInt16(randomBytes);
 
                 if (tempId == 0)
                     continue;
