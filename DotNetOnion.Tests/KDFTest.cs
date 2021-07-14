@@ -3,8 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using DotNetOnion.Crypto.KDF;
 using NOnion.Utility;
+using NOnion.Crypto.Kdf;
 using NUnit.Framework;
 
 namespace DotNetOnion.Tests
@@ -15,7 +15,7 @@ namespace DotNetOnion.Tests
         public void LegacyKdfCalculationTest()
         {
             byte[] K0 = new byte[2 * Constants.HashLength];
-            var kdfResult = LegacyKdf.Compute(K0);
+            var kdfResult = Kdf.computeLegacyKdf(K0);
 
             var expectedKeyHandshake =
                 Hex.ToByteArray("669B1C85ECBAFE23C999100F55A23E06BF59EAD7");

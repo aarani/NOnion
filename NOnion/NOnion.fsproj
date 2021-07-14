@@ -10,6 +10,8 @@
     <Compile Include="Utility\IntegerExtensions.fs" />
     <Compile Include="Utility\BinaryIOExtensions.fs" />
     <Compile Include="Utility\Hex.fs" />
+    <Compile Include="Crypto\Kdf\KdfResult.fs" />
+    <Compile Include="Crypto\Kdf\Kdf.fs" />
     <Compile Include="Cells\ICell.fs" />
     <Compile Include="Cells\CellCerts.fs" />
     <Compile Include="Cells\CellAuthChallenge.fs" />

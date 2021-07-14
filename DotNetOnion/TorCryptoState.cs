@@ -1,6 +1,6 @@
 ﻿using System;
 using DotNetOnion.Crypto;
-using DotNetOnion.Crypto.KDF;
+using NOnion.Crypto.Kdf;
 
 namespace DotNetOnion
 {
@@ -18,7 +18,7 @@ namespace DotNetOnion
             this.forwardDigest = forwardDigest;
             this.backwardDigest = backwardDigest;
         }
-        internal static TorCryptoState CreateFromKdfResult(TorKdfResult kdfResult)
+        internal static TorCryptoState CreateFromKdfResult(KdfResult kdfResult)
         {
             TorStreamCipher fCipher = new(kdfResult.ForwardKey);
             TorStreamCipher bCipher = new(kdfResult.BackwardKey);

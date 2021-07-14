@@ -7,11 +7,11 @@ using System.Text;
 using System.Threading.Tasks;
 using DotNetOnion.Cells;
 using DotNetOnion.Crypto;
-using DotNetOnion.Crypto.KDF;
 using DotNetOnion.Helpers;
 using DotNetOnion.KeyAgreements;
 using static DotNetOnion.TorGuard;
 using NOnion.Cells;
+using NOnion.Crypto.Kdf;
 
 namespace DotNetOnion
 {
@@ -47,7 +47,7 @@ namespace DotNetOnion
         //TODO: Add parameter for hops
         public static async Task<TorCircuit> Create(TorGuard guard, bool isFast = false)
         {
-            TaskCompletionSource<TorKdfResult> creationCompleted = new();
+            TaskCompletionSource<KdfResult> creationCompleted = new();
 
             IKeyAgreement keyAgreement = isFast switch
             {
