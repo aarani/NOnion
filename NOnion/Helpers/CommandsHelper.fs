@@ -23,10 +23,10 @@ module CommandsHelper =
     [<Literal>]
     let CellCreatedFastCommand = 6uy
 
-    let IsVariableLength (command: byte): bool =
+    let IsVariableLength (command: byte) : bool =
         command = 7uy || command >= 128uy
 
-    let GetCell (command: byte) (reader: BinaryReader): ICell =
+    let GetCell (command: byte) (reader: BinaryReader) : ICell =
         match command with
         | CellAuthChallengeCommand -> CellAuthChallenge.Deserialize reader
         | CellCertsCommand -> CellCerts.Deserialize reader

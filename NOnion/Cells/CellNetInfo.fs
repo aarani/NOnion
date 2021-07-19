@@ -20,7 +20,7 @@ type CellNetInfo =
 
     static member Deserialize (reader: BinaryReader) =
 
-        let readAddress (): RouterAddress =
+        let readAddress () : RouterAddress =
             {
                 RouterAddress.Type = reader.ReadByte ()
                 Value = reader.ReadByte () |> int |> reader.ReadBytes
