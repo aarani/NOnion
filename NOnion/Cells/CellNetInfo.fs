@@ -2,8 +2,7 @@
 
 open System.IO
 
-open NOnion.Utility.BinaryReaderExtension
-open NOnion.Utility.BinaryWriterExtension
+open NOnion.Utility.BinaryIO
 
 type RouterAddress =
     {

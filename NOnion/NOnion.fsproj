@@ -9,8 +9,8 @@
     <Compile Include="Constants.fs" />
     <Compile Include="Utility\BigIntegerSerialization.fs" />
     <Compile Include="Utility\DateTimeUtils.fs" />
-    <Compile Include="Utility\IntegerExtensions.fs" />
-    <Compile Include="Utility\BinaryIOExtensions.fs" />
+    <Compile Include="Utility\IntegerSerialization.fs" />
+    <Compile Include="Utility\BinaryIO.fs" />
     <Compile Include="Utility\Hex.fs" />
     <Compile Include="Crypto\Kdf\KdfResult.fs" />
     <Compile Include="Crypto\Kdf\Kdf.fs" />

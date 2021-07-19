@@ -3,7 +3,7 @@ namespace NOnion.Utility
 
 open System
 
-module UInt16Extension =
+module IntegerSerialization =
 
     let FromUInt16ToBigEndianByteArray (value: uint16) : array<byte> =
         let maybeLEbytes = BitConverter.GetBytes value
@@ -21,8 +21,6 @@ module UInt16Extension =
                 bytes
 
         BitConverter.ToUInt16 (bytesForBitConverter, 0)
-
-module UInt32Extension =
 
     let FromUInt32ToBigEndianByteArray (value: uint32) : array<byte> =
         let maybeLEbytes = BitConverter.GetBytes value

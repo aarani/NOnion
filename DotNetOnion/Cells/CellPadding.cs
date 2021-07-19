@@ -16,7 +16,7 @@ namespace DotNetOnion.Cells
             _ = reader.ReadByte();
             _ = reader.ReadByte();
             _ = reader.Read();
-            _ = BinaryReaderExtension.ReadBigEndianUInt16(reader);
+            _ = BinaryIO.ReadBigEndianUInt16(reader);
         }
 
         public void Serialize(BinaryWriter writer)

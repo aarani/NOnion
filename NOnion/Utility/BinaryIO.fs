@@ -2,10 +2,9 @@
 
 open System.IO
 
-open NOnion.Utility.UInt16Extension
-open NOnion.Utility.UInt32Extension
+open NOnion.Utility.IntegerSerialization
 
-module BinaryWriterExtension =
+module BinaryIO =
 
     let WriteUInt16BigEndian (writer: BinaryWriter) (num: uint16) : unit =
         FromUInt16ToBigEndianByteArray num |> writer.Write
@@ -13,8 +12,6 @@ module BinaryWriterExtension =
     let WriteUInt32BigEndian (writer: BinaryWriter) (num: uint32) : unit =
         FromUInt32ToBigEndianByteArray num |> writer.Write
 
-
-module BinaryReaderExtension =
     let ReadBigEndianUInt16 (reader: BinaryReader) : uint16 =
         sizeof<uint16> |> reader.ReadBytes |> FromBigEndianByteArrayToUInt16
 

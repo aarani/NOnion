@@ -146,7 +146,7 @@ namespace DotNetOnion
             {
                 var randomBytes = new byte[2];
                 rngSource.GetBytes(randomBytes);
-                var tempId = UInt16Extension.FromBigEndianByteArrayToUInt16(randomBytes);
+                var tempId = IntegerSerialization.FromBigEndianByteArrayToUInt16(randomBytes);
 
                 if (tempId == 0)
                     continue;
