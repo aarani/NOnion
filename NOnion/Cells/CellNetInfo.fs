@@ -2,8 +2,7 @@
 
 open System.IO
 
-open NOnion.Utility.BinaryReaderExtension
-open NOnion.Utility.BinaryWriterExtension
+open NOnion.Utility.BinaryIO
 
 type RouterAddress =
     {
@@ -20,7 +19,7 @@ type CellNetInfo =
 
     static member Deserialize (reader: BinaryReader) =
 
-        let readAddress (): RouterAddress =
+        let readAddress () : RouterAddress =
             {
                 RouterAddress.Type = reader.ReadByte ()
                 Value = reader.ReadByte () |> int |> reader.ReadBytes

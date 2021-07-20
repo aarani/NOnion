@@ -2,8 +2,8 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
-using DotNetOnion.Helpers;
 using NOnion.Cells;
+using NOnion.Utility;
 
 namespace DotNetOnion.Cells
 {
@@ -15,8 +15,8 @@ namespace DotNetOnion.Cells
         {
             _ = reader.ReadByte();
             _ = reader.ReadByte();
-            _ = reader.ReadUInt16BigEndian();
-            _ = reader.ReadUInt16BigEndian();
+            _ = reader.Read();
+            _ = BinaryIO.ReadBigEndianUInt16(reader);
         }
 
         public void Serialize(BinaryWriter writer)

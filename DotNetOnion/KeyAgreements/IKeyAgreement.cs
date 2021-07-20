@@ -1,10 +1,10 @@
-﻿using DotNetOnion.Crypto.KDF;
+﻿using NOnion.Crypto.Kdf;
 
 namespace DotNetOnion.KeyAgreements
 {
     public interface IKeyAgreement
     {
         byte[] CreateClientMaterial();
-        TorKdfResult CalculateKey(byte[] serverResponse);
+        KdfResult CalculateKey(byte[] serverResponse);
     }
 }

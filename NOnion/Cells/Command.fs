@@ -24,7 +24,7 @@ module Command =
     [<Literal>]
     let CreatedFast = 6uy
 
-    let IsVariableLength (command: byte): bool =
+    let IsVariableLength (command: byte) : bool =
         command = 7uy || command >= 128uy
 
     /// Serialize a cell, assuming its command has already been written.
@@ -34,7 +34,7 @@ module Command =
 
     /// Deserialize a cell of the given command type that has already been read.
     /// TODO: make a more independent Cell.Deserialize function that reads its own command byte?
-    let DeserializeCell (reader: BinaryReader) (command: byte): ICell =
+    let DeserializeCell (reader: BinaryReader) (command: byte) : ICell =
         match command with
         | Certs -> CellCerts.Deserialize reader
         | AuthChallenge -> CellAuthChallenge.Deserialize reader

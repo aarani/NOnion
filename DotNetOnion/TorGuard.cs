@@ -1,7 +1,6 @@
 ﻿using DotNetOnion.Cells;
 using DotNetOnion.ChannelHandlers;
 using DotNetOnion.Codecs;
-using DotNetOnion.Helpers;
 using DotNetty.Common.Concurrency;
 using DotNetty.Common.Utilities;
 using DotNetty.Handlers.Tls;

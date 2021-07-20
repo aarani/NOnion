@@ -5,12 +5,12 @@ open System
 [<RequireQualifiedAccess>]
 module Hex =
 
-    let FromByteArray (bytes: byte []): string =
+    let FromByteArray (bytes: byte []) : string =
         bytes
         |> Array.map (fun (x: byte) -> String.Format ("{0:X2}", x))
         |> String.concat String.Empty
 
-    let ToByteArray (hex: string): byte [] =
+    let ToByteArray (hex: string) : byte [] =
 
         // validate hex length
         if hex.Length % 2 <> 0 then

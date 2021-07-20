@@ -22,7 +22,7 @@ jobs:
 
       - name: fantomas
         run: |
-          dotnet tool install --global fantomas-tool --version 4.4.0-alpha-008
+          dotnet tool install --global fantomas-tool --version 4.5.0
 
           # path taken from https://stackoverflow.com/a/65367006/544947
           $HOME/.dotnet/tools/fantomas --recurse .

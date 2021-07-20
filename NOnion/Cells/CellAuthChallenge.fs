@@ -3,8 +3,7 @@
 open System.IO
 
 open NOnion
-open NOnion.Utility.BinaryReaderExtension
-open NOnion.Utility.BinaryWriterExtension
+open NOnion.Utility.BinaryIO
 
 type CellAuthChallenge =
     {
