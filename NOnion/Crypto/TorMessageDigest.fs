@@ -37,11 +37,10 @@ type TorMessageDigest (isSha256: bool) =
         hash
 
     member self.PeekDigest
-        (
-            data: array<byte>,
-            offset: int,
-            length: int
-        ) : array<byte> =
+        (data: array<byte>)
+        (offset: int)
+        (length: int)
+        : array<byte> =
         let hash = Array.zeroCreate<byte> hashSize
 
         let clone =

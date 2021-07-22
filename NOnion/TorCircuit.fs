@@ -14,17 +14,88 @@ open System
 type TorCircuit private (id: uint16, guard: TorGuard, kdfResult: KdfResult) as self =
 
     let circuitId = id
-    let cryptoState = TorCryptoState.FromKdfResult (kdfResult)
+    let cryptoState = TorCryptoState.FromKdfResult kdfResult
+    let guard = guard
 
-    let subscription: IDisposable =
-        guard.Messages
-        |> Observable.filter (fun (cid, _) -> cid = id)
-        |> Observable.subscribe (fun (_, cell) -> self.HandleNewMessage (cell))
+    //TODO: make cryptostate immutable and use mapFold
+    //TODO: make sure late subscription doesn't make any problem here
+    let circuitMessages =
+        guard.CircuitMessages circuitId
+        |> Observable.ofType
+        |> Observable.map self.DecryptCell
+        |> Observable.publish
+
+    let subscription = circuitMessages.Connect ()
+
+    member self.StreamMessages (streamId: uint16) =
+        circuitMessages
+        |> Observable.filter (fun (sid, _) -> sid = streamId)
+        |> Observable.map (fun (_, cell) -> cell)
 
     member self.Id = circuitId
 
-    member self.HandleNewMessage (cell: ICell) =
-        ()
+    member self.Send (streamId: uint16) (relayData: RelayData) =
+        async {
+            let plainRelayCell =
+                CellPlainRelay.Create streamId relayData (Array.zeroCreate 4)
+
+            let relayPlainBytes = plainRelayCell.ToBytes true
+
+            cryptoState.ForwardDigest.Update
+                relayPlainBytes
+                0
+                relayPlainBytes.Length
+
+            let digest =
+                cryptoState.ForwardDigest.GetDigestBytes () |> Array.take 4
+
+            let plainRelayCell =
+                { plainRelayCell with
+                    Digest = digest
+                }
+
+            do!
+                {
+                    CellEncryptedRelay.EncryptedData =
+                        plainRelayCell.ToBytes false
+                        |> cryptoState.ForwardCipher.Encrypt
+                }
+                |> guard.Send id
+        }
+        |> Async.StartAsTask
+
+    member private self.DecryptCell (encryptedRelayCell: CellEncryptedRelay) =
+        let decryptedRelayCellBytes =
+            cryptoState.BackwardCipher.Encrypt encryptedRelayCell.EncryptedData
+
+        let recognized =
+            System.BitConverter.ToUInt16 (decryptedRelayCellBytes, 1)
+
+        if recognized <> 0us then
+            failwith "wat?"
+
+        let digest = decryptedRelayCellBytes |> Array.skip 5 |> Array.take 4
+        Array.fill decryptedRelayCellBytes 5 4 0uy
+
+        let computedDigest =
+            cryptoState.BackwardDigest.PeekDigest
+                decryptedRelayCellBytes
+                0
+                decryptedRelayCellBytes.Length
+            |> Array.take 4
+
+        if digest <> computedDigest then
+            failwith "wat"
+
+        cryptoState.BackwardDigest.Update
+            decryptedRelayCellBytes
+            0
+            decryptedRelayCellBytes.Length
+
+        let decryptedRelayCell =
+            CellPlainRelay.FromBytes decryptedRelayCellBytes
+
+        (decryptedRelayCell.StreamId, decryptedRelayCell.Data)
 
     static member CreateFast (guard: TorGuard) =
         async {
@@ -64,18 +135,9 @@ type TorCircuit private (id: uint16, guard: TorGuard, kdfResult: KdfResult) as s
                     }
 
             let! createdMsg =
-                async {
-                    let! message =
-                        guard.Messages
-                        |> Observable.filter (fun (cid, cell) ->
-                            cid = circuitId
-                            && cell.Command = Command.CreatedFast
-                        )
-                        |> Observable.map (fun (_, cell) -> cell)
-                        |> Async.AwaitObservable
-
-                    return message :?> CellCreatedFast
-                }
+                guard.CircuitMessages circuitId
+                |> Observable.ofType
+                |> Async.AwaitObservable
 
             let kdfResult =
                 Array.concat [ randomClientMaterial

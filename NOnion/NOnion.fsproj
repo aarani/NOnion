@@ -28,6 +28,7 @@
     <Compile Include="Cells\CellPadding.fs" />
     <Compile Include="Cells\CellCreatedFast.fs" />
     <Compile Include="Cells\CellEncryptedRelay.fs" />
+    <Compile Include="Cells\CellPlainRelay.fs" />
     <Compile Include="Cells\Command.fs" />
     <Compile Include="TorGuard.fs" />
     <Compile Include="TorCircuit.fs" />

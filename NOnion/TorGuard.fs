@@ -18,14 +18,17 @@ open System.Collections.Concurrent
 type TorGuard private (client: TcpClient, sslStream: SslStream) =
     let client = client
     let sslStream = sslStream
-    let messagesSubject = new Subject<uint16 * ICell> ()
+    let messagesSubject = new Subject<uint16 * obj> ()
     let shutdownToken = new CancellationTokenSource ()
 
     let mutable circuitIds: list<uint16> = List.empty
     (* Prevents two circuit setup happening at once (to prevent race condition on writing to CircuitIds list) *)
     let circuitSetupLock: obj = obj ()
 
-    member self.Messages = messagesSubject :> IObservable<uint16 * ICell>
+    member internal self.CircuitMessages (circuitId: uint16) =
+        messagesSubject :> IObservable<uint16 * obj>
+        |> Observable.filter (fun (cid, cell) -> cid = circuitId)
+        |> Observable.map (fun (_, cell) -> cell)
 
     static member NewClient (ipEndpoint: IPEndPoint) =
         async {
@@ -63,7 +66,7 @@ type TorGuard private (client: TcpClient, sslStream: SslStream) =
         async {
             use memStream = new MemoryStream (Constants.FixedPayloadLength)
             use writer = new BinaryWriter (memStream)
-            cellToSend.Serialize (writer)
+            cellToSend.Serialize writer
 
             // Write circuitId and command for the cell
             // (We assume every cell that is being sent here uses 0 as circuitId
@@ -85,7 +88,7 @@ type TorGuard private (client: TcpClient, sslStream: SslStream) =
                     |> sslStream.AsyncWrite
             else
                 Array.zeroCreate<byte> (
-                    Constants.FixedPayloadLength - int (memStream.Length)
+                    Constants.FixedPayloadLength - int memStream.Position
                 )
                 |> writer.Write
 
@@ -98,7 +101,7 @@ type TorGuard private (client: TcpClient, sslStream: SslStream) =
     member private self.ReceiveExcpected<'T when 'T :> ICell> () : Async<'T> =
         async {
             let expectedCommandType = Command.GetCommandByCellType<'T> ()
-            let! header = sslStream.AsyncRead (3)
+            let! header = sslStream.AsyncRead 3
 
             if header.[2] <> expectedCommandType then
                 failwith
@@ -120,7 +123,7 @@ type TorGuard private (client: TcpClient, sslStream: SslStream) =
                         return Constants.FixedPayloadLength
                 }
 
-            let! body = sslStream.AsyncRead (bodyLength)
+            let! body = sslStream.AsyncRead bodyLength
 
             use memStream = new MemoryStream (body)
             use reader = new BinaryReader (memStream)
@@ -129,7 +132,7 @@ type TorGuard private (client: TcpClient, sslStream: SslStream) =
 
     member private self.ReceiveMessage () =
         async {
-            let! header = sslStream.AsyncRead (3)
+            let! header = sslStream.AsyncRead 3
 
             let circuitId =
                 header.[0..1]
@@ -140,7 +143,7 @@ type TorGuard private (client: TcpClient, sslStream: SslStream) =
             let! bodyLength =
                 async {
                     if Command.IsVariableLength command then
-                        let! lengthBytes = sslStream.AsyncRead (2)
+                        let! lengthBytes = sslStream.AsyncRead 2
 
                         return
                             lengthBytes
@@ -154,7 +157,7 @@ type TorGuard private (client: TcpClient, sslStream: SslStream) =
 
             use memStream = new MemoryStream (body)
             use reader = new BinaryReader (memStream)
-            return (circuitId, Command.DeserializeCell reader command)
+            return (circuitId, Command.DeserializeCell reader command :> obj)
         }
 
     member private self.StartListening () =
@@ -162,7 +165,7 @@ type TorGuard private (client: TcpClient, sslStream: SslStream) =
             async {
                 while sslStream.CanRead do
                     let! message = self.ReceiveMessage ()
-                    messagesSubject.OnNext (message)
+                    messagesSubject.OnNext message
 
                 messagesSubject.OnCompleted ()
             }
@@ -190,7 +193,7 @@ type TorGuard private (client: TcpClient, sslStream: SslStream) =
                     0us
                     {
                         CellNetInfo.Time =
-                            DateTimeUtils.ToUnixTimestamp (DateTime.UtcNow)
+                            DateTimeUtils.ToUnixTimestamp DateTime.UtcNow
                         OtherAddress = netInfo.MyAddresses |> Seq.head
                         MyAddresses = [ netInfo.OtherAddress ]
                     }
@@ -199,14 +202,14 @@ type TorGuard private (client: TcpClient, sslStream: SslStream) =
         }
 
     member internal self.RegisterCircuitId (cid: uint16) : bool =
-        let innerRegister () =
+        let safeRegister () =
             if List.contains cid circuitIds then
                 false
             else
                 circuitIds <- circuitIds @ [ cid ]
                 true
 
-        lock circuitSetupLock innerRegister
+        lock circuitSetupLock safeRegister
 
     interface IDisposable with
         member self.Dispose () =
