@@ -18,3 +18,46 @@ module Constants =
     (* Amount of bytes needed for generating keys and digest during KDF = 2 * KeyLength + 3 * HashLength *)
     [<Literal>]
     let KdfLength = 92
+
+    let internal SupportedProtocolVersion: array<uint16> = [| 3us |]
+
+    (*
+     *  Existing Tor implementations choose their CircID values at random from
+     *  among the available unused values.  To avoid distinguishability, new
+     *  implementations should do the same. Implementations MAY give up and stop
+     *  attempting to build new circuits on a channel, if a certain number of
+     *  randomly chosen CircID values are all in use (today's Tor stops after 64).
+     *)
+    let internal MaxCircuitIdGenerationRetry = 64
+
+    // FixedPayloadLength - 11 (header length)
+    let internal MaximumRelayPayloadLength = 498
+
+    // First 4 bytes of the padding for relay cell should be 0
+    let internal PaddingZeroPrefixLength = 4
+
+    let internal RelayDigestLength = 4
+
+    let internal RelayDigestOffset = 5
+
+    let internal RelayRecognizedOffset = 1
+
+    let internal RecognizedDefaultValue = 0us
+
+    //TODO: Add support for +4 tor protocol with 4 byte circuit ids
+    let internal CircuitIdLength = 2
+
+    let internal DefaultCircuitId = 0us
+
+    // Command (1 byte) + CircuitId (2 byte)
+    let internal PacketHeaderLength = 3
+
+    let internal CommandOffset = CircuitIdLength
+
+    let internal VariableLengthBodyPrefixLength = 2
+
+    let internal DefaultStreamId = 0us
+
+    //TODO: Should be updatable from consensus
+    let internal DefaultCircuitLevelWindowParams = (1000, 100)
+    let internal DefaultStreamLevelWindowParams = (500, 50)

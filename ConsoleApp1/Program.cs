@@ -1,8 +1,9 @@
-﻿using DotNetOnion;
-using System;
+﻿using System;
+using System.Text;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
+using NOnion;
 
 namespace ConsoleApp1
 {
@@ -10,20 +11,27 @@ namespace ConsoleApp1
     {
         static async Task Main(string[] args)
         {
-            TorGuard socket = new TorGuard(IPEndPoint.Parse("195.176.3.19:8443"), "BF1B662D1DA4E55F700C130AC58574B47FB7EB8E");
-            await socket.ConnectAsync();
-            TorCircuit circuit = 
-                await TorCircuit.Create(socket, true);
+            var file = System.IO.File.OpenWrite("test.txt");
+            var guard = await TorGuard.NewClientAsync(IPEndPoint.Parse("199.184.246.250:443"));
+            var circuit = await TorCircuit.CreateFastAsync(guard);
+            Console.WriteLine("Created circuit, Id: {0}", circuit.Id);
 
-            await circuit.SendRelayCell(new DotNetOnion.Cells.CellRelayPlain
-            {
-                Data = new byte[0],
-                Digest = new byte[4],
-                Recognized = 0,
-                StreamId = 1,
-                RelayCommand = DotNetOnion.Cells.RelayCommand.BEGIN_DIR
-            });
-            Console.ReadKey();
+            TaskCompletionSource<long> dataReceivedCompletion = new ();
+
+            var stream = await TorStream.CreateDirectoryStreamAsync(circuit);
+            stream.DataReceived += (_, data) => file.Write(data, 0, data.Length);
+            stream.StreamCompleted += (_, _) => {
+                file.Flush();
+                file.Close();
+                dataReceivedCompletion.SetResult(file.Position);
+            };
+
+            var request = $"GET /tor/status-vote/current/consensus HTTP/1.0\r\nHost: 199.184.246.250\r\n\r\n";
+            var requestBytes = Encoding.UTF8.GetBytes(request);
+            await stream.SendAsync(requestBytes);
+
+            var size = await dataReceivedCompletion.Task;
+            Console.WriteLine("Received data size: {0}", size);
         }
     }
 }
