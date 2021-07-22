@@ -13,7 +13,13 @@ module Command =
     let AuthChallenge = 130uy
 
     [<Literal>]
+    let Padding = 0uy
+
+    [<Literal>]
     let Relay = 3uy
+
+    [<Literal>]
+    let Destroy = 4uy
 
     [<Literal>]
     let Version = 7uy
@@ -46,4 +52,6 @@ module Command =
         | CreateFast -> CellCreateFast.Deserialize reader
         | CreatedFast -> CellCreatedFast.Deserialize reader
         | Relay -> CellEncryptedRelay.Deserialize reader
+        | Padding -> CellPadding.Deserialize reader
+        | Destroy -> CellDestroy.Deserialize reader
         | _ -> raise <| NotImplementedException ()
