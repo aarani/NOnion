@@ -90,13 +90,13 @@ namespace DotNetOnion
         {
             switch (cell)
             {
-                case CellRelayEncrypted encryptedRelayCell:
+                case CellEncryptedRelay encryptedRelayCell:
                     HandleEncryptedRelayCell(encryptedRelayCell);
                     break;
             }
         }
 
-        private void HandleEncryptedRelayCell(CellRelayEncrypted encryptedRelayCell)
+        private void HandleEncryptedRelayCell(CellEncryptedRelay encryptedRelayCell)
         {
             var decryptedRelayCellBytes =
                 guardCryptoState.BackwardCipher.Encrypt(encryptedRelayCell.EncryptedData);
@@ -133,10 +133,7 @@ namespace DotNetOnion
             Buffer.BlockCopy(digest, 0, plainRelayCell.Digest, 0, 4);
 
             await guard.Send(id,
-                new CellRelayEncrypted()
-                {
-                    EncryptedData = guardCryptoState.ForwardCipher.Encrypt(plainRelayCell.ToBytes(false))
-                });
+                new CellEncryptedRelay(guardCryptoState.ForwardCipher.Encrypt(plainRelayCell.ToBytes(false))));
         }
 
         private static ushort RegisterCircuitId(TorGuard guard, Action<ICell> preCreateHandler)
