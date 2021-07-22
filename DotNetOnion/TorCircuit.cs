@@ -6,12 +6,12 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 using DotNetOnion.Cells;
-using DotNetOnion.Crypto;
 using DotNetOnion.KeyAgreements;
 using static DotNetOnion.TorGuard;
 using NOnion.Cells;
 using NOnion.Crypto.Kdf;
 using NOnion.Utility;
+using NOnion.Crypto;
 
 namespace DotNetOnion
 {
@@ -83,7 +83,7 @@ namespace DotNetOnion
 
             guard.CircuitDataHandlers.TryUpdate(id, preCreateHandler, null);
 
-            return new TorCircuit(guard, id, TorCryptoState.CreateFromKdfResult(kdfResult));
+            return new TorCircuit(guard, id, TorCryptoState.FromKdfResult(kdfResult));
         }
 
         private void Guard_NewMessageReceived(ICell cell)
@@ -99,19 +99,19 @@ namespace DotNetOnion
         private void HandleEncryptedRelayCell(CellRelayEncrypted encryptedRelayCell)
         {
             var decryptedRelayCellBytes =
-                guardCryptoState.backwardCipher.Encrypt(encryptedRelayCell.EncryptedData);
+                guardCryptoState.BackwardCipher.Encrypt(encryptedRelayCell.EncryptedData);
             var recognized = BitConverter.ToUInt16(decryptedRelayCellBytes, 1);
             if (recognized != 0) throw new Exception("wat?!");
             var digest = decryptedRelayCellBytes.Skip(5).Take(4).ToArray();
 
             Array.Clear(decryptedRelayCellBytes, 5, 4);
             var computedDigest =
-                guardCryptoState.backwardDigest.PeekDigest(decryptedRelayCellBytes, 0, decryptedRelayCellBytes.Length).Take(4);
+                guardCryptoState.BackwardDigest.PeekDigest(decryptedRelayCellBytes, 0, decryptedRelayCellBytes.Length).Take(4);
 
             if (!digest.SequenceEqual(computedDigest))
                 throw new Exception("wat?");
 
-            guardCryptoState.backwardDigest.Update(decryptedRelayCellBytes, 0, decryptedRelayCellBytes.Length);
+            guardCryptoState.BackwardDigest.Update(decryptedRelayCellBytes, 0, decryptedRelayCellBytes.Length);
 
             CellRelayPlain decryptedRelayCell = new();
             decryptedRelayCell.FromBytes(decryptedRelayCellBytes);
@@ -124,9 +124,10 @@ namespace DotNetOnion
 
         public async Task SendRelayCell(CellRelayPlain plainRelayCell)
         {
-            guardCryptoState.forwardDigest.Update(plainRelayCell.ToBytes(true));
+            var relayPlain = plainRelayCell.ToBytes(true);
+            guardCryptoState.ForwardDigest.Update(relayPlain, 0, relayPlain.Length);
             var digest =
-                guardCryptoState.forwardDigest.GetDigestBytes();
+                guardCryptoState.ForwardDigest.GetDigestBytes();
 
             plainRelayCell.Digest = new byte[4];
             Buffer.BlockCopy(digest, 0, plainRelayCell.Digest, 0, 4);
@@ -134,7 +135,7 @@ namespace DotNetOnion
             await guard.Send(id,
                 new CellRelayEncrypted()
                 {
-                    EncryptedData = guardCryptoState.forwardCipher.Encrypt(plainRelayCell.ToBytes(false))
+                    EncryptedData = guardCryptoState.ForwardCipher.Encrypt(plainRelayCell.ToBytes(false))
                 });
         }
 
