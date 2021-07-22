@@ -13,6 +13,9 @@ module Command =
     let AuthChallenge = 130uy
 
     [<Literal>]
+    let Relay = 3uy
+
+    [<Literal>]
     let Version = 7uy
 
     [<Literal>]
@@ -42,4 +45,5 @@ module Command =
         | NetInfo -> CellNetInfo.Deserialize reader
         | CreateFast -> CellCreateFast.Deserialize reader
         | CreatedFast -> CellCreatedFast.Deserialize reader
+        | Relay -> CellEncryptedRelay.Deserialize reader
         | _ -> raise <| NotImplementedException ()
