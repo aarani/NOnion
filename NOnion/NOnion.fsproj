@@ -24,6 +24,8 @@
     <Compile Include="Cells\CellVersions.fs" />
     <Compile Include="Cells\CellNetInfo.fs" />
     <Compile Include="Cells\CellCreateFast.fs" />
+    <Compile Include="Cells\CellDestory.fs" />
+    <Compile Include="Cells\CellPadding.fs" />
     <Compile Include="Cells\CellCreatedFast.fs" />
     <Compile Include="Cells\CellEncryptedRelay.fs" />
     <Compile Include="Cells\Command.fs" />
