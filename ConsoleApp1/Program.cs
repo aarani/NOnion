@@ -15,8 +15,7 @@ namespace ConsoleApp1
             var circuit = await TorCircuit.CreateFast(guard);
             Console.WriteLine("Created circuit, Id: {0}", circuit.Id);
 
-            await circuit.Send(133, RelayData.RelayBeginDirectory);
-            var streamConnected = await circuit.StreamMessages(133).OfType<RelayData.RelayConnected>().FirstOrDefaultAsync();
+            var stream = await TorStream.CreateDirectoryStream(circuit);
 
             Console.ReadKey();
         }
