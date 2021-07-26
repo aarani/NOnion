@@ -17,6 +17,10 @@ type TorCircuit private (id: uint16, guard: TorGuard, kdfResult: KdfResult) as s
     let cryptoState = TorCryptoState.FromKdfResult kdfResult
     let guard = guard
 
+    let mutable streamsCount: int = 1
+    (* Prevents two stream setup happening at once (to prevent race condition on writing to StreamIds list) *)
+    let streamSetupLock: obj = obj ()
+
     //TODO: make cryptostate immutable and use mapFold
     //TODO: make sure late subscription doesn't make any problem here
     let circuitMessages =
@@ -62,7 +66,6 @@ type TorCircuit private (id: uint16, guard: TorGuard, kdfResult: KdfResult) as s
                 }
                 |> guard.Send id
         }
-        |> Async.StartAsTask
 
     member private self.DecryptCell (encryptedRelayCell: CellEncryptedRelay) =
         let decryptedRelayCellBytes =
@@ -151,6 +154,13 @@ type TorCircuit private (id: uint16, guard: TorGuard, kdfResult: KdfResult) as s
         }
         |> Async.StartAsTask
 
+    member internal self.RegisterStreamId () : uint16 =
+        let safeRegister () =
+            let newId = uint16 streamsCount
+            streamsCount <- streamsCount + 1
+            newId
+
+        lock streamSetupLock safeRegister
 
     interface IDisposable with
         member self.Dispose () =
