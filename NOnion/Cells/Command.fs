@@ -55,3 +55,17 @@ module Command =
         | Padding -> CellPadding.Deserialize reader
         | Destroy -> CellDestroy.Deserialize reader
         | _ -> raise <| NotImplementedException ()
+
+    // Is there any non generic way for this?
+    let GetCommandByCellType<'T when 'T :> ICell> () =
+        match typeof<'T> with
+        | t when t = typeof<CellCerts> -> Certs
+        | t when t = typeof<CellAuthChallenge> -> AuthChallenge
+        | t when t = typeof<CellVersions> -> Version
+        | t when t = typeof<CellNetInfo> -> NetInfo
+        | t when t = typeof<CellCreateFast> -> CreateFast
+        | t when t = typeof<CellCreatedFast> -> CreatedFast
+        | t when t = typeof<CellEncryptedRelay> -> Relay
+        | t when t = typeof<CellPadding> -> Padding
+        | t when t = typeof<CellDestroy> -> Destroy
+        | _ -> raise <| NotImplementedException ()
