@@ -7,6 +7,7 @@
 
   <ItemGroup>
     <Compile Include="Constants.fs" />
+    <Compile Include="Utility\DigestUtils.fs" />
     <Compile Include="Utility\BigIntegerSerialization.fs" />
     <Compile Include="Utility\DateTimeUtils.fs" />
     <Compile Include="Utility\IntegerSerialization.fs" />
@@ -14,6 +15,9 @@
     <Compile Include="Utility\Hex.fs" />
     <Compile Include="Crypto\Kdf\KdfResult.fs" />
     <Compile Include="Crypto\Kdf\Kdf.fs" />
+    <Compile Include="Crypto\TorMessageDigest.fs" />
+    <Compile Include="Crypto\TorStreamCipher.fs" />
+    <Compile Include="Crypto\TorCryptoState.fs" />
     <Compile Include="Cells\ICell.fs" />
     <Compile Include="Cells\CellCerts.fs" />
     <Compile Include="Cells\CellAuthChallenge.fs" />
@@ -23,5 +27,8 @@
     <Compile Include="Cells\CellCreatedFast.fs" />
     <Compile Include="Cells\Command.fs" />
   </ItemGroup>
-
+  
+  <ItemGroup>
+    <PackageReference Include="Portable.BouncyCastle" Version="1.8.10" />
+  </ItemGroup>
 </Project>

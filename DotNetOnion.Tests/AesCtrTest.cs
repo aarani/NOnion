@@ -1,5 +1,5 @@
 using NUnit.Framework;
-using DotNetOnion.Crypto;
+using NOnion.Crypto;
 using NOnion.Utility;
 
 namespace DotNetOnion.Tests
