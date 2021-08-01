@@ -20,6 +20,13 @@ jobs:
       - name: Test
         run: dotnet test --no-restore --verbosity normal
 
+      - name: fsharpLint
+        run: |
+          dotnet tool install --global dotnet-fsharplint
+
+          # path taken from https://stackoverflow.com/a/65367006/544947
+          $HOME/.dotnet/tools/dotnet-fsharplint lint DotNetOnion.sln
+
       - name: fantomas
         run: |
           dotnet tool install --global fantomas-tool --version 4.5.0
