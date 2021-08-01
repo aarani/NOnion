@@ -27,6 +27,8 @@ jobs:
           # path taken from https://stackoverflow.com/a/65367006/544947
           $HOME/.dotnet/tools/dotnet-fsharplint lint DotNetOnion.sln
 
+      # FIXME: use `continue-on-error: true` when we figure out how to have a
+      #        visual warning icon (instead of green tick) on GitHubActionsCI
       - name: fantomas
         run: |
           dotnet tool install --global fantomas-tool --version 4.5.0
