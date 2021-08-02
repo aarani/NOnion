@@ -39,11 +39,13 @@ type RelayData =
         match self with
         | RelayBeginDirectory -> 13uy
         | RelayData _ -> 2uy
+        | RelaySendMe _ -> 5uy
         | _ -> failwith ""
 
     member self.ToBytes () =
         match self with
         | RelayData data -> data
+        | RelaySendMe _ -> Array.zeroCreate 3
         | _ -> Array.zeroCreate 0
 
 type CellPlainRelay =

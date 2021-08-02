@@ -6,15 +6,38 @@ open FSharpx.Control.Observable
 
 open NOnion.Cells
 open NOnion.Utility
+open FSharp.Control.Reactive
+open System
 
-type TorStream private (streamId: uint16, circuit: TorCircuit) =
+type TorStream private (streamId: uint16, circuit: TorCircuit) as self =
 
-    member self.DataReceived =
+    //TODO: don't use reactive, inherit stream instead.
+
+    let window: TorWindow = TorWindow (500, 50)
+
+    let streamMessages =
         circuit.StreamMessages streamId
-        |> Observable.choose
-            (function
-            | RelayData.RelayData data -> Some data
-            | _ -> None)
+        |> Observable.choose self.HandleMessage
+        |> Observable.publish
+
+    //TODO: dispose this
+    let subscription = streamMessages.Connect ()
+
+    member _.DataReceived = streamMessages :> IObservable<array<byte>>
+
+    member self.HandleMessage (message: RelayData) =
+        match message with
+        | RelayData.RelayData data ->
+            window.DeliverDecrease ()
+
+            if window.NeedSendme () then
+                circuit.Send streamId (RelayData.RelaySendMe)
+                |> Async.RunSynchronously
+
+            data |> Some
+        | RelayEnd _ -> None
+        | _ -> None
+
 
     member self.Send (data: array<byte>) =
         async {

@@ -17,6 +17,8 @@ type TorCircuit private (id: uint16, guard: TorGuard, kdfResult: KdfResult) as s
     let cryptoState = TorCryptoState.FromKdfResult kdfResult
     let guard = guard
 
+    let window = TorWindow (1000, 100)
+
     let mutable streamsCount: int = 1
     (* Prevents two stream setup happening at once (to prevent race condition on writing to StreamIds list) *)
     let streamSetupLock: obj = obj ()
@@ -97,6 +99,14 @@ type TorCircuit private (id: uint16, guard: TorGuard, kdfResult: KdfResult) as s
 
         let decryptedRelayCell =
             CellPlainRelay.FromBytes decryptedRelayCellBytes
+
+        match decryptedRelayCell.Data with
+        | RelayData.RelayData _ ->
+            window.DeliverDecrease ()
+
+            if window.NeedSendme () then
+                self.Send 0us RelayData.RelaySendMe |> Async.RunSynchronously
+        | _ -> ()
 
         (decryptedRelayCell.StreamId, decryptedRelayCell.Data)
 
