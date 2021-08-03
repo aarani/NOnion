@@ -1,32 +1,19 @@
 ﻿namespace NOnion
 
-
-open System.Security.Cryptography
 open FSharpx.Control.Observable
 
 open NOnion.Cells
-open NOnion.Utility
 open FSharp.Control.Reactive
 open System
 
-type TorStream private (streamId: uint16, circuit: TorCircuit) as self =
+type TorStream private (streamId: uint16, circuit: TorCircuit) =
 
     //TODO: don't use reactive, inherit stream instead.
 
     let window: TorWindow = TorWindow (500, 50)
 
-    let streamMessages =
-        circuit.StreamMessages streamId
-        |> Observable.choose self.HandleMessage
-        |> Observable.publish
-
-    //TODO: dispose this
-    let subscription = streamMessages.Connect ()
-
-    member _.DataReceived = streamMessages :> IObservable<array<byte>>
-
-    member self.HandleMessage (message: RelayData) =
-        match message with
+    let handleFlowControl msg =
+        match msg with
         | RelayData.RelayData data ->
             window.DeliverDecrease ()
 
@@ -34,13 +21,32 @@ type TorStream private (streamId: uint16, circuit: TorCircuit) as self =
                 circuit.Send streamId (RelayData.RelaySendMe)
                 |> Async.RunSynchronously
 
-            data |> Some
-        | RelaySendMe _ ->
-            window.PackageIncrease ()
-            None
-        | RelayEnd _ -> None
+        | RelaySendMe _ -> window.PackageIncrease ()
+        | _ -> ()
+
+        msg
+
+    let streamNotCompleted msg =
+        match msg with
+        | RelayEnd _ -> false
+        | _ -> true
+
+    let takeDataCells msg =
+        match msg with
+        | RelayData data -> data |> Some
         | _ -> None
 
+    let streamMessages =
+        circuit.StreamMessages streamId
+        |> Observable.map handleFlowControl
+        |> Observable.takeWhile streamNotCompleted
+        |> Observable.choose takeDataCells
+        |> Observable.publish
+
+    //TODO: dispose this
+    let subscription = streamMessages.Connect ()
+
+    member _.DataReceived = streamMessages :> IObservable<array<byte>>
 
     member self.Send (data: array<byte>) =
         async {
