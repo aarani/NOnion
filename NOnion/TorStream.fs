@@ -35,6 +35,9 @@ type TorStream private (streamId: uint16, circuit: TorCircuit) as self =
                 |> Async.RunSynchronously
 
             data |> Some
+        | RelaySendMe _ ->
+            window.PackageIncrease ()
+            None
         | RelayEnd _ -> None
         | _ -> None
 
@@ -50,6 +53,7 @@ type TorStream private (streamId: uint16, circuit: TorCircuit) as self =
                     | None -> ()
                     | Some (head) ->
                         do! circuit.Send streamId (RelayData.RelayData head)
+                        window.PackageDecrease ()
                         do! Seq.tail dataChunks |> sendChunks
                 }
 

@@ -60,6 +60,8 @@ type TorCircuit private (id: uint16, guard: TorGuard, kdfResult: KdfResult) as s
                     Digest = digest
                 }
 
+            window.PackageDecrease ()
+
             do!
                 {
                     CellEncryptedRelay.EncryptedData =
@@ -106,6 +108,8 @@ type TorCircuit private (id: uint16, guard: TorGuard, kdfResult: KdfResult) as s
 
             if window.NeedSendme () then
                 self.Send 0us RelayData.RelaySendMe |> Async.RunSynchronously
+        | RelaySendMe _ when decryptedRelayCell.StreamId = 0us ->
+            window.PackageIncrease ()
         | _ -> ()
 
         (decryptedRelayCell.StreamId, decryptedRelayCell.Data)
