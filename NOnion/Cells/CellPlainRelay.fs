@@ -62,16 +62,19 @@ type CellPlainRelay =
         =
         let payload = data.ToBytes ()
 
-        let padding =
-            Array.zeroCreate<byte> (
-                Constants.FixedPayloadLength - 11 - payload.Length
-            )
+        let paddingLen = Constants.MaximumRelayPayloadLength - payload.Length
+
+        let padding = Array.zeroCreate<byte> (paddingLen)
 
         RandomNumberGenerator
             .Create()
             .GetNonZeroBytes padding
 
-        Array.fill padding 0 (min padding.Length 4) 0uy
+        Array.fill
+            padding
+            0
+            (min padding.Length Constants.PaddingZeroPrefixLength)
+            0uy
 
         {
             Recognized = 0us
@@ -87,13 +90,13 @@ type CellPlainRelay =
         let relayCommand = reader.ReadByte ()
         let recognized = BinaryIO.ReadBigEndianUInt16 reader
         let streamId = BinaryIO.ReadBigEndianUInt16 reader
-        let digest = reader.ReadBytes 4
+        let digest = reader.ReadBytes Constants.RelayDigestLength
 
         let data =
             BinaryIO.ReadBigEndianUInt16 reader |> int |> reader.ReadBytes
 
         let padding =
-            reader.ReadBytes (Constants.FixedPayloadLength - 11 - data.Length)
+            reader.ReadBytes (Constants.MaximumRelayPayloadLength - data.Length)
 
         {
             Recognized = recognized
@@ -114,7 +117,7 @@ type CellPlainRelay =
 
         let digest =
             match emptyDigest with
-            | true -> Array.zeroCreate<byte> 4
+            | true -> Array.zeroCreate<byte> Constants.RelayDigestLength
             | false -> self.Digest
 
         digest |> writer.Write

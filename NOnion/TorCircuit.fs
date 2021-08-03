@@ -152,7 +152,9 @@ type TorCircuit private (id: uint16, guard: TorGuard, kdfResult: KdfResult) as s
 
             return new TorCircuit (circuitId, guard, kdfResult)
         }
-        |> Async.StartAsTask
+
+    static member CreateFastAsTask guard =
+        TorCircuit.CreateFast guard |> Async.StartAsTask
 
     member internal self.RegisterStreamId () : uint16 =
         let safeRegister () =

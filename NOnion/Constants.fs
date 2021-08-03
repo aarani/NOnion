@@ -31,3 +31,15 @@ module Constants =
 
     [<Literal>]
     let MaxCircuitIdGenerationRetry = 64
+
+    // FixedPayloadLength - 11 (header length)
+
+    [<Literal>]
+    let MaximumRelayPayloadLength = 498
+
+    // First 4 bytes of the padding for relay cell should be 0
+    [<Literal>]
+    let PaddingZeroPrefixLength = 4
+
+    [<Literal>]
+    let RelayDigestLength = 4

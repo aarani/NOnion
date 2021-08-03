@@ -19,7 +19,7 @@ type TorStream private (streamId: uint16, circuit: TorCircuit) =
     member self.Send (data: array<byte>) =
         async {
             let dataChunks =
-                SeqUtils.chunk (Constants.FixedPayloadLength - 11) data
+                SeqUtils.chunk (Constants.MaximumRelayPayloadLength) data
 
             let rec sendChunks dataChunks =
                 async {
@@ -32,7 +32,9 @@ type TorStream private (streamId: uint16, circuit: TorCircuit) =
 
             do! sendChunks dataChunks
         }
-        |> Async.StartAsTask
+
+    member self.SendAsTask data =
+        self.Send data |> Async.StartAsTask
 
     static member CreateDirectoryStream (circuit: TorCircuit) =
         async {
@@ -48,4 +50,6 @@ type TorStream private (streamId: uint16, circuit: TorCircuit) =
                 | RelayConnected _ -> TorStream (streamId, circuit)
                 | _ -> failwith "can't create a directory stream"
         }
-        |> Async.StartAsTask
+
+    static member CreateDirectoryStreamAsTask circuit =
+        TorStream.CreateDirectoryStream circuit |> Async.StartAsTask

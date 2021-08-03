@@ -47,7 +47,7 @@ type TorGuard private (client: TcpClient, sslStream: SslStream) =
 
             do!
                 sslStream.AuthenticateAsClientAsync (
-                    "",
+                    String.Empty,
                     null,
                     SslProtocols.Tls12,
                     false
@@ -60,7 +60,9 @@ type TorGuard private (client: TcpClient, sslStream: SslStream) =
 
             return guard
         }
-        |> Async.StartAsTask
+
+    static member NewClientAsTask ipEndpoint =
+        TorGuard.NewClient ipEndpoint |> Async.StartAsTask
 
     member self.Send (circuidId: uint16) (cellToSend: ICell) =
         async {
