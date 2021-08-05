@@ -19,7 +19,7 @@ module Constants =
     [<Literal>]
     let KdfLength = 92
 
-    let SupportedProtocolVersion: array<uint16> = [| 3us |]
+    let SupportedProtocolVersion: list<uint16> = [ 3us ]
 
     (*
      *  Existing Tor implementations choose their CircID values at random from

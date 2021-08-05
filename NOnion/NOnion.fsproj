@@ -31,10 +31,9 @@
     <Compile Include="Cells\CellEncryptedRelay.fs" />
     <Compile Include="Cells\CellPlainRelay.fs" />
     <Compile Include="Cells\Command.fs" />
-    <Compile Include="TorGuard.fs" />
+    <Compile Include="Enums.fs" />
     <Compile Include="TorWindow.fs" />
-    <Compile Include="TorCircuit.fs" />
-    <Compile Include="TorStream.fs" />
+    <Compile Include="TorClient.fs" />
   </ItemGroup>
 
   <ItemGroup>

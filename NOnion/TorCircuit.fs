@@ -71,48 +71,6 @@ type TorCircuit private (id: uint16, guard: TorGuard, kdfResult: KdfResult) as s
                 |> guard.Send id
         }
 
-    member private self.DecryptCell (encryptedRelayCell: CellEncryptedRelay) =
-        let decryptedRelayCellBytes =
-            cryptoState.BackwardCipher.Encrypt encryptedRelayCell.EncryptedData
-
-        let recognized =
-            System.BitConverter.ToUInt16 (decryptedRelayCellBytes, 1)
-
-        if recognized <> 0us then
-            failwith "wat?"
-
-        let digest = decryptedRelayCellBytes |> Array.skip 5 |> Array.take 4
-        Array.fill decryptedRelayCellBytes 5 4 0uy
-
-        let computedDigest =
-            cryptoState.BackwardDigest.PeekDigest
-                decryptedRelayCellBytes
-                0
-                decryptedRelayCellBytes.Length
-            |> Array.take 4
-
-        if digest <> computedDigest then
-            failwith "wat"
-
-        cryptoState.BackwardDigest.Update
-            decryptedRelayCellBytes
-            0
-            decryptedRelayCellBytes.Length
-
-        let decryptedRelayCell =
-            CellPlainRelay.FromBytes decryptedRelayCellBytes
-
-        match decryptedRelayCell.Data with
-        | RelayData.RelayData _ ->
-            window.DeliverDecrease ()
-
-            if window.NeedSendme () then
-                self.Send 0us RelayData.RelaySendMe |> Async.RunSynchronously
-        | RelaySendMe _ when decryptedRelayCell.StreamId = 0us ->
-            window.PackageIncrease ()
-        | _ -> ()
-
-        (decryptedRelayCell.StreamId, decryptedRelayCell.Data)
 
     static member CreateFast (guard: TorGuard) =
         async {

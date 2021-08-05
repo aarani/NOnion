@@ -6,7 +6,7 @@ open NOnion.Utility.BinaryIO
 
 type CellVersions =
     {
-        Versions: seq<uint16>
+        Versions: list<uint16>
     }
 
     static member Deserialize (reader: BinaryReader) =

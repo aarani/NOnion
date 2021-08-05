@@ -19,3 +19,24 @@ module SeqUtils =
             if !i <> 0 then
                 yield (!arr).[0..!i - 1]
         }
+
+    // Helper function copied from https://stackoverflow.com/a/20248149
+    let rec mem list x =
+        match list with
+        | [] -> false
+        | head :: tail ->
+            if x = head then
+                true
+            else
+                mem tail x
+
+    let rec intersection list1 list2 =
+        match list1 with
+        | head :: tail ->
+            let rest = intersection tail list2
+
+            if mem list2 head then
+                head :: rest
+            else
+                rest
+        | [] -> []
