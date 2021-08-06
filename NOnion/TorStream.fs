@@ -5,7 +5,6 @@ open FSharpx.Control.Observable
 open NOnion.Cells
 open FSharp.Control.Reactive
 open System
-open System.Collections.Concurrent
 
 type TorStream private (streamId: uint16, circuit: TorCircuit) =
 
@@ -13,38 +12,41 @@ type TorStream private (streamId: uint16, circuit: TorCircuit) =
 
     let window: TorWindow = TorWindow (500, 50)
 
-    let finished = Event<byte> ()
-    let newData = Event<array<byte>> ()
+    let handleFlowControl msg =
+        match msg with
+        | RelayData.RelayData data ->
+            window.DeliverDecrease ()
 
-    let streamIdFilter (sid, message) =
-        if sid = streamId then
-            Some message
-        else
-            None
+            if window.NeedSendme () then
+                circuit.Send streamId (RelayData.RelaySendMe)
+                |> Async.RunSynchronously
 
-    do
-        circuit.StreamMessages
-        |> Event.choose streamIdFilter
-        |> Event.add (fun message ->
-            match message with
-            | RelayData data ->
-                window.DeliverDecrease ()
+        | RelaySendMe _ -> window.PackageIncrease ()
+        | _ -> ()
 
-                if window.NeedSendme () then
-                    circuit.Send streamId (RelayData.RelaySendMe)
-                    |> Async.RunSynchronously
+        msg
 
-                newData.Trigger data
-            | RelaySendMe _ -> window.PackageIncrease ()
-            | RelayEnd reason -> finished.Trigger reason
-            | _ -> ()
-        )
+    let streamNotCompleted msg =
+        match msg with
+        | RelayEnd _ -> false
+        | _ -> true
 
-    [<CLIEvent>]
-    member self.DataReceived = newData.Publish
+    let takeDataCells msg =
+        match msg with
+        | RelayData data -> data |> Some
+        | _ -> None
 
-    [<CLIEvent>]
-    member self.StreamCompleted = finished.Publish
+    let streamMessages =
+        circuit.StreamMessages streamId
+        |> Observable.map handleFlowControl
+        |> Observable.takeWhile streamNotCompleted
+        |> Observable.choose takeDataCells
+        |> Observable.publish
+
+    //TODO: dispose this
+    let subscription = streamMessages.Connect ()
+
+    member _.DataReceived = streamMessages :> IObservable<array<byte>>
 
     member self.Send (data: array<byte>) =
         async {
@@ -72,16 +74,7 @@ type TorStream private (streamId: uint16, circuit: TorCircuit) =
             let streamId = circuit.RegisterStreamId ()
 
             let streamInitMsg =
-                circuit.StreamMessages
-                |> Event.filter (fun (sid, _) -> sid = streamId)
-                |> Event.map (fun (_, message) -> message)
-                |> Event.choose (fun (message) ->
-                    match message with
-                    | RelayConnected _
-                    | RelayEnd _ -> Some message
-                    | _ -> None
-                )
-                |> Async.AwaitEvent
+                circuit.StreamMessages streamId |> Async.AwaitObservable
 
             do! circuit.Send streamId (RelayData.RelayBeginDirectory)
 
