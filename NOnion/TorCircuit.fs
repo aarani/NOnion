@@ -144,6 +144,11 @@ type TorCircuit private (id: uint16, guard: TorGuard, kdfResult: KdfResult) as s
                 .Create()
                 .GetBytes randomClientMaterial
 
+            let createdMsg =
+                guard.CircuitMessages circuitId
+                |> Observable.ofType
+                |> Async.AwaitObservable
+
             do!
                 guard.Send
                     circuitId
@@ -151,10 +156,7 @@ type TorCircuit private (id: uint16, guard: TorGuard, kdfResult: KdfResult) as s
                         CellCreateFast.X = randomClientMaterial
                     }
 
-            let! createdMsg =
-                guard.CircuitMessages circuitId
-                |> Observable.ofType
-                |> Async.AwaitObservable
+            let! createdMsg = createdMsg
 
             let kdfResult =
                 Array.concat [ randomClientMaterial

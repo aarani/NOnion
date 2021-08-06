@@ -73,10 +73,12 @@ type TorStream private (streamId: uint16, circuit: TorCircuit) =
         async {
             let streamId = circuit.RegisterStreamId ()
 
+            let streamInitMsg =
+                circuit.StreamMessages streamId |> Async.AwaitObservable
+
             do! circuit.Send streamId (RelayData.RelayBeginDirectory)
 
-            let! streamInitMsg =
-                circuit.StreamMessages streamId |> Async.AwaitObservable
+            let! streamInitMsg = streamInitMsg
 
             return
                 match streamInitMsg with

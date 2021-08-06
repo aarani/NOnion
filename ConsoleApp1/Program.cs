@@ -21,8 +21,10 @@ namespace ConsoleApp1
             var stream = await TorStream.CreateDirectoryStreamAsTask(circuit);
             string request = $"GET /tor/status-vote/current/consensus HTTP/1.0\r\nHost: 199.184.246.250\r\n\r\n";
             var requestBytes = Encoding.UTF8.GetBytes(request);
+
+            var responseTask = stream.DataReceived.ToList();
             await stream.SendAsTask(requestBytes);
-            var response = await stream.DataReceived.ToList();
+            var response = await responseTask;
             Console.ReadKey();
         }
     }
