@@ -18,17 +18,16 @@ open System.Collections.Concurrent
 type TorGuard private (client: TcpClient, sslStream: SslStream) =
     let client = client
     let sslStream = sslStream
-    let messagesSubject = new Subject<uint16 * obj> ()
+    let messagesEvent = new Event<uint16 * ICell> ()
     let shutdownToken = new CancellationTokenSource ()
 
     let mutable circuitIds: list<uint16> = List.empty
     (* Prevents two circuit setup happening at once (to prevent race condition on writing to CircuitIds list) *)
     let circuitSetupLock: obj = obj ()
 
-    member internal self.CircuitMessages (circuitId: uint16) =
-        messagesSubject :> IObservable<uint16 * obj>
-        |> Observable.filter (fun (cid, cell) -> cid = circuitId)
-        |> Observable.map (fun (_, cell) -> cell)
+
+    [<CLIEvent>]
+    member this.MessageReceived = messagesEvent.Publish
 
     static member NewClient (ipEndpoint: IPEndPoint) =
         async {
@@ -159,7 +158,7 @@ type TorGuard private (client: TcpClient, sslStream: SslStream) =
 
             use memStream = new MemoryStream (body)
             use reader = new BinaryReader (memStream)
-            return (circuitId, Command.DeserializeCell reader command :> obj)
+            return (circuitId, Command.DeserializeCell reader command)
         }
 
     member private self.StartListening () =
@@ -167,9 +166,9 @@ type TorGuard private (client: TcpClient, sslStream: SslStream) =
             async {
                 while sslStream.CanRead do
                     let! message = self.ReceiveMessage ()
-                    messagesSubject.OnNext message
+                    messagesEvent.Trigger message
 
-                messagesSubject.OnCompleted ()
+            //On completed?
             }
 
         Async.Start (listeningJob (), shutdownToken.Token)
@@ -216,7 +215,5 @@ type TorGuard private (client: TcpClient, sslStream: SslStream) =
     interface IDisposable with
         member self.Dispose () =
             shutdownToken.Cancel ()
-            messagesSubject.OnCompleted ()
-            messagesSubject.Dispose ()
             sslStream.Dispose ()
             client.Dispose ()

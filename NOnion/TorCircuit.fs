@@ -17,26 +17,28 @@ type TorCircuit private (id: uint16, guard: TorGuard, kdfResult: KdfResult) as s
     let cryptoState = TorCryptoState.FromKdfResult kdfResult
     let guard = guard
 
+    let streamMessages = Event<uint16 * RelayData> ()
+
     let window = TorWindow (1000, 100)
 
     let mutable streamsCount: int = 1
     (* Prevents two stream setup happening at once (to prevent race condition on writing to StreamIds list) *)
     let streamSetupLock: obj = obj ()
 
-    //TODO: make cryptostate immutable and use mapFold
-    //TODO: make sure late subscription doesn't make any problem here
-    let circuitMessages =
-        guard.CircuitMessages circuitId
-        |> Observable.ofType
-        |> Observable.map self.DecryptCell
-        |> Observable.publish
+    do
+        guard.MessageReceived
+        |> Event.filter (fun (cid, _) -> cid = circuitId)
+        |> Event.map (fun (_, cell) -> cell)
+        |> Event.choose (fun (cell) ->
+            match cell with
+            | :? CellEncryptedRelay as enRelay -> Some enRelay
+            | _ -> None
+        )
+        |> Event.map self.DecryptCell
+        |> Event.add streamMessages.Trigger
 
-    let subscription = circuitMessages.Connect ()
-
-    member self.StreamMessages (streamId: uint16) =
-        circuitMessages
-        |> Observable.filter (fun (sid, _) -> sid = streamId)
-        |> Observable.map (fun (_, cell) -> cell)
+    [<CLIEvent>]
+    member self.StreamMessages = streamMessages.Publish
 
     member self.Id = circuitId
 
@@ -145,9 +147,15 @@ type TorCircuit private (id: uint16, guard: TorGuard, kdfResult: KdfResult) as s
                 .GetBytes randomClientMaterial
 
             let createdMsg =
-                guard.CircuitMessages circuitId
-                |> Observable.ofType
-                |> Async.AwaitObservable
+                guard.MessageReceived
+                |> Event.filter (fun (cid, _) -> cid = circuitId)
+                |> Event.map (fun (_, cell) -> cell)
+                |> Event.choose (fun (cell) ->
+                    match cell with
+                    | :? CellCreatedFast as createdFast -> Some createdFast
+                    | _ -> None
+                )
+                |> Async.AwaitEvent
 
             do!
                 guard.Send
@@ -166,7 +174,7 @@ type TorCircuit private (id: uint16, guard: TorGuard, kdfResult: KdfResult) as s
             if kdfResult.KeyHandshake <> createdMsg.DerivativeKeyData then
                 failwith "Bad key handshake"
 
-            return new TorCircuit (circuitId, guard, kdfResult)
+            return TorCircuit (circuitId, guard, kdfResult)
         }
 
     static member CreateFastAsTask guard =
@@ -179,7 +187,3 @@ type TorCircuit private (id: uint16, guard: TorGuard, kdfResult: KdfResult) as s
             newId
 
         lock streamSetupLock safeRegister
-
-    interface IDisposable with
-        member self.Dispose () =
-            subscription.Dispose ()
