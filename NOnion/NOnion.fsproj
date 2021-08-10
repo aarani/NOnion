@@ -7,7 +7,7 @@
 
   <ItemGroup>
     <Compile Include="Constants.fs" />
-    <Compile Include="Utility\EventUtils.fs" />
+    <Compile Include="Utility\ObservableUtils.fs" />
     <Compile Include="Utility\SeqUtils.fs" />
     <Compile Include="Utility\DigestUtils.fs" />
     <Compile Include="Utility\BigIntegerSerialization.fs" />
@@ -39,6 +39,8 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="FSharpx.Async" Version="1.14.1" />
     <PackageReference Include="Portable.BouncyCastle" Version="1.8.10" />
+    <PackageReference Include="System.Reactive" Version="5.0.0" />
   </ItemGroup>
 </Project>

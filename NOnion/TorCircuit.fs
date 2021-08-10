@@ -1,7 +1,11 @@
 ﻿namespace NOnion
 
+open System
+open System.Reactive.Subjects
 open System.Security.Cryptography
 open System.Threading
+
+open FSharpx.Control.Observable
 
 open NOnion.Cells
 open NOnion.Crypto
@@ -20,7 +24,7 @@ type TorCircuit
     // Prevents multiple write from breaking the cryptoState because of RC
     let sendLock: obj = obj ()
 
-    let streamMessages = Event<uint16 * RelayData> ()
+    let streamsMessages = new Subject<uint16 * RelayData> ()
 
     let window = TorWindow Constants.DefaultCircuitLevelWindowParams
 
@@ -28,13 +32,13 @@ type TorCircuit
     // Prevents two stream setup happening at once (to prevent race condition on writing to StreamIds list)
     let streamSetupLock: obj = obj ()
 
-    do
+    let subscription =
         guard.MessageReceived
-        |> EventUtils.FilterByKey circuitId
-        |> Event.add self.HandleIncomingMessage
+        |> ObservableUtils.FilterByKey circuitId
+        |> Observable.subscribe self.HandleIncomingMessage
 
-    [<CLIEvent>]
-    member __.StreamMessages = streamMessages.Publish
+    member __.StreamsMessages =
+        streamsMessages :> IObservable<uint16 * RelayData>
 
     member __.Id = circuitId
 
@@ -96,7 +100,7 @@ type TorCircuit
             | _ -> ()
 
             if streamId <> Constants.DefaultStreamId then
-                streamMessages.Trigger (streamId, relayData)
+                streamsMessages.OnNext (streamId, relayData)
         | _ -> ()
     //TODO: Handle circuit-level cells like destroy/truncate/extended etc..
 
@@ -179,13 +183,13 @@ type TorCircuit
 
             let createdMsg =
                 guard.MessageReceived
-                |> EventUtils.FilterByKey circuitId
-                |> Event.choose (fun cell ->
+                |> ObservableUtils.FilterByKey circuitId
+                |> Observable.choose (fun cell ->
                     match cell with
                     | :? CellCreatedFast as createdFast -> Some createdFast
                     | _ -> None
                 )
-                |> Async.AwaitEvent
+                |> Async.AwaitObservable
 
             do!
                 guard.Send
@@ -204,7 +208,7 @@ type TorCircuit
             if kdfResult.KeyHandshake <> createdMsg.DerivativeKeyData then
                 failwith "Key handshake failed!"
 
-            return TorCircuit (circuitId, guard, kdfResult)
+            return new TorCircuit (circuitId, guard, kdfResult)
         }
 
     static member CreateFastAsync guard =
@@ -217,3 +221,9 @@ type TorCircuit
             newId
 
         lock streamSetupLock safeRegister
+
+    interface IDisposable with
+        member __.Dispose () =
+            subscription.Dispose ()
+            streamsMessages.OnCompleted ()
+            streamsMessages.Dispose ()

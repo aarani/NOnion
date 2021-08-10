@@ -5,6 +5,7 @@ open System.IO
 open System.Net
 open System.Net.Security
 open System.Net.Sockets
+open System.Reactive.Subjects
 open System.Security.Authentication
 open System.Threading
 
@@ -12,16 +13,14 @@ open NOnion.Cells
 open NOnion.Utility
 
 type TorGuard private (client: TcpClient, sslStream: SslStream) =
-    let messagesEvent = new Event<uint16 * ICell> ()
+    let messagesSubject = new Subject<uint16 * ICell> ()
     let shutdownToken = new CancellationTokenSource ()
 
     let mutable circuitIds: List<uint16> = List.empty
     // Prevents two circuit setup happening at once (to prevent race condition on writing to CircuitIds list)
     let circuitSetupLock: obj = obj ()
 
-
-    [<CLIEvent>]
-    member this.MessageReceived = messagesEvent.Publish
+    member __.MessageReceived = messagesSubject :> IObservable<uint16 * ICell>
 
     static member NewClient (ipEndpoint: IPEndPoint) =
         async {
@@ -155,9 +154,9 @@ type TorGuard private (client: TcpClient, sslStream: SslStream) =
             async {
                 while sslStream.CanRead do
                     let! message = self.ReceiveMessage ()
-                    messagesEvent.Trigger message
-
-            //TODO: Handle socket closure and AsyncRead behaviour in case of socket being closed
+                    messagesSubject.OnNext message
+                //TODO: Handle socket closure and AsyncRead behaviour in case of socket being closed
+                messagesSubject.OnCompleted ()
             }
 
         Async.Start (listeningJob (), shutdownToken.Token)
@@ -204,5 +203,7 @@ type TorGuard private (client: TcpClient, sslStream: SslStream) =
     interface IDisposable with
         member __.Dispose () =
             shutdownToken.Cancel ()
+            messagesSubject.OnCompleted ()
+            messagesSubject.Dispose ()
             sslStream.Dispose ()
             client.Dispose ()

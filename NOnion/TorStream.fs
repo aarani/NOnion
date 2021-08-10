@@ -1,5 +1,10 @@
 ﻿namespace NOnion
 
+open System
+open System.Reactive.Subjects
+
+open FSharpx.Control.Observable
+
 open NOnion.Cells
 open NOnion.Utility
 
@@ -7,19 +12,14 @@ type TorStream private (streamId: uint16, circuit: TorCircuit) as self =
 
     let window: TorWindow = TorWindow Constants.DefaultStreamLevelWindowParams
 
-    let streamCompletionEvent = Event<byte> ()
-    let streamDataReceivedEvent = Event<array<byte>> ()
+    let streamMessagesSubject = new Subject<array<byte>> ()
 
-    do
-        circuit.StreamMessages
-        |> EventUtils.FilterByKey streamId
-        |> Event.add self.HandleIncomingMessage
+    let subscription =
+        circuit.StreamsMessages
+        |> ObservableUtils.FilterByKey streamId
+        |> Observable.subscribe self.HandleIncomingMessage
 
-    [<CLIEvent>]
-    member __.DataReceived = streamDataReceivedEvent.Publish
-
-    [<CLIEvent>]
-    member __.StreamCompleted = streamCompletionEvent.Publish
+    member __.DataReceived = streamMessagesSubject :> IObservable<array<byte>>
 
     member __.Send (data: array<byte>) =
         async {
@@ -56,9 +56,9 @@ type TorStream private (streamId: uint16, circuit: TorCircuit) as self =
                 circuit.Send streamId RelayData.RelaySendMe
                 |> Async.RunSynchronously
 
-            streamDataReceivedEvent.Trigger data
+            streamMessagesSubject.OnNext data
         | RelaySendMe _ -> window.PackageIncrease ()
-        | RelayEnd reason -> streamCompletionEvent.Trigger reason
+        | RelayEnd _ -> streamMessagesSubject.OnCompleted ()
         | _ -> ()
 
     static member CreateDirectoryStream (circuit: TorCircuit) =
@@ -68,15 +68,15 @@ type TorStream private (streamId: uint16, circuit: TorCircuit) as self =
             // We start the handler before we send the Begin request to make sure we don't miss the init event
 
             let streamInitMsg =
-                circuit.StreamMessages
-                |> EventUtils.FilterByKey streamId
-                |> Event.choose (fun message ->
+                circuit.StreamsMessages
+                |> ObservableUtils.FilterByKey streamId
+                |> Observable.choose (fun message ->
                     match message with
                     | RelayConnected _
                     | RelayEnd _ -> Some message
                     | _ -> None
                 )
-                |> Async.AwaitEvent
+                |> Async.AwaitObservable
 
             do! circuit.Send streamId RelayData.RelayBeginDirectory
 
@@ -84,9 +84,15 @@ type TorStream private (streamId: uint16, circuit: TorCircuit) as self =
 
             return
                 match streamInitMsg with
-                | RelayConnected _ -> TorStream (streamId, circuit)
+                | RelayConnected _ -> new TorStream (streamId, circuit)
                 | _ -> failwith "can't create a directory stream"
         }
 
     static member CreateDirectoryStreamAsync circuit =
         TorStream.CreateDirectoryStream circuit |> Async.StartAsTask
+
+    interface IDisposable with
+        member __.Dispose () =
+            subscription.Dispose ()
+            streamMessagesSubject.OnCompleted ()
+            streamMessagesSubject.Dispose ()

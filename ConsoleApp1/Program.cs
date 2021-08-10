@@ -19,12 +19,14 @@ namespace ConsoleApp1
             TaskCompletionSource<long> dataReceivedCompletion = new ();
 
             var stream = await TorStream.CreateDirectoryStreamAsync(circuit);
-            stream.DataReceived += (_, data) => file.Write(data, 0, data.Length);
-            stream.StreamCompleted += (_, _) => {
-                file.Flush();
-                file.Close();
-                dataReceivedCompletion.SetResult(file.Position);
-            };
+            stream.DataReceived.Subscribe(
+                data => file.Write(data, 0, data.Length),
+                _ => {
+                    file.Flush();
+                    file.Close();
+                    dataReceivedCompletion.SetResult(file.Position);
+                }
+            );
 
             var request = $"GET /tor/status-vote/current/consensus HTTP/1.0\r\nHost: 199.184.246.250\r\n\r\n";
             var requestBytes = Encoding.UTF8.GetBytes(request);
