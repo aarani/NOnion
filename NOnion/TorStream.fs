@@ -1,98 +1,170 @@
 ﻿namespace NOnion
 
 open System
-open System.Reactive.Subjects
-
-open FSharpx.Control.Observable
+open System.Threading.Tasks
+open System.Threading.Tasks.Dataflow
 
 open NOnion.Cells
 open NOnion.Utility
 
-type TorStream private (streamId: uint16, circuit: TorCircuit) as self =
+
+type TorStream (circuit: TorCircuit) =
+
+    let mutable streamState: StreamState = StreamState.Initialized
+    let controlLock: SemaphoreLocker = new SemaphoreLocker ()
 
     let window: TorWindow = TorWindow Constants.DefaultStreamLevelWindowParams
 
-    let streamMessagesSubject = new Subject<array<byte>> ()
+    let incomingCells: BufferBlock<RelayData> = BufferBlock<RelayData> ()
+    let receiveLock: SemaphoreLocker = new SemaphoreLocker ()
 
-    let subscription =
-        circuit.StreamsMessages
-        |> ObservableUtils.FilterByKey streamId
-        |> Observable.subscribe self.HandleIncomingMessage
-
-    member __.DataReceived = streamMessagesSubject :> IObservable<array<byte>>
-
-    member __.Send (data: array<byte>) =
+    member __.SendData (data: array<byte>) =
         async {
-            let dataChunks =
-                SeqUtils.chunk Constants.MaximumRelayPayloadLength data
-
-            let rec sendChunks dataChunks =
+            let safeSend () =
                 async {
-                    match Seq.tryHead dataChunks with
-                    | None -> ()
-                    | Some head ->
-                        do!
-                            head
-                            |> Array.ofSeq
-                            |> RelayData.RelayData
-                            |> circuit.Send streamId
+                    match streamState with
+                    | Connected streamId ->
+                        let dataChunks =
+                            SeqUtils.chunk
+                                Constants.MaximumRelayPayloadLength
+                                data
 
-                        window.PackageDecrease ()
-                        do! Seq.tail dataChunks |> sendChunks
+                        let rec sendChunks dataChunks =
+                            async {
+                                match Seq.tryHead dataChunks with
+                                | None -> ()
+                                | Some head ->
+                                    do!
+                                        head
+                                        |> Array.ofSeq
+                                        |> RelayData.RelayData
+                                        |> circuit.SendRelayCell streamId
+
+                                    window.PackageDecrease ()
+                                    do! Seq.tail dataChunks |> sendChunks
+                            }
+
+                        do! sendChunks dataChunks
+                    | _ ->
+                        failwith
+                            "Unexpected state when trying to send data over stream"
                 }
 
-            do! sendChunks dataChunks
+            return! controlLock.RunAsyncWithSemaphore safeSend
         }
 
-    member self.SendAsync data =
-        self.Send data |> Async.StartAsTask
+    member self.SendDataAsync data =
+        self.SendData data |> Async.StartAsTask
 
-    member __.HandleIncomingMessage (message: RelayData) =
-        match message with
-        | RelayData data ->
-            window.DeliverDecrease ()
-
-            if window.NeedSendme () then
-                circuit.Send streamId RelayData.RelaySendMe
-                |> Async.RunSynchronously
-
-            streamMessagesSubject.OnNext data
-        | RelaySendMe _ -> window.PackageIncrease ()
-        | RelayEnd _ -> streamMessagesSubject.OnCompleted ()
-        | _ -> ()
-
-    static member CreateDirectoryStream (circuit: TorCircuit) =
+    member self.ConnectToDirectory () =
         async {
-            let streamId = circuit.RegisterStreamId ()
+            let startConnectionProcess () =
+                async {
+                    let streamId = circuit.RegisterStream self
 
-            // We start the handler before we send the Begin request to make sure we don't miss the init event
+                    let tcs = TaskCompletionSource ()
 
-            let streamInitMsg =
-                circuit.StreamsMessages
-                |> ObservableUtils.FilterByKey streamId
-                |> Observable.choose (fun message ->
-                    match message with
-                    | RelayConnected _
-                    | RelayEnd _ -> Some message
-                    | _ -> None
-                )
-                |> Async.AwaitObservable
+                    streamState <- Connecting (streamId, tcs)
 
-            do! circuit.Send streamId RelayData.RelayBeginDirectory
+                    do!
+                        circuit.SendRelayCell
+                            streamId
+                            RelayData.RelayBeginDirectory
 
-            let! streamInitMsg = streamInitMsg
+                    return tcs.Task
+                }
 
-            return
-                match streamInitMsg with
-                | RelayConnected _ -> new TorStream (streamId, circuit)
-                | _ -> failwith "can't create a directory stream"
+            let! connectionProcessTcs =
+                controlLock.RunAsyncWithSemaphore startConnectionProcess
+
+            return! connectionProcessTcs |> Async.AwaitTask
         }
 
-    static member CreateDirectoryStreamAsync circuit =
-        TorStream.CreateDirectoryStream circuit |> Async.StartAsTask
+    member self.ConnectToDirectoryAsync () =
+        self.ConnectToDirectory () |> Async.StartAsTask
+
+    member self.Receive () =
+        async {
+            let safeReceive () =
+                async {
+                    let! cell = incomingCells.ReceiveAsync () |> Async.AwaitTask
+
+                    match cell with
+                    | RelayData data -> return data |> Some
+                    | RelayEnd reason -> return None
+                    | _ ->
+                        return
+                            failwith
+                                "IncomingCells should not keep non-related cells"
+                }
+
+            return! receiveLock.RunAsyncWithSemaphore safeReceive
+        }
+
+    member self.ReceiveAsync () =
+        self.Receive () |> Async.StartAsTask
+
+    interface ITorStream with
+        member __.HandleIncomingData (message: RelayData) =
+            async {
+                match message with
+                | RelayConnected _ ->
+                    let handleRelayConnected () =
+                        match streamState with
+                        | Connecting (streamId, tcs) ->
+                            streamState <- Connected streamId
+                            tcs.SetResult streamId
+                        | _ ->
+                            failwith
+                                "Unexpected state when receiving RelayConnected cell"
+
+
+                    controlLock.RunSyncWithSemaphore handleRelayConnected
+                | RelayData data ->
+                    window.DeliverDecrease ()
+
+                    if window.NeedSendme () then
+                        let sendSendMe () =
+                            async {
+                                match streamState with
+                                | Connected streamId ->
+                                    return!
+                                        circuit.SendRelayCell
+                                            streamId
+                                            RelayData.RelaySendMe
+                                | _ ->
+                                    failwith
+                                        "Unexpected state when sending stream-level sendme"
+                            }
+
+                        do! controlLock.RunAsyncWithSemaphore sendSendMe
+
+                    incomingCells.Post message |> ignore<bool>
+                | RelaySendMe _ -> window.PackageIncrease ()
+                | RelayEnd reason ->
+                    let handleRelayEnd () =
+                        match streamState with
+                        | Connecting (_, tcs) ->
+                            streamState <- Ended reason
+
+                            Failure (
+                                sprintf
+                                    "Stream connection process failed! Reason: %d"
+                                    reason
+                            )
+                            |> tcs.SetException
+                        | Connected _ ->
+                            incomingCells.Post message |> ignore<bool>
+                            streamState <- Ended reason
+                        | _ ->
+                            failwith
+                                "Unexpected state when receiving RelayEnd cell"
+
+                    controlLock.RunSyncWithSemaphore handleRelayEnd
+                | _ -> ()
+            }
 
     interface IDisposable with
         member __.Dispose () =
-            subscription.Dispose ()
-            streamMessagesSubject.OnCompleted ()
-            streamMessagesSubject.Dispose ()
+            (controlLock :> IDisposable).Dispose ()
+            (receiveLock :> IDisposable).Dispose ()

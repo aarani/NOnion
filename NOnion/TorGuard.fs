@@ -5,22 +5,19 @@ open System.IO
 open System.Net
 open System.Net.Security
 open System.Net.Sockets
-open System.Reactive.Subjects
 open System.Security.Authentication
+open System.Security.Cryptography
 open System.Threading
 
 open NOnion.Cells
 open NOnion.Utility
 
 type TorGuard private (client: TcpClient, sslStream: SslStream) =
-    let messagesSubject = new Subject<uint16 * ICell> ()
     let shutdownToken = new CancellationTokenSource ()
 
-    let mutable circuitIds: List<uint16> = List.empty
+    let mutable circuitsMap: Map<uint16, ITorCircuit> = Map.empty
     // Prevents two circuit setup happening at once (to prevent race condition on writing to CircuitIds list)
     let circuitSetupLock: obj = obj ()
-
-    member __.MessageReceived = messagesSubject :> IObservable<uint16 * ICell>
 
     static member NewClient (ipEndpoint: IPEndPoint) =
         async {
@@ -152,11 +149,17 @@ type TorGuard private (client: TcpClient, sslStream: SslStream) =
     member private self.StartListening () =
         let listeningJob () =
             async {
-                while sslStream.CanRead do
-                    let! message = self.ReceiveMessage ()
-                    messagesSubject.OnNext message
                 //TODO: Handle socket closure and AsyncRead behaviour in case of socket being closed
-                messagesSubject.OnCompleted ()
+                while sslStream.CanRead do
+                    let! cid, cell = self.ReceiveMessage ()
+
+                    if cid = 0us then
+                        //TODO: handle control message?
+                        ()
+                    else
+                        match circuitsMap.TryFind cid with
+                        | Some circuit -> do! circuit.HandleIncomingCell cell
+                        | None -> failwith "Unknown circuit"
             }
 
         Async.Start (listeningJob (), shutdownToken.Token)
@@ -190,20 +193,36 @@ type TorGuard private (client: TcpClient, sslStream: SslStream) =
         //TODO: do security checks on handshake data
         }
 
-    member internal __.RegisterCircuitId (cid: uint16) : bool =
-        let safeRegister () =
-            if List.contains cid circuitIds then
-                false
-            else
-                circuitIds <- circuitIds @ [ cid ]
-                true
+    member internal __.RegisterCircuit (circuit: ITorCircuit) : uint16 =
+        let rec createCircuitId (retry: int) =
+            let registerId (cid: uint16) =
+                if Map.containsKey cid circuitsMap then
+                    false
+                else
+                    circuitsMap <- circuitsMap.Add (cid, circuit)
+                    true
 
-        lock circuitSetupLock safeRegister
+            if retry >= Constants.MaxCircuitIdGenerationRetry then
+                failwith "can't create a circuit"
+
+            let randomBytes = Array.zeroCreate<byte> Constants.CircuitIdLength
+
+            RandomNumberGenerator
+                .Create()
+                .GetBytes randomBytes
+
+            let cid =
+                IntegerSerialization.FromBigEndianByteArrayToUInt16 randomBytes
+
+            if registerId cid then
+                cid
+            else
+                createCircuitId (retry + 1)
+
+        lock circuitSetupLock (fun () -> createCircuitId 0)
 
     interface IDisposable with
         member __.Dispose () =
             shutdownToken.Cancel ()
-            messagesSubject.OnCompleted ()
-            messagesSubject.Dispose ()
             sslStream.Dispose ()
             client.Dispose ()

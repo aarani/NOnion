@@ -7,7 +7,7 @@
 
   <ItemGroup>
     <Compile Include="Constants.fs" />
-    <Compile Include="Utility\ObservableUtils.fs" />
+    <Compile Include="Utility\SemaphoreLocker.fs" />
     <Compile Include="Utility\SeqUtils.fs" />
     <Compile Include="Utility\DigestUtils.fs" />
     <Compile Include="Utility\BigIntegerSerialization.fs" />
@@ -32,6 +32,10 @@
     <Compile Include="Cells\CellEncryptedRelay.fs" />
     <Compile Include="Cells\CellPlainRelay.fs" />
     <Compile Include="Cells\Command.fs" />
+    <Compile Include="ITorCircuit.fs" />
+    <Compile Include="ITorStream.fs" />
+    <Compile Include="CircuitState.fs" />
+    <Compile Include="StreamState.fs" />
     <Compile Include="TorGuard.fs" />
     <Compile Include="TorWindow.fs" />
     <Compile Include="TorCircuit.fs" />
@@ -39,8 +43,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="FSharpx.Async" Version="1.14.1" />
     <PackageReference Include="Portable.BouncyCastle" Version="1.8.10" />
-    <PackageReference Include="System.Reactive" Version="5.0.0" />
+    <PackageReference Include="System.Threading.Tasks.DataFlow" Version="5.0.0" />
   </ItemGroup>
 </Project>

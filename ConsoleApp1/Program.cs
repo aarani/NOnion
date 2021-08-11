@@ -1,9 +1,9 @@
 ﻿using System;
 using System.Text;
 using System.Net;
-using System.Threading;
 using System.Threading.Tasks;
 using NOnion;
+using Microsoft.FSharp.Core;
 
 namespace ConsoleApp1
 {
@@ -11,29 +11,33 @@ namespace ConsoleApp1
     {
         static async Task Main(string[] args)
         {
-            var file = System.IO.File.OpenWrite("test.txt");
-            var guard = await TorGuard.NewClientAsync(IPEndPoint.Parse("199.184.246.250:443"));
-            var circuit = await TorCircuit.CreateFastAsync(guard);
-            Console.WriteLine("Created circuit, Id: {0}", circuit.Id);
+            using TorGuard guard = await TorGuard.NewClientAsync(IPEndPoint.Parse("199.184.246.250:443"));
+            using TorCircuit circuit = new (guard);
+            using TorStream stream = new (circuit);
 
-            TaskCompletionSource<long> dataReceivedCompletion = new ();
-
-            var stream = await TorStream.CreateDirectoryStreamAsync(circuit);
-            stream.DataReceived.Subscribe(
-                data => file.Write(data, 0, data.Length),
-                _ => {
-                    file.Flush();
-                    file.Close();
-                    dataReceivedCompletion.SetResult(file.Position);
-                }
-            );
+            var circuitId = await circuit.CreateFastAsync();
+            Console.WriteLine("Created circuit, Id: {0}", circuitId);
+            await stream.ConnectToDirectoryAsync();
 
             var request = $"GET /tor/status-vote/current/consensus HTTP/1.0\r\nHost: 199.184.246.250\r\n\r\n";
             var requestBytes = Encoding.UTF8.GetBytes(request);
-            await stream.SendAsync(requestBytes);
+            await stream.SendDataAsync(requestBytes);
+            var response = await ReceiveAllAsString(stream);
+            System.IO.File.WriteAllText("test.txt", response);
+        }
 
-            var size = await dataReceivedCompletion.Task;
-            Console.WriteLine("Received data size: {0}", size);
+        static async Task<string> ReceiveAllAsString(TorStream stream)
+        {
+            var result = string.Empty;
+            var newMsg = await stream.ReceiveAsync();
+
+            while (!FSharpOption<byte[]>.get_IsNone(newMsg))
+            {
+                result += Encoding.UTF8.GetString(newMsg.Value);
+                newMsg = await stream.ReceiveAsync();
+            }
+
+            return result;
         }
     }
 }
