@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using NUnit.Framework;
 
 using NOnion.Network;
+using NOnion.Http;
 
 namespace DotNetOnion.Tests
 {
@@ -47,20 +48,27 @@ namespace DotNetOnion.Tests
             await circuit.CreateFastAsync();
             await stream.ConnectToDirectoryAsync();
 
-            var request = $"GET /tor/status-vote/current/consensus HTTP/1.0\r\nHost: 199.184.246.250\r\n\r\n";
-            var requestBytes = Encoding.UTF8.GetBytes(request);
-            await stream.SendDataAsync(requestBytes);
-
-            var response = string.Empty;
-            var newPartialResponse = await stream.ReceiveAsync();
-
-            while (!FSharpOption<byte[]>.get_IsNone(newPartialResponse))
-            {
-                response += Encoding.UTF8.GetString(newPartialResponse.Value);
-                newPartialResponse = await stream.ReceiveAsync();
-            }
+            var httpClient = new TorHttpClient(stream, torServer.Address.ToString());
+            var response = await httpClient.GetAsStringAsync("/tor/status-vote/current/consensus", true);
 
             Assert.That(response.Contains("network-status-version"));
         }
+
+        [Test]
+        public async Task CanReceiveCompressedConsensusOverMonohopCircuit()
+        {
+            using TorGuard guard = await TorGuard.NewClientAsync(torServer);
+            using TorCircuit circuit = new(guard);
+            using TorStream stream = new(circuit);
+
+            await circuit.CreateFastAsync();
+            await stream.ConnectToDirectoryAsync();
+
+            var httpClient = new TorHttpClient(stream, torServer.Address.ToString());
+            var response = await httpClient.GetAsStringAsync("/tor/status-vote/current/consensus", false);
+
+            Assert.That(response.Contains("network-status-version"));
+        }
+
     }
 }

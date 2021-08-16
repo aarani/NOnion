@@ -40,10 +40,12 @@
     <Compile Include="Network\TorWindow.fs" />
     <Compile Include="Network\TorCircuit.fs" />
     <Compile Include="Network\TorStream.fs" />
+    <Compile Include="Http\TorHttpClient.fs" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Portable.BouncyCastle" Version="1.8.10" />
+    <PackageReference Include="System.Memory" Version="4.5.4" />
     <PackageReference Include="System.Threading.Tasks.DataFlow" Version="5.0.0" />
   </ItemGroup>
 </Project>
