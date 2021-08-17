@@ -1,4 +1,4 @@
-﻿namespace NOnion
+﻿namespace NOnion.Network
 
 open NOnion.Cells
 

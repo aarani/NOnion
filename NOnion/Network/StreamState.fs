@@ -1,4 +1,4 @@
-﻿namespace NOnion
+﻿namespace NOnion.Network
 
 open System.Threading.Tasks
 

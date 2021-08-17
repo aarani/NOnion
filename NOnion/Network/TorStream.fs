@@ -1,9 +1,10 @@
-﻿namespace NOnion
+﻿namespace NOnion.Network
 
 open System
 open System.Threading.Tasks
 open System.Threading.Tasks.Dataflow
 
+open NOnion
 open NOnion.Cells
 open NOnion.Utility
 

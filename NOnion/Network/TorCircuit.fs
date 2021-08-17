@@ -1,9 +1,10 @@
-﻿namespace NOnion
+﻿namespace NOnion.Network
 
 open System
 open System.Security.Cryptography
 open System.Threading.Tasks
 
+open NOnion
 open NOnion.Cells
 open NOnion.Crypto
 open NOnion.Crypto.Kdf

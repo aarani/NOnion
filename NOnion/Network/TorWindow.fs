@@ -1,4 +1,4 @@
-﻿namespace NOnion
+﻿namespace NOnion.Network
 
 type TorWindow (start: int, increament: int) =
 

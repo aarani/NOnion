@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 using NUnit.Framework;
 
-using NOnion;
+using NOnion.Network;
 
 namespace DotNetOnion.Tests
 {

@@ -1,4 +1,4 @@
-﻿namespace NOnion
+﻿namespace NOnion.Network
 
 open System
 open System.IO
@@ -9,6 +9,7 @@ open System.Security.Authentication
 open System.Security.Cryptography
 open System.Threading
 
+open NOnion
 open NOnion.Cells
 open NOnion.Utility
 

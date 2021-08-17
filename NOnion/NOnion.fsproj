@@ -32,14 +32,14 @@
     <Compile Include="Cells\CellEncryptedRelay.fs" />
     <Compile Include="Cells\CellPlainRelay.fs" />
     <Compile Include="Cells\Command.fs" />
-    <Compile Include="ITorCircuit.fs" />
-    <Compile Include="ITorStream.fs" />
-    <Compile Include="CircuitState.fs" />
-    <Compile Include="StreamState.fs" />
-    <Compile Include="TorGuard.fs" />
-    <Compile Include="TorWindow.fs" />
-    <Compile Include="TorCircuit.fs" />
-    <Compile Include="TorStream.fs" />
+    <Compile Include="Network\ITorCircuit.fs" />
+    <Compile Include="Network\ITorStream.fs" />
+    <Compile Include="Network\CircuitState.fs" />
+    <Compile Include="Network\StreamState.fs" />
+    <Compile Include="Network\TorGuard.fs" />
+    <Compile Include="Network\TorWindow.fs" />
+    <Compile Include="Network\TorCircuit.fs" />
+    <Compile Include="Network\TorStream.fs" />
   </ItemGroup>
 
   <ItemGroup>
