@@ -60,7 +60,7 @@ namespace DotNetOnion.Tests
                 newPartialResponse = await stream.ReceiveAsync();
             }
 
-            Assert.IsNotEmpty(response);
+            Assert.That(response.Contains("network-status-version"));
         }
     }
 }
