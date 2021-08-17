@@ -20,7 +20,7 @@ namespace DotNetOnion.Tests
         public async Task CanCreateMonohopCircuit()
         {
             using TorGuard guard = await TorGuard.NewClientAsync(torServer);
-            using TorCircuit circuit = new(guard);
+            TorCircuit circuit = new(guard);
             var circuitId = await circuit.CreateFastAsync();
             Debug.WriteLine("Created circuit, Id: {0}", circuitId);
 
@@ -31,8 +31,8 @@ namespace DotNetOnion.Tests
         public async Task CanCreateDirectoryStreamOverMonohopCircuit ()
         {
             using TorGuard guard = await TorGuard.NewClientAsync(torServer);
-            using TorCircuit circuit = new(guard);
-            using TorStream stream = new(circuit);
+            TorCircuit circuit = new(guard);
+            TorStream stream = new(circuit);
 
             await circuit.CreateFastAsync();
             await stream.ConnectToDirectoryAsync();
@@ -42,8 +42,8 @@ namespace DotNetOnion.Tests
         public async Task CanReceiveConsensusOverMonohopCircuit()
         {
             using TorGuard guard = await TorGuard.NewClientAsync(torServer);
-            using TorCircuit circuit = new(guard);
-            using TorStream stream = new(circuit);
+            TorCircuit circuit = new(guard);
+            TorStream stream = new(circuit);
 
             await circuit.CreateFastAsync();
             await stream.ConnectToDirectoryAsync();
@@ -58,8 +58,8 @@ namespace DotNetOnion.Tests
         public async Task CanReceiveCompressedConsensusOverMonohopCircuit()
         {
             using TorGuard guard = await TorGuard.NewClientAsync(torServer);
-            using TorCircuit circuit = new(guard);
-            using TorStream stream = new(circuit);
+            TorCircuit circuit = new(guard);
+            TorStream stream = new(circuit);
 
             await circuit.CreateFastAsync();
             await stream.ConnectToDirectoryAsync();

@@ -12,7 +12,7 @@ open NOnion.Utility
 
 type TorCircuit (guard: TorGuard) =
     let mutable circuitState: CircuitState = CircuitState.Initialized
-    let controlLock: SemaphoreLocker = new SemaphoreLocker ()
+    let controlLock: SemaphoreLocker = SemaphoreLocker ()
 
     let window = TorWindow Constants.DefaultCircuitLevelWindowParams
 
@@ -226,7 +226,3 @@ type TorCircuit (guard: TorGuard) =
                         | None -> failwith "Unknown stream"
                 | _ -> ()
             }
-
-    interface IDisposable with
-        member __.Dispose () =
-            (controlLock :> IDisposable).Dispose ()

@@ -12,12 +12,12 @@ open NOnion.Utility
 type TorStream (circuit: TorCircuit) =
 
     let mutable streamState: StreamState = StreamState.Initialized
-    let controlLock: SemaphoreLocker = new SemaphoreLocker ()
+    let controlLock: SemaphoreLocker = SemaphoreLocker ()
 
     let window: TorWindow = TorWindow Constants.DefaultStreamLevelWindowParams
 
     let incomingCells: BufferBlock<RelayData> = BufferBlock<RelayData> ()
-    let receiveLock: SemaphoreLocker = new SemaphoreLocker ()
+    let receiveLock: SemaphoreLocker = SemaphoreLocker ()
 
     member __.SendData (data: array<byte>) =
         async {
@@ -164,8 +164,3 @@ type TorStream (circuit: TorCircuit) =
                     controlLock.RunSyncWithSemaphore handleRelayEnd
                 | _ -> ()
             }
-
-    interface IDisposable with
-        member __.Dispose () =
-            (controlLock :> IDisposable).Dispose ()
-            (receiveLock :> IDisposable).Dispose ()
