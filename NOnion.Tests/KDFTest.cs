@@ -3,7 +3,7 @@ using NOnion.Utility;
 using NOnion.Crypto.Kdf;
 using NUnit.Framework;
 
-namespace DotNetOnion.Tests
+namespace NOnion.Tests
 {
     public class KdfTest
     {

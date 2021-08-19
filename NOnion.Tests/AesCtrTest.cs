@@ -2,7 +2,7 @@ using NUnit.Framework;
 using NOnion.Crypto;
 using NOnion.Utility;
 
-namespace DotNetOnion.Tests
+namespace NOnion.Tests
 {
 
     public class AesCtrTest

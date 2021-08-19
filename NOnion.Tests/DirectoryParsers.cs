@@ -7,7 +7,7 @@ using NOnion.Directory;
 
 
 
-namespace DotNetOnion.Tests
+namespace NOnion.Tests
 {
     public class DirectoryParsers
     {

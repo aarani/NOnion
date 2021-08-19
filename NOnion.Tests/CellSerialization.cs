@@ -10,7 +10,7 @@ using NOnion.Utility;
 using NOnion.Cells;
 using NUnit.Framework;
 
-namespace DotNetOnion.Tests
+namespace NOnion.Tests
 {
     public class CellSerialization
     {

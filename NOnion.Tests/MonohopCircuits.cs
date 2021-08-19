@@ -9,7 +9,7 @@ using NUnit.Framework;
 using NOnion.Network;
 using NOnion.Http;
 
-namespace DotNetOnion.Tests
+namespace NOnion.Tests
 {
     public class MonohopCircuits
     {
