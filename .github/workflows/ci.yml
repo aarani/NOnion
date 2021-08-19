@@ -25,7 +25,7 @@ jobs:
           dotnet tool install --global dotnet-fsharplint
 
           # path taken from https://stackoverflow.com/a/65367006/544947
-          $HOME/.dotnet/tools/dotnet-fsharplint lint DotNetOnion.sln
+          $HOME/.dotnet/tools/dotnet-fsharplint lint NOnion.sln
 
       # FIXME: use `continue-on-error: true` when we figure out how to have a
       #        visual warning icon (instead of green tick) on GitHubActionsCI

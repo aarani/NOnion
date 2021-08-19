@@ -3,6 +3,7 @@
 open System.Threading
 
 type SemaphoreLocker () =
+    //FIXME: Semaphores are not disposed correctly
     let semaphore = new SemaphoreSlim 1
 
     member __.RunAsyncWithSemaphore (func: unit -> Async<'T>) : Async<'T> =
@@ -20,7 +21,3 @@ type SemaphoreLocker () =
             func ()
         finally
             semaphore.Release () |> ignore<int>
-
-    interface System.IDisposable with
-        member __.Dispose () =
-            semaphore.Dispose ()

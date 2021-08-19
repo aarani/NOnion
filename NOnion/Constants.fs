@@ -61,3 +61,5 @@ module Constants =
     //TODO: Should be updatable from consensus
     let internal DefaultCircuitLevelWindowParams = (1000, 100)
     let internal DefaultStreamLevelWindowParams = (500, 50)
+
+    let internal DeflateStreamHeaderLength = 2

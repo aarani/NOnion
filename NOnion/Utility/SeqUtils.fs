@@ -1,4 +1,4 @@
-﻿namespace NOnion
+﻿namespace NOnion.Utility
 
 module SeqUtils =
     // Helper function copied from https://stackoverflow.com/a/21615676
