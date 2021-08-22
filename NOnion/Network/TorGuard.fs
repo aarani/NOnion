@@ -68,23 +68,23 @@ type TorGuard private (client: TcpClient, sslStream: SslStream) =
             do!
                 circuidId
                 |> IntegerSerialization.FromUInt16ToBigEndianByteArray
-                |> sslStream.AsyncWrite
+                |> StreamUtil.Write sslStream
 
-            do! Array.singleton cellToSend.Command |> sslStream.AsyncWrite
+            do! Array.singleton cellToSend.Command |> StreamUtil.Write sslStream
 
             if Command.IsVariableLength cellToSend.Command then
                 do!
                     memStream.Length
                     |> uint16
                     |> IntegerSerialization.FromUInt16ToBigEndianByteArray
-                    |> sslStream.AsyncWrite
+                    |> StreamUtil.Write sslStream
             else
                 Array.zeroCreate<byte> (
                     Constants.FixedPayloadLength - int memStream.Position
                 )
                 |> writer.Write
 
-            do! memStream.ToArray () |> sslStream.AsyncWrite
+            do! memStream.ToArray () |> StreamUtil.Write sslStream
         }
 
     member self.SendAsync (circuidId: uint16) (cellToSend: ICell) =
@@ -92,35 +92,56 @@ type TorGuard private (client: TcpClient, sslStream: SslStream) =
 
     member private __.ReceiveInternal () =
         async {
-            let! header = sslStream.AsyncRead Constants.PacketHeaderLength
+            (*
+                If at any time "ReadFixedSize" returns None, it means that either stream is closed/disposed or
+                cancellation is requested, anyhow we don't need to continue listening for new data
+            *)
+            let! maybeHeader =
+                StreamUtil.ReadFixedSize sslStream Constants.PacketHeaderLength
 
-            let circuitId =
-                header
-                |> Array.take Constants.CircuitIdLength
-                |> IntegerSerialization.FromBigEndianByteArrayToUInt16
+            match maybeHeader with
+            | Some header ->
+                let circuitId =
+                    header
+                    |> Array.take Constants.CircuitIdLength
+                    |> IntegerSerialization.FromBigEndianByteArrayToUInt16
 
-            // Command is only one byte in size
-            let command =
-                header |> Array.skip Constants.CommandOffset |> Array.exactlyOne
+                // Command is only one byte in size
+                let command =
+                    header
+                    |> Array.skip Constants.CommandOffset
+                    |> Array.exactlyOne
 
-            let! bodyLength =
-                async {
-                    if Command.IsVariableLength command then
-                        let! lengthBytes =
-                            sslStream.AsyncRead
-                                Constants.VariableLengthBodyPrefixLength
+                let! maybeBodyLength =
+                    async {
+                        if Command.IsVariableLength command then
+                            let! maybeLengthBytes =
+                                StreamUtil.ReadFixedSize
+                                    sslStream
+                                    Constants.VariableLengthBodyPrefixLength
 
-                        return
-                            lengthBytes
-                            |> IntegerSerialization.FromBigEndianByteArrayToUInt16
-                            |> int
-                    else
-                        return Constants.FixedPayloadLength
-                }
+                            match maybeLengthBytes with
+                            | Some lengthBytes ->
+                                return
+                                    lengthBytes
+                                    |> IntegerSerialization.FromBigEndianByteArrayToUInt16
+                                    |> int
+                                    |> Some
+                            | None -> return None
+                        else
+                            return Constants.FixedPayloadLength |> Some
+                    }
 
-            let! body = sslStream.AsyncRead bodyLength
+                match maybeBodyLength with
+                | Some bodyLength ->
+                    let! maybeBody =
+                        StreamUtil.ReadFixedSize sslStream bodyLength
 
-            return (circuitId, command, body)
+                    match maybeBody with
+                    | Some body -> return Some (circuitId, command, body)
+                    | None -> return None
+                | None -> return None
+            | None -> return None
         }
 
     member private self.ReceiveExpected<'T when 'T :> ICell> () : Async<'T> =
@@ -128,39 +149,66 @@ type TorGuard private (client: TcpClient, sslStream: SslStream) =
             let expectedCommandType = Command.GetCommandByCellType<'T> ()
 
             //This is only used for handshake process so circuitId doesn't matter
-            let! _circuitId, command, body = self.ReceiveInternal ()
+            let! maybeMessage = self.ReceiveInternal ()
 
-            //FIXME: maybe continue instead of failing?
-            if command <> expectedCommandType then
-                failwith (sprintf "Unexpected msg type %d" command)
+            match maybeMessage with
+            | None ->
+                return
+                    failwith
+                        "Socket got closed before receiving an expected cell"
+            | Some (_circuitId, command, body) ->
+                //FIXME: maybe continue instead of failing?
+                if command <> expectedCommandType then
+                    failwith (sprintf "Unexpected msg type %d" command)
 
-            use memStream = new MemoryStream (body)
-            use reader = new BinaryReader (memStream)
-            return Command.DeserializeCell reader expectedCommandType :?> 'T
+                use memStream = new MemoryStream (body)
+                use reader = new BinaryReader (memStream)
+                return Command.DeserializeCell reader expectedCommandType :?> 'T
         }
 
     member private self.ReceiveMessage () =
         async {
-            let! circuitId, command, body = self.ReceiveInternal ()
-            use memStream = new MemoryStream (body)
-            use reader = new BinaryReader (memStream)
-            return (circuitId, Command.DeserializeCell reader command)
+            let! maybeMessage = self.ReceiveInternal ()
+
+            match maybeMessage with
+            | Some (circuitId, command, body) ->
+                use memStream = new MemoryStream (body)
+                use reader = new BinaryReader (memStream)
+
+                return
+                    (circuitId, Command.DeserializeCell reader command) |> Some
+            | None -> return None
         }
 
     member private self.StartListening () =
         let listeningJob () =
             async {
-                //TODO: Handle socket closure and AsyncRead behaviour in case of socket being closed
-                while sslStream.CanRead do
-                    let! cid, cell = self.ReceiveMessage ()
+                let rec readFromStream () =
+                    async {
+                        let! maybeCell = self.ReceiveMessage ()
 
-                    if cid = 0us then
-                        //TODO: handle control message?
-                        ()
-                    else
-                        match circuitsMap.TryFind cid with
-                        | Some circuit -> do! circuit.HandleIncomingCell cell
-                        | None -> failwith "Unknown circuit"
+                        match maybeCell with
+                        | None -> ()
+                        | Some (cid, cell) ->
+                            if cid = 0us then
+                                //TODO: handle control message?
+                                ()
+                            else
+                                match circuitsMap.TryFind cid with
+                                | Some circuit ->
+                                    // Some circuit handlers send data, which by itself might try to use the stream
+                                    // after it's already disposed, so we need to be able to handle cancellation during cell handling as well
+                                    try
+                                        do! circuit.HandleIncomingCell cell
+                                    with
+                                        | :? ObjectDisposedException
+                                        | :? OperationCanceledException -> ()
+                                | None -> failwith "Unknown circuit"
+
+                            return! readFromStream ()
+                    }
+
+                return! readFromStream ()
             }
 
         Async.Start (listeningJob (), shutdownToken.Token)
@@ -226,4 +274,5 @@ type TorGuard private (client: TcpClient, sslStream: SslStream) =
         member __.Dispose () =
             shutdownToken.Cancel ()
             sslStream.Dispose ()
+            client.Close ()
             client.Dispose ()
