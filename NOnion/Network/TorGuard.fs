@@ -159,7 +159,7 @@ type TorGuard private (client: TcpClient, sslStream: SslStream) =
             | Some (_circuitId, command, body) ->
                 //FIXME: maybe continue instead of failing?
                 if command <> expectedCommandType then
-                    failwith (sprintf "Unexpected msg type %d" command)
+                    failwith (sprintf "Unexpected msg type %i" command)
 
                 use memStream = new MemoryStream (body)
                 use reader = new BinaryReader (memStream)
@@ -203,7 +203,10 @@ type TorGuard private (client: TcpClient, sslStream: SslStream) =
                                     with
                                         | :? ObjectDisposedException
                                         | :? OperationCanceledException -> ()
-                                | None -> failwith "Unknown circuit"
+                                | None ->
+                                    failwith (
+                                        sprintf "Unknown circuit, Id = %i" cid
+                                    )
 
                             return! readFromStream ()
                     }
