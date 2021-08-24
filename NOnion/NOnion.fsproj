@@ -7,6 +7,7 @@
 
   <ItemGroup>
     <Compile Include="Constants.fs" />
+    <Compile Include="Utility\StreamUtil.fs" />
     <Compile Include="Utility\SemaphoreLocker.fs" />
     <Compile Include="Utility\SeqUtils.fs" />
     <Compile Include="Utility\DigestUtils.fs" />
