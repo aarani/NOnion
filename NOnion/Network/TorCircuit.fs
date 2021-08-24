@@ -185,7 +185,7 @@ type TorCircuit (guard: TorGuard) =
                             let kdfResult =
                                 Array.concat [ randomClientMaterial
                                                createdMsg.Y ]
-                                |> Kdf.computeLegacyKdf
+                                |> Kdf.ComputeLegacyKdf
 
                             if kdfResult.KeyHandshake
                                <> createdMsg.DerivativeKeyData then

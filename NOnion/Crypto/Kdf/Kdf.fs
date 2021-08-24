@@ -5,7 +5,7 @@ open System.Security.Cryptography
 open NOnion
 
 module Kdf =
-    let computeLegacyKdf (k0: array<byte>) : KdfResult =
+    let ComputeLegacyKdf (k0: array<byte>) : KdfResult =
         use sha1Engine = new SHA1Managed ()
 
         let rec innerCompute (i: byte) (state: array<byte>) =
