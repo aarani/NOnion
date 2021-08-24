@@ -5,7 +5,7 @@ open System.Threading.Tasks
 open System.Threading.Tasks.Dataflow
 
 open NOnion
-open NOnion.Cells
+open NOnion.Cells.Relay
 open NOnion.Utility
 
 
@@ -35,11 +35,15 @@ type TorStream (circuit: TorCircuit) =
                                 match Seq.tryHead dataChunks with
                                 | None -> ()
                                 | Some head ->
+                                    circuit.LastNode.Window.PackageDecrease ()
+
                                     do!
-                                        head
-                                        |> Array.ofSeq
-                                        |> RelayData.RelayData
-                                        |> circuit.SendRelayCell streamId
+                                        circuit.SendRelayCell
+                                            streamId
+                                            (head
+                                             |> Array.ofSeq
+                                             |> RelayData.RelayData)
+                                            None
 
                                     window.PackageDecrease ()
                                     do! Seq.tail dataChunks |> sendChunks
@@ -71,6 +75,7 @@ type TorStream (circuit: TorCircuit) =
                         circuit.SendRelayCell
                             streamId
                             RelayData.RelayBeginDirectory
+                            None
 
                     return tcs.Task
                 }
@@ -133,6 +138,7 @@ type TorStream (circuit: TorCircuit) =
                                         circuit.SendRelayCell
                                             streamId
                                             RelayData.RelaySendMe
+                                            None
                                 | _ ->
                                     failwith
                                         "Unexpected state when sending stream-level sendme"

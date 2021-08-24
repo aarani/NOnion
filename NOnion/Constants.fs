@@ -84,3 +84,6 @@ module Constants =
 
     let internal NTorAuthInputSuffix =
         NTorProtoIdStr + "Server" |> Encoding.ASCII.GetBytes
+
+    let internal NTorServerPublicKeyLength = 32
+    let internal NTorAuthDataLength = 32

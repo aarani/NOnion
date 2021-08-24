@@ -1,33 +1,22 @@
-﻿namespace NOnion.Cells
+﻿namespace NOnion.Cells.Relay
 
 open System.IO
 
 open NOnion
+open NOnion.Cells
 open NOnion.Utility
 
-type CellCreated2 =
-    private
-        {
-            HandshakeData: array<byte>
-        }
+// Specification (https://github.com/torproject/torspec/blob/main/tor-spec.txt#L1085)
+type RelayExtended2 =
+    {
+        HandshakeData: array<byte>
+    }
 
-    static member Deserialize (reader: BinaryReader) =
+    static member FromBytes (reader: BinaryReader) =
         {
             HandshakeData =
                 BinaryIO.ReadBigEndianUInt16 reader |> int |> reader.ReadBytes
         }
-        :> ICell
-
-    interface ICell with
-
-        member __.Command = 11uy
-
-        member self.Serialize writer =
-            self.HandshakeData.Length
-            |> uint16
-            |> BinaryIO.WriteUInt16BigEndian writer
-
-            writer.Write self.HandshakeData
 
     interface ICreatedCell with
         member self.ServerHandshake =
