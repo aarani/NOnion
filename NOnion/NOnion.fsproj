@@ -7,8 +7,10 @@
 
   <ItemGroup>
     <Compile Include="Constants.fs" />
+    <Compile Include="HandshakeType.fs" />
     <Compile Include="Utility\StreamUtil.fs" />
     <Compile Include="Utility\SemaphoreLocker.fs" />
+    <Compile Include="Utility\Base64Util.fs" />
     <Compile Include="Utility\SeqUtils.fs" />
     <Compile Include="Utility\DigestUtils.fs" />
     <Compile Include="Utility\BigIntegerSerialization.fs" />
@@ -32,7 +34,12 @@
     <Compile Include="Cells\CellCreatedFast.fs" />
     <Compile Include="Cells\CellEncryptedRelay.fs" />
     <Compile Include="Cells\CellPlainRelay.fs" />
+    <Compile Include="Cells\CellCreate2.fs" />
+    <Compile Include="Cells\CellCreated2.fs" />
     <Compile Include="Cells\Command.fs" />
+    <Compile Include="TorHandshakes\IHandshake.fs" />
+    <Compile Include="TorHandshakes\FastHandshake.fs" />
+    <Compile Include="TorHandshakes\NTorHandshake.fs" />
     <Compile Include="Network\ITorCircuit.fs" />
     <Compile Include="Network\ITorStream.fs" />
     <Compile Include="Network\CircuitState.fs" />

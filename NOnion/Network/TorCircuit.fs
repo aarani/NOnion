@@ -7,8 +7,14 @@ open System.Threading.Tasks
 open NOnion
 open NOnion.Cells
 open NOnion.Crypto
-open NOnion.Crypto.Kdf
+open NOnion.TorHandshakes
 open NOnion.Utility
+
+type CircuitNodeDetail =
+    {
+        NTorOnionKey: array<byte>
+        IdentityKey: array<byte>
+    }
 
 type TorCircuit (guard: TorGuard) =
     let mutable circuitState: CircuitState = CircuitState.Initialized
@@ -123,46 +129,64 @@ type TorCircuit (guard: TorGuard) =
 
         controlLock.RunSyncWithSemaphore safeDecryptCell
 
-    member self.CreateFast () =
+    member self.Create (guardDetailOpt: Option<CircuitNodeDetail>) =
         async {
-            let createFast () =
+            let create () =
                 async {
-                    let circuitId = guard.RegisterCircuit self
+                    match circuitState with
+                    | CircuitState.Initialized ->
+                        let circuitId = guard.RegisterCircuit self
+                        let connectionCompletionSource = TaskCompletionSource ()
 
-                    let randomClientMaterial =
-                        Array.zeroCreate<byte> Constants.HashLength
+                        let handshakeState, handshakeCell =
+                            match guardDetailOpt with
+                            | None ->
+                                let state =
+                                    FastHandshake.Create () :> IHandshake
 
-                    RandomNumberGenerator
-                        .Create()
-                        .GetBytes randomClientMaterial
+                                state,
+                                {
+                                    CellCreateFast.X =
+                                        state.GenerateClientMaterial ()
+                                }
+                                :> ICell
+                            | Some guardDetail ->
+                                let state =
+                                    NTorHandshake.Create
+                                        guardDetail.IdentityKey
+                                        guardDetail.NTorOnionKey
+                                    :> IHandshake
 
-                    let connectionCompletionSource = TaskCompletionSource ()
+                                state,
+                                {
+                                    CellCreate2.HandshakeType =
+                                        HandshakeType.NTor
+                                    HandshakeData =
+                                        state.GenerateClientMaterial ()
+                                }
+                                :> ICell
 
-                    circuitState <-
-                        CreatingFast (
-                            circuitId,
-                            randomClientMaterial,
-                            connectionCompletionSource
-                        )
+                        circuitState <-
+                            Creating (
+                                circuitId,
+                                handshakeState,
+                                connectionCompletionSource
+                            )
 
-                    do!
-                        guard.Send
-                            circuitId
-                            {
-                                CellCreateFast.X = randomClientMaterial
-                            }
+                        do! guard.Send circuitId handshakeCell
 
-                    return connectionCompletionSource.Task
+                        return connectionCompletionSource.Task
+                    | _ -> return invalidOp "Circuit is already created"
                 }
 
-            let! completionTask = controlLock.RunAsyncWithSemaphore createFast
+            let! completionTask = controlLock.RunAsyncWithSemaphore create
 
             //FIXME: Connect Timeout?
             return! completionTask |> Async.AwaitTask
         }
 
-    member self.CreateFastAsync () =
-        self.CreateFast () |> Async.StartAsTask
+    member self.CreateAsync guardDetailOpt =
+        self.Create guardDetailOpt |> Async.StartAsTask
 
     member internal __.RegisterStream (stream: ITorStream) : uint16 =
         let safeRegister () =
@@ -178,18 +202,12 @@ type TorCircuit (guard: TorGuard) =
             async {
                 //TODO: Handle circuit-level cells like destroy/truncate/extended etc..
                 match cell with
-                | :? CellCreatedFast as createdMsg ->
-                    let handleCreatedFast () =
+                | :? ICreatedCell as createdMsg ->
+                    let handleCreated () =
                         match circuitState with
-                        | CreatingFast (circuitId, randomClientMaterial, tcs) ->
+                        | Creating (circuitId, handshakeState, tcs) ->
                             let kdfResult =
-                                Array.concat [ randomClientMaterial
-                                               createdMsg.Y ]
-                                |> Kdf.ComputeLegacyKdf
-
-                            if kdfResult.KeyHandshake
-                               <> createdMsg.DerivativeKeyData then
-                                failwith "Key handshake failed!"
+                                handshakeState.GenerateKdfResult createdMsg
 
                             circuitState <-
                                 Created (
@@ -202,8 +220,7 @@ type TorCircuit (guard: TorGuard) =
                             failwith
                                 "Unexpected circuit state when receiving CreatedFast cell"
 
-                    controlLock.RunSyncWithSemaphore handleCreatedFast
-
+                    controlLock.RunSyncWithSemaphore handleCreated
                 | :? CellEncryptedRelay as enRelay ->
                     let streamId, relayData = self.DecryptCell enRelay
 

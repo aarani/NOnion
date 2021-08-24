@@ -5,10 +5,11 @@ open System.IO
 open NOnion
 
 type CellCreatedFast =
-    {
-        Y: array<byte>
-        DerivativeKeyData: array<byte>
-    }
+    private
+        {
+            Y: array<byte>
+            DerivativeKeyData: array<byte>
+        }
 
     static member Deserialize (reader: BinaryReader) =
         let y = reader.ReadBytes Constants.HashLength
@@ -27,3 +28,8 @@ type CellCreatedFast =
         member self.Serialize writer =
             writer.Write self.Y
             writer.Write self.DerivativeKeyData
+
+    interface ICreatedCell with
+        member self.ServerHandshake = self.Y
+
+        member self.DerivativeKey = self.DerivativeKeyData

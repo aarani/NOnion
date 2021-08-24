@@ -1,6 +1,12 @@
 ﻿namespace NOnion.Crypto.Kdf
 
 open System.Security.Cryptography
+open System.Text
+
+open Org.BouncyCastle.Crypto.Digests
+open Org.BouncyCastle.Crypto.Generators
+open Org.BouncyCastle.Crypto.Parameters
+
 
 open NOnion
 
@@ -41,6 +47,52 @@ module Kdf =
         let backwardKey =
             Array.skip (3 * Constants.HashLength + Constants.KeyLength) kdfBytes
             |> Array.take Constants.KeyLength
+
+        {
+            BackwardDigest = backwardDigest
+            BackwardKey = backwardKey
+            ForwardDigest = forwardDigest
+            ForwardKey = forwardKey
+            KeyHandshake = keyHandshake
+        }
+
+    let ComputeRfc5869Kdf (ikm: array<byte>) : KdfResult =
+        let kdfBytes = Array.zeroCreate Constants.KdfLength
+
+        let hash = Sha256Digest ()
+
+        let parameters =
+            HkdfParameters (ikm, Constants.NTorTKey, Constants.NTorMExpand)
+
+        let hkdf = HkdfBytesGenerator hash
+        hkdf.Init parameters
+        hkdf.GenerateBytes (kdfBytes, 0, Constants.KdfLength) |> ignore<int>
+
+        // Offset = 0, Length = HashLength
+        let forwardDigest =
+            Array.skip 0 kdfBytes |> Array.take Constants.HashLength
+
+        // Offset = HashLength, Length = HashLength
+        let backwardDigest =
+            Array.skip Constants.HashLength kdfBytes
+            |> Array.take Constants.HashLength
+
+        // Offset = 2 * HashLength, Length = KeyLength
+        let forwardKey =
+            Array.skip (2 * Constants.HashLength) kdfBytes
+            |> Array.take Constants.KeyLength
+
+        // Offset = 2 * HashLength + KeyLength, Length = KeyLength
+        let backwardKey =
+            Array.skip (2 * Constants.HashLength + Constants.KeyLength) kdfBytes
+            |> Array.take Constants.KeyLength
+
+        // Offset = 2 * HashLength + 2 * KeyLength, Length = HashLength
+        let keyHandshake =
+            Array.skip
+                (2 * Constants.HashLength + 2 * Constants.KeyLength)
+                kdfBytes
+            |> Array.take Constants.HashLength
 
         {
             BackwardDigest = backwardDigest
