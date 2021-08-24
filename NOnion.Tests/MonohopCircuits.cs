@@ -14,7 +14,7 @@ namespace NOnion.Tests
     public class MonohopCircuits
     {
 
-        private readonly IPEndPoint torServer = IPEndPoint.Parse("199.184.246.250:443");
+        private readonly IPEndPoint torServer = IPEndPoint.Parse("85.214.141.24:9001");
 
         [Test]
         public async Task CanCreateMonohopCircuit()
