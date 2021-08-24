@@ -170,7 +170,10 @@ type ServerDescriptorEntry =
 
                     innerParse
                         { state with
-                            Fingerprint = readWord () |> Some
+                            Fingerprint =
+                                (readRestAsString ())
+                                    .Replace (" ", String.Empty)
+                                |> Some
                         }
                 | "hibernating" ->
                     lines.Dequeue () |> ignore
