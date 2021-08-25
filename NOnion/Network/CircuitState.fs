@@ -3,12 +3,13 @@
 open System.Threading.Tasks
 
 open NOnion.Crypto
+open NOnion.TorHandshakes
 
 //TODO: Implement states like destroyed, truncated, etc...
 type CircuitState =
     | Initialized
-    | CreatingFast of
+    | Creating of
         circuitId: uint16 *
-        randomClientMaterial: array<byte> *
+        handshakeState: IHandshake *
         completionTask: TaskCompletionSource<uint16>
     | Created of circuitId: uint16 * cryptoState: TorCryptoState

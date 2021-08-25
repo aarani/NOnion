@@ -33,6 +33,12 @@ module Command =
     [<Literal>]
     let CreatedFast = 6uy
 
+    [<Literal>]
+    let Create2 = 10uy
+
+    [<Literal>]
+    let Created2 = 11uy
+
     let IsVariableLength (command: byte) : bool =
         command = 7uy || command >= 128uy
 
@@ -54,6 +60,8 @@ module Command =
         | Relay -> CellEncryptedRelay.Deserialize reader
         | Padding -> CellPadding.Deserialize reader
         | Destroy -> CellDestroy.Deserialize reader
+        | Create2 -> CellCreate2.Deserialize reader
+        | Created2 -> CellCreated2.Deserialize reader
         | _ -> raise <| NotImplementedException ()
 
     // Is there any non generic way for this?
@@ -68,4 +76,6 @@ module Command =
         | t when t = typeof<CellEncryptedRelay> -> Relay
         | t when t = typeof<CellPadding> -> Padding
         | t when t = typeof<CellDestroy> -> Destroy
+        | t when t = typeof<CellCreate2> -> Create2
+        | t when t = typeof<CellCreated2> -> Created2
         | _ -> raise <| NotImplementedException ()
