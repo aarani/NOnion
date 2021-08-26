@@ -21,25 +21,18 @@ namespace NOnion.Tests
         public async Task CanCreateMultiHopCircuits()
         {
             TestContext.Progress.WriteLine("Receiving descriptors...");
-            List<CircuitNodeDetail> nodes = null;
-            try
-            {
-                nodes = await CircuitHelper.GetRandomRoutersForDirectoryBrowsing(3);
-            }
-            catch
-            {
-                Assert.Inconclusive();
-            }
-
-
+            List<CircuitNodeDetail> nodes = await CircuitHelper.GetRandomRoutersForDirectoryBrowsing(3);
+            
             TestContext.Progress.WriteLine($"Connceting to {nodes[0].Address.Value.Address}...");
             using TorGuard guard = await TorGuard.NewClientAsync(nodes[0].Address.Value);
             TorCircuit circuit = new(guard);
 
             TestContext.Progress.WriteLine("Creating the circuit...");
             await circuit.CreateAsync(nodes[0]);
+
             TestContext.Progress.WriteLine($"Extending the circuit to {nodes[1].Address.Value.Address}...");
             await circuit.ExtendAsync(nodes[1]);
+
             TestContext.Progress.WriteLine($"Extending the circuit to {nodes[2].Address.Value.Address}...");
             await circuit.ExtendAsync(nodes[2]);
 

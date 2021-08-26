@@ -250,7 +250,9 @@ type TorCircuit (guard: TorGuard) =
             let! completionTask = controlLock.RunAsyncWithSemaphore create
 
             //FIXME: Connect Timeout?
-            return! completionTask |> Async.AwaitTask
+            return!
+                completionTask
+                |> AsyncUtil.AwaitTaskWithTimeout Constants.Timeout
         }
 
     member self.Extend (nodeDetail: CircuitNodeDetail) =
@@ -325,8 +327,9 @@ type TorCircuit (guard: TorGuard) =
 
             let! completionTask = controlLock.RunAsyncWithSemaphore extend
 
-            //FIXME: Connect Timeout?
-            return! completionTask |> Async.AwaitTask
+            return!
+                completionTask
+                |> AsyncUtil.AwaitTaskWithTimeout Constants.Timeout
         }
 
     member self.ExtendAsync nodeDetail =
@@ -419,11 +422,49 @@ type TorCircuit (guard: TorGuard) =
                         controlLock.RunSyncWithSemaphore handleExtended
                     | RelaySendMe _ when streamId = Constants.DefaultStreamId ->
                         fromNode.Window.PackageIncrease ()
+                    | RelayTruncated reason ->
+                        let handleTruncated () =
+                            match circuitState with
+                            | Creating (circuitId, _, tcs)
+                            | Extending (circuitId, _, _, tcs) ->
+
+                                circuitState <- Truncated (circuitId, reason)
+
+                                CircuitTruncatedException reason
+                                |> tcs.SetException
+                            | Ready (circuitId, _) ->
+                                //FIXME: how can we tell the user that circuit is destroyed? if we throw here the listening thread with throw and user never finds out why
+                                circuitState <- Truncated (circuitId, reason)
+                            | _ ->
+                                //FIXME: can this even happen?
+                                ()
+
+                        controlLock.RunSyncWithSemaphore handleTruncated
                     | _ -> ()
 
                     if streamId <> Constants.DefaultStreamId then
                         match streamsMap.TryFind streamId with
                         | Some stream -> do! stream.HandleIncomingData relayData
                         | None -> failwith "Unknown stream"
+                | :? CellDestroy as destroyCell ->
+                    let handleDestroyed () =
+                        match circuitState with
+                        | Creating (circuitId, _, tcs)
+                        | Extending (circuitId, _, _, tcs) ->
+
+                            circuitState <-
+                                Destroyed (circuitId, destroyCell.Reason)
+
+                            CircuitDestroyedException destroyCell.Reason
+                            |> tcs.SetException
+                        | Ready (circuitId, _) ->
+                            //FIXME: how can we tell the user that circuit is destroyed? if we throw here the listening thread with throw and user never finds out why
+                            circuitState <-
+                                Destroyed (circuitId, destroyCell.Reason)
+                        | _ ->
+                            //FIXME: can this even happen?
+                            ()
+
+                    controlLock.RunSyncWithSemaphore handleDestroyed
                 | _ -> ()
             }

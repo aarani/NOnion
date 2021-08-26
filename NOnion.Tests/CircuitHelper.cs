@@ -15,6 +15,8 @@ namespace NOnion.Tests
 {
     static internal class CircuitHelper
     {
+        private const int DirectoryAccessRetryLimit = 5;
+
         static private CircuitNodeDetail ConvertToCircuitNodeDetail(ServerDescriptorEntry server)
         {
             var fingerprintBytes = Hex.ToByteArray(server.Fingerprint.Value);
@@ -26,36 +28,50 @@ namespace NOnion.Tests
         //FIXME: SLOW
         static async internal Task<List<CircuitNodeDetail>> GetRandomRoutersForDirectoryBrowsing(int count = 1)
         {
-            var fallbackDirectory = FallbackDirectorySelector.GetRandomFallbackDirectory();
-            using TorGuard guard = await TorGuard.NewClientAsync(fallbackDirectory);
-            TorCircuit circuit = new(guard);
-            TorStream stream = new(circuit);
+            int retry = 0;
 
-            await circuit.CreateAsync(FSharpOption<CircuitNodeDetail>.None);
-            await stream.ConnectToDirectoryAsync();
+            while (retry < DirectoryAccessRetryLimit)
+            {
+                try
+                {
+                    var fallbackDirectory = FallbackDirectorySelector.GetRandomFallbackDirectory();
+                    using TorGuard guard = await TorGuard.NewClientAsync(fallbackDirectory);
+                    TorCircuit circuit = new(guard);
+                    TorStream stream = new(circuit);
 
-            var httpClient = new TorHttpClient(stream, fallbackDirectory.Address.ToString());
-            var serverDescriptors = ServerDescriptorsDocument.Parse(await httpClient.GetAsStringAsync("/tor/server/all", false));
+                    await circuit.CreateAsync(FSharpOption<CircuitNodeDetail>.None);
+                    await stream.ConnectToDirectoryAsync();
 
-            //Technically not all hops need to be directories but it doesn't matter in this context
-            var suitableDirectories =
-                    serverDescriptors
-                    .Routers
-                    .Where(
-                        x =>
-                            FSharpOption<string>.get_IsSome(x.NTorOnionKey) &&
-                            FSharpOption<string>.get_IsSome(x.Fingerprint) &&
-                            !x.Hibernating &&
-                            FSharpOption<int>.get_IsSome(x.DirectoryPort) &&
-                            x.DirectoryPort.Value != 0
-                    );
+                    var httpClient = new TorHttpClient(stream, fallbackDirectory.Address.ToString());
+                    var serverDescriptors = ServerDescriptorsDocument.Parse(await httpClient.GetAsStringAsync("/tor/server/all", false));
 
-            return
-                suitableDirectories
-                    .OrderBy(x => Guid.NewGuid())
-                    .Take(count)
-                    .Select(x => ConvertToCircuitNodeDetail(x))
-                    .ToList();
+                    //Technically not all hops need to be directories but it doesn't matter in this context
+                    var suitableDirectories =
+                            serverDescriptors
+                            .Routers
+                            .Where(
+                                x =>
+                                    FSharpOption<string>.get_IsSome(x.NTorOnionKey) &&
+                                    FSharpOption<string>.get_IsSome(x.Fingerprint) &&
+                                    !x.Hibernating &&
+                                    FSharpOption<int>.get_IsSome(x.DirectoryPort) &&
+                                    x.DirectoryPort.Value != 0
+                            );
+
+                    return
+                        suitableDirectories
+                            .OrderBy(x => Guid.NewGuid())
+                            .Take(count)
+                            .Select(x => ConvertToCircuitNodeDetail(x))
+                            .ToList();
+                }
+                catch (GuardConnectionFailedException)
+                {
+                    continue;
+                }
+            }
+
+            throw new GuardConnectionFailedException("Accessing tor directory failed.");
         }
     }
 }

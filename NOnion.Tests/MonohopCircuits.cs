@@ -16,86 +16,172 @@ namespace NOnion.Tests
 {
     public class MonohopCircuits
     {
-        private readonly IPEndPoint fallbackDirectory = FallbackDirectorySelector.GetRandomFallbackDirectory();
+        private const int TestRetryLimit = 5;
 
         [Test]
         public async Task CanCreateMonohopCircuit()
         {
-            using TorGuard guard = await TorGuard.NewClientAsync(fallbackDirectory);
-            TorCircuit circuit = new(guard);
-            var circuitId = await circuit.CreateAsync(FSharpOption<CircuitNodeDetail>.None);
-            TestContext.Progress.WriteLine("Created circuit, Id: {0}", circuitId);
+            Exception lastException = null;
 
-            Assert.Greater(circuitId, 0);
+            int retryCount = 0;
+            while (retryCount < TestRetryLimit)
+            {
+                try
+                {
+                    IPEndPoint fallbackDirectory = FallbackDirectorySelector.GetRandomFallbackDirectory();
+                    using TorGuard guard = await TorGuard.NewClientAsync(fallbackDirectory);
+                    TorCircuit circuit = new(guard);
+                    var circuitId = await circuit.CreateAsync(FSharpOption<CircuitNodeDetail>.None);
+                    TestContext.Progress.WriteLine("Created circuit, Id: {0}", circuitId);
+
+                    Assert.Greater(circuitId, 0);
+                    return;
+                }
+                catch (GuardConnectionFailedException ex)
+                {
+                    lastException = ex;
+                    retryCount++;
+                    continue;
+                }
+            }
+
+            throw lastException;
         }
 
         [Test]
-        public async Task CanCreateDirectoryStreamOverMonohopCircuit ()
+        public async Task CanCreateDirectoryStreamOverMonohopCircuit()
         {
-            using TorGuard guard = await TorGuard.NewClientAsync(fallbackDirectory);
-            TorCircuit circuit = new(guard);
-            TorStream stream = new(circuit);
+            Exception lastException = null;
 
-            await circuit.CreateAsync(FSharpOption<CircuitNodeDetail>.None);
-            await stream.ConnectToDirectoryAsync();
+            int retryCount = 0;
+            while (retryCount < TestRetryLimit)
+            {
+                try
+                {
+                    IPEndPoint fallbackDirectory = FallbackDirectorySelector.GetRandomFallbackDirectory();
+                    using TorGuard guard = await TorGuard.NewClientAsync(fallbackDirectory);
+                    TorCircuit circuit = new(guard);
+                    TorStream stream = new(circuit);
+
+                    await circuit.CreateAsync(FSharpOption<CircuitNodeDetail>.None);
+                    await stream.ConnectToDirectoryAsync();
+                    return;
+                }
+                catch (GuardConnectionFailedException ex)
+                {
+                    lastException = ex;
+                    retryCount++;
+                    continue;
+                }
+            }
+
+            throw lastException;
         }
 
         [Test]
         public async Task CanReceiveConsensusOverMonohopCircuit()
         {
-            using TorGuard guard = await TorGuard.NewClientAsync(fallbackDirectory);
-            TorCircuit circuit = new(guard);
-            TorStream stream = new(circuit);
+            Exception lastException = null;
 
-            await circuit.CreateAsync(FSharpOption<CircuitNodeDetail>.None);
-            await stream.ConnectToDirectoryAsync();
+            int retryCount = 0;
+            while (retryCount < TestRetryLimit)
+            {
+                try
+                {
+                    IPEndPoint fallbackDirectory = FallbackDirectorySelector.GetRandomFallbackDirectory();
+                    using TorGuard guard = await TorGuard.NewClientAsync(fallbackDirectory);
+                    TorCircuit circuit = new(guard);
+                    TorStream stream = new(circuit);
 
-            var httpClient = new TorHttpClient(stream, fallbackDirectory.Address.ToString());
-            var response = await httpClient.GetAsStringAsync("/tor/status-vote/current/consensus", true);
+                    await circuit.CreateAsync(FSharpOption<CircuitNodeDetail>.None);
+                    await stream.ConnectToDirectoryAsync();
 
-            Assert.That(response.Contains("network-status-version"));
+                    var httpClient = new TorHttpClient(stream, fallbackDirectory.Address.ToString());
+                    var response = await httpClient.GetAsStringAsync("/tor/status-vote/current/consensus", true);
+
+                    Assert.That(response.Contains("network-status-version"));
+                    return;
+                }
+                catch (GuardConnectionFailedException ex)
+                {
+                    lastException = ex;
+                    retryCount++;
+                    continue;
+                }
+            }
+
+            throw lastException;
         }
 
         [Test]
         public async Task CanReceiveCompressedConsensusOverMonohopCircuit()
         {
-            using TorGuard guard = await TorGuard.NewClientAsync(fallbackDirectory);
-            TorCircuit circuit = new(guard);
-            TorStream stream = new(circuit);
+            Exception lastException = null;
 
-            await circuit.CreateAsync(FSharpOption<CircuitNodeDetail>.None);
-            await stream.ConnectToDirectoryAsync();
+            int retryCount = 0;
+            while (retryCount < TestRetryLimit)
+            {
+                try
+                {
+                    IPEndPoint fallbackDirectory = FallbackDirectorySelector.GetRandomFallbackDirectory();
+                    using TorGuard guard = await TorGuard.NewClientAsync(fallbackDirectory);
+                    TorCircuit circuit = new(guard);
+                    TorStream stream = new(circuit);
 
-            var httpClient = new TorHttpClient(stream, fallbackDirectory.Address.ToString());
-            var response = await httpClient.GetAsStringAsync("/tor/status-vote/current/consensus", false);
+                    await circuit.CreateAsync(FSharpOption<CircuitNodeDetail>.None);
+                    await stream.ConnectToDirectoryAsync();
 
-            Assert.That(response.Contains("network-status-version"));
+                    var httpClient = new TorHttpClient(stream, fallbackDirectory.Address.ToString());
+                    var response = await httpClient.GetAsStringAsync("/tor/status-vote/current/consensus", false);
+
+                    Assert.That(response.Contains("network-status-version"));
+                    return;
+                }
+                catch (GuardConnectionFailedException ex)
+                {
+                    lastException = ex;
+                    retryCount++;
+                    continue;
+                }
+            }
+
+            throw lastException;
         }
 
         [Test]
         public async Task CanReceiveCompressedConsensusOverNonFastMonohopCircuit()
         {
-            CircuitNodeDetail node = null;
-            try
+            var node = (await CircuitHelper.GetRandomRoutersForDirectoryBrowsing()).First();
+
+            Exception lastException = null;
+
+            int retryCount = 0;
+            while (retryCount < TestRetryLimit)
             {
-                node = (await CircuitHelper.GetRandomRoutersForDirectoryBrowsing()).First();
+                try
+                {
+                    using TorGuard guard = await TorGuard.NewClientAsync(node.Address.Value);
+                    TorCircuit circuit = new(guard);
+                    TorStream stream = new(circuit);
+
+                    await circuit.CreateAsync(node);
+                    await stream.ConnectToDirectoryAsync();
+
+                    var httpClient = new TorHttpClient(stream, node.Address.Value.Address.ToString());
+                    var response = await httpClient.GetAsStringAsync("/tor/status-vote/current/consensus", false);
+
+                    Assert.That(response.Contains("network-status-version"));
+                    return;
+                }
+                catch (GuardConnectionFailedException ex)
+                {
+                    lastException = ex;
+                    retryCount++;
+                    continue;
+                }
             }
-            catch
-            {
-                Assert.Inconclusive();
-            }
 
-            using TorGuard guard = await TorGuard.NewClientAsync(node.Address.Value);
-            TorCircuit circuit = new(guard);
-            TorStream stream = new(circuit);
-
-            await circuit.CreateAsync(node);
-            await stream.ConnectToDirectoryAsync();
-
-            var httpClient = new TorHttpClient(stream, node.Address.Value.Address.ToString());
-            var response = await httpClient.GetAsStringAsync("/tor/status-vote/current/consensus", false);
-
-            Assert.That(response.Contains("network-status-version"));
+            throw lastException;
         }
     }
 }

@@ -24,9 +24,17 @@ type TorGuard private (client: TcpClient, sslStream: SslStream) =
         async {
             let tcpClient = new TcpClient ()
 
-            do!
-                tcpClient.ConnectAsync (ipEndpoint.Address, ipEndpoint.Port)
-                |> Async.AwaitTask
+            try
+                do!
+                    tcpClient.ConnectAsync (ipEndpoint.Address, ipEndpoint.Port)
+                    |> Async.AwaitTask
+            with
+                | :? System.AggregateException as aggException ->
+                    match aggException.InnerException with
+                    | :? SocketException as ex ->
+                        return
+                            raise <| GuardConnectionFailedException ex
+                    | _ -> return raise <| aggException
 
             let sslStream =
                 new SslStream (
@@ -204,9 +212,8 @@ type TorGuard private (client: TcpClient, sslStream: SslStream) =
                                         | :? ObjectDisposedException
                                         | :? OperationCanceledException -> ()
                                 | None ->
-                                    failwith (
-                                        sprintf "Unknown circuit, Id = %i" cid
-                                    )
+                                    // We can't throw here beacuse if we throw, the listening job will end and user never finds out why
+                                    ()
 
                             return! readFromStream ()
                     }
