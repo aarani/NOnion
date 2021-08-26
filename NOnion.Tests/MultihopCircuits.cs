@@ -20,7 +20,7 @@ namespace NOnion.Tests
         [Timeout(180_000)]
         public async Task CanCreateMultiHopCircuits()
         {
-            Debug.WriteLine("Receiving descriptors...");
+            TestContext.Progress.WriteLine("Receiving descriptors...");
             List<CircuitNodeDetail> nodes = null;
             try
             {
@@ -32,22 +32,22 @@ namespace NOnion.Tests
             }
 
 
-            Debug.WriteLine($"Connceting to {nodes[0].Address.Value.Address}...");
+            TestContext.Progress.WriteLine($"Connceting to {nodes[0].Address.Value.Address}...");
             using TorGuard guard = await TorGuard.NewClientAsync(nodes[0].Address.Value);
             TorCircuit circuit = new(guard);
 
-            Debug.WriteLine("Creating the circuit...");
+            TestContext.Progress.WriteLine("Creating the circuit...");
             await circuit.CreateAsync(nodes[0]);
-            Debug.WriteLine($"Extending the circuit to {nodes[1].Address.Value.Address}...");
+            TestContext.Progress.WriteLine($"Extending the circuit to {nodes[1].Address.Value.Address}...");
             await circuit.ExtendAsync(nodes[1]);
-            Debug.WriteLine($"Extending the circuit to {nodes[2].Address.Value.Address}...");
+            TestContext.Progress.WriteLine($"Extending the circuit to {nodes[2].Address.Value.Address}...");
             await circuit.ExtendAsync(nodes[2]);
 
-            Debug.WriteLine("Creating the stream...");
+            TestContext.Progress.WriteLine("Creating the stream...");
             TorStream stream = new(circuit);
             await stream.ConnectToDirectoryAsync();
 
-            Debug.WriteLine("Sending http request over multihop circuit...");
+            TestContext.Progress.WriteLine("Sending http request over multihop circuit...");
             var httpClient = new TorHttpClient(stream, nodes[2].Address.Value.Address.ToString());
             var response = await httpClient.GetAsStringAsync("/tor/status-vote/current/consensus", false);
 
