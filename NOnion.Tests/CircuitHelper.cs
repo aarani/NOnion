@@ -15,8 +15,6 @@ namespace NOnion.Tests
 {
     static internal class CircuitHelper
     {
-        private static readonly IPEndPoint torServer = IPEndPoint.Parse("85.214.141.24:9001");
-
         static private CircuitNodeDetail ConvertToCircuitNodeDetail(ServerDescriptorEntry server)
         {
             var fingerprintBytes = Hex.ToByteArray(server.Fingerprint.Value);
@@ -28,14 +26,15 @@ namespace NOnion.Tests
         //FIXME: SLOW
         static async internal Task<List<CircuitNodeDetail>> GetRandomRoutersForDirectoryBrowsing(int count = 1)
         {
-            using TorGuard guard = await TorGuard.NewClientAsync(torServer);
+            var fallbackDirectory = FallbackDirectorySelector.GetRandomFallbackDirectory();
+            using TorGuard guard = await TorGuard.NewClientAsync(fallbackDirectory);
             TorCircuit circuit = new(guard);
             TorStream stream = new(circuit);
 
             await circuit.CreateAsync(FSharpOption<CircuitNodeDetail>.None);
             await stream.ConnectToDirectoryAsync();
 
-            var httpClient = new TorHttpClient(stream, torServer.Address.ToString());
+            var httpClient = new TorHttpClient(stream, fallbackDirectory.Address.ToString());
             var serverDescriptors = ServerDescriptorsDocument.Parse(await httpClient.GetAsStringAsync("/tor/server/all", false));
 
             //Technically not all hops need to be directories but it doesn't matter in this context

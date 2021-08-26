@@ -16,13 +16,12 @@ namespace NOnion.Tests
 {
     public class MonohopCircuits
     {
-
-        private readonly IPEndPoint torServer = IPEndPoint.Parse("85.214.141.24:9001");
+        private readonly IPEndPoint fallbackDirectory = FallbackDirectorySelector.GetRandomFallbackDirectory();
 
         [Test]
         public async Task CanCreateMonohopCircuit()
         {
-            using TorGuard guard = await TorGuard.NewClientAsync(torServer);
+            using TorGuard guard = await TorGuard.NewClientAsync(fallbackDirectory);
             TorCircuit circuit = new(guard);
             var circuitId = await circuit.CreateAsync(FSharpOption<CircuitNodeDetail>.None);
             Debug.WriteLine("Created circuit, Id: {0}", circuitId);
@@ -33,7 +32,7 @@ namespace NOnion.Tests
         [Test]
         public async Task CanCreateDirectoryStreamOverMonohopCircuit ()
         {
-            using TorGuard guard = await TorGuard.NewClientAsync(torServer);
+            using TorGuard guard = await TorGuard.NewClientAsync(fallbackDirectory);
             TorCircuit circuit = new(guard);
             TorStream stream = new(circuit);
 
@@ -44,14 +43,14 @@ namespace NOnion.Tests
         [Test]
         public async Task CanReceiveConsensusOverMonohopCircuit()
         {
-            using TorGuard guard = await TorGuard.NewClientAsync(torServer);
+            using TorGuard guard = await TorGuard.NewClientAsync(fallbackDirectory);
             TorCircuit circuit = new(guard);
             TorStream stream = new(circuit);
 
             await circuit.CreateAsync(FSharpOption<CircuitNodeDetail>.None);
             await stream.ConnectToDirectoryAsync();
 
-            var httpClient = new TorHttpClient(stream, torServer.Address.ToString());
+            var httpClient = new TorHttpClient(stream, fallbackDirectory.Address.ToString());
             var response = await httpClient.GetAsStringAsync("/tor/status-vote/current/consensus", true);
 
             Assert.That(response.Contains("network-status-version"));
@@ -60,14 +59,14 @@ namespace NOnion.Tests
         [Test]
         public async Task CanReceiveCompressedConsensusOverMonohopCircuit()
         {
-            using TorGuard guard = await TorGuard.NewClientAsync(torServer);
+            using TorGuard guard = await TorGuard.NewClientAsync(fallbackDirectory);
             TorCircuit circuit = new(guard);
             TorStream stream = new(circuit);
 
             await circuit.CreateAsync(FSharpOption<CircuitNodeDetail>.None);
             await stream.ConnectToDirectoryAsync();
 
-            var httpClient = new TorHttpClient(stream, torServer.Address.ToString());
+            var httpClient = new TorHttpClient(stream, fallbackDirectory.Address.ToString());
             var response = await httpClient.GetAsStringAsync("/tor/status-vote/current/consensus", false);
 
             Assert.That(response.Contains("network-status-version"));
