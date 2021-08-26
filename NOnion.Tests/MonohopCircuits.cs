@@ -24,7 +24,7 @@ namespace NOnion.Tests
             using TorGuard guard = await TorGuard.NewClientAsync(fallbackDirectory);
             TorCircuit circuit = new(guard);
             var circuitId = await circuit.CreateAsync(FSharpOption<CircuitNodeDetail>.None);
-            Debug.WriteLine("Created circuit, Id: {0}", circuitId);
+            TestContext.Progress.WriteLine("Created circuit, Id: {0}", circuitId);
 
             Assert.Greater(circuitId, 0);
         }
