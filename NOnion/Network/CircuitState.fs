@@ -6,10 +6,22 @@ open NOnion.Crypto
 open NOnion.TorHandshakes
 
 //TODO: Implement states like destroyed, truncated, etc...
+
+type TorCircuitNode =
+    {
+        CryptoState: TorCryptoState
+        Window: TorWindow
+    }
+
 type CircuitState =
     | Initialized
     | Creating of
         circuitId: uint16 *
         handshakeState: IHandshake *
         completionTask: TaskCompletionSource<uint16>
-    | Created of circuitId: uint16 * cryptoState: TorCryptoState
+    | Extending of
+        circuitId: uint16 *
+        handshakeState: IHandshake *
+        currentCircuitNodes: List<TorCircuitNode> *
+        completionTask: TaskCompletionSource<uint16>
+    | Ready of circuitId: uint16 * circuitNodes: List<TorCircuitNode>

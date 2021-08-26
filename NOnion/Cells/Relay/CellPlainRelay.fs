@@ -1,9 +1,10 @@
-﻿namespace NOnion.Cells
+﻿namespace NOnion.Cells.Relay
 
 open System.IO
 open System.Security.Cryptography
 
 open NOnion
+open NOnion.Cells
 open NOnion.Utility
 
 type RelayData =
@@ -20,8 +21,8 @@ type RelayData =
     | RelayResolve
     | RelayResolved
     | RelayBeginDirectory
-    | RelayExtend2
-    | RelayExtended2
+    | RelayExtend2 of RelayExtend2
+    | RelayExtended2 of RelayExtended2
 
     static member FromBytes (command: byte) (data: array<byte>) =
         use memStream = new MemoryStream (data)
@@ -31,6 +32,7 @@ type RelayData =
         | 2uy -> RelayData data
         | 3uy -> RelayEnd (reader.ReadByte ())
         | 4uy -> RelayConnected data
+        | 15uy -> RelayExtended2.FromBytes reader |> RelayExtended2
         | _ -> failwith "Unsupported command"
 
     member self.GetCommand () : byte =
@@ -38,12 +40,14 @@ type RelayData =
         | RelayBeginDirectory -> 13uy
         | RelayData _ -> 2uy
         | RelaySendMe _ -> 5uy
+        | RelayExtend2 _ -> 14uy
         | _ -> failwith ""
 
     member self.ToBytes () =
         match self with
         | RelayData data -> data
         | RelaySendMe _ -> Array.zeroCreate 3
+        | RelayExtend2 extend2 -> extend2.ToBytes ()
         | _ -> Array.zeroCreate 0
 
 type CellPlainRelay =

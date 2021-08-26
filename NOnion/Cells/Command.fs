@@ -3,6 +3,8 @@
 open System
 open System.IO
 
+open NOnion.Cells.Relay
+
 [<RequireQualifiedAccess>]
 module Command =
 
@@ -26,6 +28,9 @@ module Command =
 
     [<Literal>]
     let NetInfo = 8uy
+
+    [<Literal>]
+    let RelayEarly = 9uy
 
     [<Literal>]
     let CreateFast = 5uy
@@ -57,7 +62,8 @@ module Command =
         | NetInfo -> CellNetInfo.Deserialize reader
         | CreateFast -> CellCreateFast.Deserialize reader
         | CreatedFast -> CellCreatedFast.Deserialize reader
-        | Relay -> CellEncryptedRelay.Deserialize reader
+        | Relay -> CellEncryptedRelay.Deserialize reader false
+        | RelayEarly -> CellEncryptedRelay.Deserialize reader true
         | Padding -> CellPadding.Deserialize reader
         | Destroy -> CellDestroy.Deserialize reader
         | Create2 -> CellCreate2.Deserialize reader
