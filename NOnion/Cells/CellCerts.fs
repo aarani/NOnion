@@ -4,11 +4,41 @@ open System.IO
 
 open NOnion.Utility.BinaryIO
 
+(*
+    Relevant certType values are:
+       1: Link key certificate certified by RSA1024 identity
+       2: RSA1024 Identity certificate, self-signed.
+       3: RSA1024 AUTHENTICATE cell link certificate, signed with RSA1024 key.
+       4: Ed25519 signing key, signed with identity key.
+       5: TLS link certificate, signed with ed25519 signing key.
+       6: Ed25519 AUTHENTICATE cell key, signed with ed25519 signing key.
+       7: Ed25519 identity, signed with RSA identity.
+*)
+
 type Cert =
     {
         Type: byte
         Certificate: array<byte>
     }
+
+(*
+    The CERTS cell describes the keys that a Tor instance is claiming
+    to have.  It is a variable-length cell.  Its payload format is:
+
+         N: Number of certs in cell            [1 octet]
+         N times:
+            CertType                           [1 octet]
+            CLEN                               [2 octets]
+            Certificate                        [CLEN octets]
+
+    Any extra octets at the end of a CERTS cell MUST be ignored.
+
+    The certificate format for certificate types 1-3 is DER encoded
+       X509.  For others, the format is as documented in cert-spec.txt.
+       Note that type 7 uses a different format from types 4-6.
+
+    A CERTS cell may have no more than one certificate of each CertType.
+*)
 
 type CellCerts =
     {

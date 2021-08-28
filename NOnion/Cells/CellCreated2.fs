@@ -5,6 +5,13 @@ open System.IO
 open NOnion
 open NOnion.Utility
 
+(*
+    A CREATED2 cell contains:
+
+        HLEN      (Server Handshake Data Len) [2 bytes]
+        HDATA     (Server Handshake Data)     [HLEN bytes]
+*)
+
 type CellCreated2 =
     private
         {

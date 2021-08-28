@@ -6,7 +6,11 @@ open NOnion
 open NOnion.Cells
 open NOnion.Utility
 
-// Specification (https://github.com/torproject/torspec/blob/main/tor-spec.txt#L1085)
+(*
+    The payload of an EXTENDED2 cell is the same as the payload of a
+    CREATED2 cell.
+*)
+
 type RelayExtended2 =
     {
         HandshakeData: array<byte>

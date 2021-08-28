@@ -4,6 +4,13 @@ open System.IO
 
 open NOnion
 
+(*
+    A CREATED_FAST cell contains:
+
+        Key material (Y)    [HASH_LEN bytes]
+        Derivative key data [HASH_LEN bytes] (See 5.2.1 below)
+*)
+
 type CellCreatedFast =
     private
         {

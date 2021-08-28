@@ -5,6 +5,19 @@ open System.IO
 open NOnion
 open NOnion.Utility.BinaryIO
 
+(*
+    An AUTH_CHALLENGE cell is a variable-length cell with the following
+    fields:
+
+        Challenge [32 octets]
+        N_Methods [2 octets]
+        Methods   [2 * N_Methods octets]
+
+    It is sent from the responder to the initiator. Initiators MUST
+    ignore unexpected bytes at the end of the cell.  Responders MUST
+    generate every challenge independently using a strong RNG or PRNG.
+*)
+
 type CellAuthChallenge =
     {
         Challenge: array<byte>

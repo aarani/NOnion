@@ -50,6 +50,18 @@ type RelayData =
         | RelayExtend2 extend2 -> extend2.ToBytes ()
         | _ -> Array.zeroCreate 0
 
+(*
+    The payload of each unencrypted RELAY cell consists of:
+
+          Relay command           [1 byte]
+          'Recognized'            [2 bytes]
+          StreamID                [2 bytes]
+          Digest                  [4 bytes]
+          Length                  [2 bytes]
+          Data                    [Length bytes]
+          Padding                 [PAYLOAD_LEN - 11 - Length bytes]
+*)
+
 type CellPlainRelay =
     {
         Recognized: uint16
