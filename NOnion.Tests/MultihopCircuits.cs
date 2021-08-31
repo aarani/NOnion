@@ -32,7 +32,7 @@ namespace NOnion.Tests
             }
 
 
-            TestContext.Progress.WriteLine($"Connceting to {nodes[0].Address.Value.Address}...");
+            TestContext.Progress.WriteLine($"Connecting to {nodes[0].Address.Value.Address}...");
             using TorGuard guard = await TorGuard.NewClientAsync(nodes[0].Address.Value);
             TorCircuit circuit = new(guard);
 
