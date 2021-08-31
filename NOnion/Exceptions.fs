@@ -7,3 +7,5 @@ type CircuitTruncatedException (reason: byte) =
 
 type CircuitDestroyedException (reason: byte) =
     inherit Exception (sprintf "Circuit got destroyed, reason %i" reason)
+
+exception TimeoutErrorException

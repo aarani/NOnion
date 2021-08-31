@@ -249,8 +249,10 @@ type TorCircuit (guard: TorGuard) =
 
             let! completionTask = controlLock.RunAsyncWithSemaphore create
 
-            //FIXME: Connect Timeout?
-            return! completionTask |> Async.AwaitTask
+            return!
+                completionTask
+                |> AsyncUtil.AwaitTaskWithTimeout
+                    Constants.CircuitOperationTimeout
         }
 
     member self.Extend (nodeDetail: CircuitNodeDetail) =
@@ -325,8 +327,11 @@ type TorCircuit (guard: TorGuard) =
 
             let! completionTask = controlLock.RunAsyncWithSemaphore extend
 
-            //FIXME: Connect Timeout?
-            return! completionTask |> Async.AwaitTask
+            return!
+                completionTask
+                |> AsyncUtil.AwaitTaskWithTimeout
+                    Constants.CircuitOperationTimeout
+
         }
 
     member self.ExtendAsync nodeDetail =

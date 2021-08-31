@@ -13,11 +13,6 @@ namespace NOnion.Tests
     {
 
         [Test]
-        // Our circuit creation process does not have a timeout which causes the process
-        // to wait forever for a response which in our CI causes the run to go on for
-        // hours until Github force kills the run.
-        // So we add a 3 mins timeout on this test since most successful runs take less than that.
-        [Timeout(180_000)]
         public async Task CanCreateMultiHopCircuits()
         {
             TestContext.Progress.WriteLine("Receiving descriptors...");

@@ -1,5 +1,6 @@
 ﻿namespace NOnion
 
+open System
 open System.Text
 
 [<RequireQualifiedAccess>]
@@ -66,7 +67,8 @@ module Constants =
 
     let internal DeflateStreamHeaderLength = 2
 
-
+    // Time limit used for Create and Extend operations
+    let internal CircuitOperationTimeout = TimeSpan.FromSeconds 10.
 
     // NTor Handshake Constants
     let private NTorProtoIdStr = "ntor-curve25519-sha256-1"
