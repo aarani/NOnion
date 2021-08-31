@@ -25,3 +25,5 @@ type CircuitState =
         currentCircuitNodes: List<TorCircuitNode> *
         completionTask: TaskCompletionSource<uint16>
     | Ready of circuitId: uint16 * circuitNodes: List<TorCircuitNode>
+    | Destroyed of circuitId: uint16 * reason: byte
+    | Truncated of circuitId: uint16 * reason: byte
