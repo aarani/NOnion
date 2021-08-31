@@ -16,7 +16,7 @@ type RelayData =
     | RelayExtend
     | RelayExtended
     | RelayTruncate
-    | RelayTruncated
+    | RelayTruncated of Reason: byte
     | RelayDrop
     | RelayResolve
     | RelayResolved
@@ -32,6 +32,7 @@ type RelayData =
         | 2uy -> RelayData data
         | 3uy -> RelayEnd (reader.ReadByte ())
         | 4uy -> RelayConnected data
+        | 9uy -> reader.ReadByte () |> RelayTruncated
         | 15uy -> RelayExtended2.FromBytes reader |> RelayExtended2
         | _ -> failwith "Unsupported command"
 
