@@ -26,7 +26,7 @@ type TorStream (circuit: TorCircuit) =
                     match streamState with
                     | Connected streamId ->
                         let dataChunks =
-                            SeqUtils.chunk
+                            SeqUtils.Chunk
                                 Constants.MaximumRelayPayloadLength
                                 data
 
