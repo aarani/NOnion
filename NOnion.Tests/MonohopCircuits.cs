@@ -16,11 +16,16 @@ namespace NOnion.Tests
 {
     public class MonohopCircuits
     {
-        private readonly IPEndPoint fallbackDirectory = FallbackDirectorySelector.GetRandomFallbackDirectory();
+        /* It's possible that the router returned by GetRandomFallbackDirectory or
+         * GetRandomRoutersForDirectoryBrowsing be inaccessable so we need to continue
+         * retrying if an exceptions happened to make sure the issues are not related
+         * to the router we randomly chose
+         */
+        private const int TestsRetryCount = 5;
 
-        [Test]
-        public async Task CanCreateMonohopCircuit()
+        private async Task CreateMonoHopCircuit()
         {
+            var fallbackDirectory = FallbackDirectorySelector.GetRandomFallbackDirectory();
             using TorGuard guard = await TorGuard.NewClientAsync(fallbackDirectory);
             TorCircuit circuit = new(guard);
             var circuitId = await circuit.CreateAsync(FSharpOption<CircuitNodeDetail>.None);
@@ -30,8 +35,15 @@ namespace NOnion.Tests
         }
 
         [Test]
-        public async Task CanCreateDirectoryStreamOverMonohopCircuit ()
+        [Retry(TestsRetryCount)]
+        public void CanCreateMonohopCircuit()
         {
+            Assert.DoesNotThrowAsync(CreateMonoHopCircuit);
+        }
+
+        private async Task CreateDirectoryStreamOverMonohopCircuit()
+        {
+            var fallbackDirectory = FallbackDirectorySelector.GetRandomFallbackDirectory();
             using TorGuard guard = await TorGuard.NewClientAsync(fallbackDirectory);
             TorCircuit circuit = new(guard);
             TorStream stream = new(circuit);
@@ -41,8 +53,15 @@ namespace NOnion.Tests
         }
 
         [Test]
-        public async Task CanReceiveConsensusOverMonohopCircuit()
+        [Retry(TestsRetryCount)]
+        public void CanCreateDirectoryStreamOverMonohopCircuit()
         {
+            Assert.DoesNotThrowAsync(CreateDirectoryStreamOverMonohopCircuit);
+        }
+
+        private async Task ReceiveConsensusOverMonohopCircuit(bool acceptCompressed)
+        {
+            var fallbackDirectory = FallbackDirectorySelector.GetRandomFallbackDirectory();
             using TorGuard guard = await TorGuard.NewClientAsync(fallbackDirectory);
             TorCircuit circuit = new(guard);
             TorStream stream = new(circuit);
@@ -51,40 +70,28 @@ namespace NOnion.Tests
             await stream.ConnectToDirectoryAsync();
 
             var httpClient = new TorHttpClient(stream, fallbackDirectory.Address.ToString());
-            var response = await httpClient.GetAsStringAsync("/tor/status-vote/current/consensus", true);
+            var response = await httpClient.GetAsStringAsync("/tor/status-vote/current/consensus", acceptCompressed);
 
             Assert.That(response.Contains("network-status-version"));
         }
 
         [Test]
-        public async Task CanReceiveCompressedConsensusOverMonohopCircuit()
+        [Retry(TestsRetryCount)]
+        public void CanReceiveConsensusOverMonohopCircuit()
         {
-            using TorGuard guard = await TorGuard.NewClientAsync(fallbackDirectory);
-            TorCircuit circuit = new(guard);
-            TorStream stream = new(circuit);
-
-            await circuit.CreateAsync(FSharpOption<CircuitNodeDetail>.None);
-            await stream.ConnectToDirectoryAsync();
-
-            var httpClient = new TorHttpClient(stream, fallbackDirectory.Address.ToString());
-            var response = await httpClient.GetAsStringAsync("/tor/status-vote/current/consensus", false);
-
-            Assert.That(response.Contains("network-status-version"));
+            Assert.DoesNotThrowAsync(async () => await ReceiveConsensusOverMonohopCircuit(false));
         }
 
         [Test]
-        public async Task CanReceiveCompressedConsensusOverNonFastMonohopCircuit()
+        [Retry(TestsRetryCount)]
+        public void CanReceiveCompressedConsensusOverMonohopCircuit()
         {
-            CircuitNodeDetail node = null;
-            try
-            {
-                node = (await CircuitHelper.GetRandomRoutersForDirectoryBrowsing()).First();
-            }
-            catch
-            {
-                Assert.Inconclusive();
-            }
+            Assert.DoesNotThrowAsync(async () => await ReceiveConsensusOverMonohopCircuit(true));
+        }
 
+        private async Task ReceiveCompressedConsensusOverNonFastMonohopCircuit()
+        {
+            var node = (await CircuitHelper.GetRandomRoutersForDirectoryBrowsingWithRetry()).First();
             using TorGuard guard = await TorGuard.NewClientAsync(node.Address.Value);
             TorCircuit circuit = new(guard);
             TorStream stream = new(circuit);
@@ -96,6 +103,13 @@ namespace NOnion.Tests
             var response = await httpClient.GetAsStringAsync("/tor/status-vote/current/consensus", false);
 
             Assert.That(response.Contains("network-status-version"));
+        }
+
+        [Test]
+        [Retry(TestsRetryCount)]
+        public void CanReceiveCompressedConsensusOverNonFastMonohopCircuit()
+        {
+            Assert.DoesNotThrowAsync(ReceiveCompressedConsensusOverNonFastMonohopCircuit);
         }
     }
 }

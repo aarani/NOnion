@@ -19,7 +19,7 @@ namespace NOnion.Tests
             List<CircuitNodeDetail> nodes = null;
             try
             {
-                nodes = await CircuitHelper.GetRandomRoutersForDirectoryBrowsing(3);
+                nodes = await CircuitHelper.GetRandomRoutersForDirectoryBrowsingWithRetry(3);
             }
             catch
             {
