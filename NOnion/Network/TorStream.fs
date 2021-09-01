@@ -93,7 +93,10 @@ type TorStream (circuit: TorCircuit) =
         async {
             let safeReceive () =
                 async {
-                    let! cell = incomingCells.ReceiveAsync () |> Async.AwaitTask
+                    let! cell =
+                        incomingCells.ReceiveAsync ()
+                        |> AsyncUtil.AwaitTaskWithTimeout
+                            Constants.StreamReceiveTimeout
 
                     match cell with
                     | RelayData data -> return data |> Some

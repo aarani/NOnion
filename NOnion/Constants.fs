@@ -70,6 +70,9 @@ module Constants =
     // Time limit used for Create and Extend operations
     let internal CircuitOperationTimeout = TimeSpan.FromSeconds 10.
 
+    // Time limit used for receving data in stream
+    let internal StreamReceiveTimeout = TimeSpan.FromSeconds 1.
+
     // NTor Handshake Constants
     let private NTorProtoIdStr = "ntor-curve25519-sha256-1"
     let internal NTorProtoId = NTorProtoIdStr |> Encoding.ASCII.GetBytes
