@@ -25,3 +25,6 @@ module RelayCommands =
 
     [<Literal>]
     let RelayExtended2 = 15uy
+
+    [<Literal>]
+    let RelayEstablishIntro = 32uy

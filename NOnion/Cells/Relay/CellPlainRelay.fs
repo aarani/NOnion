@@ -39,6 +39,7 @@ type RelayData =
     | RelayBeginDirectory
     | RelayExtend2 of RelayExtend2
     | RelayExtended2 of RelayExtended2
+    | RelayEstablishIntro of RelayEstablishIntro
 
     static member FromBytes (command: byte) (data: array<byte>) =
         use memStream = new MemoryStream (data)
@@ -54,6 +55,8 @@ type RelayData =
         | RelayCommands.RelayTruncated -> reader.ReadByte () |> RelayTruncated
         | RelayCommands.RelayExtended2 ->
             RelayExtended2.FromBytes reader |> RelayExtended2
+        | RelayCommands.RelayEstablishIntro ->
+            RelayEstablishIntro.FromBytes reader |> RelayEstablishIntro
         | _ -> failwith "Unsupported command"
 
     member self.GetCommand () : byte =
@@ -62,6 +65,7 @@ type RelayData =
         | RelayData _ -> RelayCommands.RelayData
         | RelaySendMe _ -> RelayCommands.RelaySendMe
         | RelayExtend2 _ -> RelayCommands.RelayExtend2
+        | RelayEstablishIntro _ -> RelayCommands.RelayEstablishIntro
         | _ -> failwith "Not implemeted yet"
 
     member self.ToBytes () =
@@ -69,6 +73,7 @@ type RelayData =
         | RelayData data -> data
         | RelaySendMe _ -> Array.zeroCreate 3
         | RelayExtend2 extend2 -> extend2.ToBytes ()
+        | RelayEstablishIntro establishIntro -> establishIntro.ToBytes true true
         | _ -> Array.zeroCreate 0
 
 type CellPlainRelay =
