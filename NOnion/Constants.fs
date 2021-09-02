@@ -95,3 +95,5 @@ module Constants =
 
     let internal NTorServerPublicKeyLength = 32
     let internal NTorAuthDataLength = 32
+
+    let internal EstablishIntroDataPrefix = "Tor establish-intro cell v1"

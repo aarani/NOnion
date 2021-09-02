@@ -39,6 +39,7 @@
     <Compile Include="Cells\CellCreate2.fs" />
     <Compile Include="Cells\CellCreated2.fs" />
     <Compile Include="Cells\Relay\RelayCommands.fs" />
+    <Compile Include="Cells\Relay\RelayEstablishIntro.fs" />
     <Compile Include="Cells\Relay\RelayExtended2.fs" />
     <Compile Include="Cells\Relay\RelayExtend2.fs" />
     <Compile Include="Cells\Relay\CellEncryptedRelay.fs" />
