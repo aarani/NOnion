@@ -100,7 +100,14 @@ type TorStream (circuit: TorCircuit) =
 
                     match cell with
                     | RelayData data -> return data |> Some
-                    | RelayEnd reason -> return None
+                    | RelayEnd reason when reason = 6uy -> return None
+                    | RelayEnd reason ->
+                        return
+                            failwith (
+                                sprintf
+                                    "Stream closed unexpectedly, reason = %i"
+                                    reason
+                            )
                     | _ ->
                         return
                             failwith
