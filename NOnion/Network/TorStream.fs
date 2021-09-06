@@ -83,7 +83,10 @@ type TorStream (circuit: TorCircuit) =
             let! connectionProcessTcs =
                 controlLock.RunAsyncWithSemaphore startConnectionProcess
 
-            return! connectionProcessTcs |> Async.AwaitTask
+            return!
+                connectionProcessTcs
+                |> AsyncUtil.AwaitTaskWithTimeout
+                    Constants.StreamCreationTimeout
         }
 
     member self.ConnectToDirectoryAsync () =

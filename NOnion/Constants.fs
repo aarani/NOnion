@@ -70,6 +70,9 @@ module Constants =
     // Time limit used for Create and Extend operations
     let internal CircuitOperationTimeout = TimeSpan.FromSeconds 10.
 
+    // Time limit used for StreamBegin operation
+    let internal StreamCreationTimeout = TimeSpan.FromSeconds 10.
+
     // Time limit used for receving data in stream
     let internal StreamReceiveTimeout = TimeSpan.FromSeconds 1.
 
