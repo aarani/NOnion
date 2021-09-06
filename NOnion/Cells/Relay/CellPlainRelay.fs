@@ -26,7 +26,7 @@ type EndReason =
 type RelayData =
     | RelayBegin
     | RelayData of Data: array<byte>
-    | RelayEnd of byte
+    | RelayEnd of EndReason
     | RelayConnected of Data: array<byte>
     | RelaySendMe
     | RelayExtend
@@ -46,7 +46,10 @@ type RelayData =
 
         match command with
         | RelayCommands.RelayData -> RelayData data
-        | RelayCommands.RelayEnd -> RelayEnd (reader.ReadByte ())
+        | RelayCommands.RelayEnd ->
+            reader.ReadByte ()
+            |> LanguagePrimitives.EnumOfValue<byte, EndReason>
+            |> RelayEnd
         | RelayCommands.RelayConnected -> RelayConnected data
         | RelayCommands.RelayTruncated -> reader.ReadByte () |> RelayTruncated
         | RelayCommands.RelayExtended2 ->

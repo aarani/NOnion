@@ -103,13 +103,14 @@ type TorStream (circuit: TorCircuit) =
 
                     match cell with
                     | RelayData data -> return data |> Some
-                    | RelayEnd reason when reason = 6uy -> return None
+                    | RelayEnd reason when reason = EndReason.Done ->
+                        return None
                     | RelayEnd reason ->
                         return
                             failwith (
                                 sprintf
-                                    "Stream closed unexpectedly, reason = %i"
-                                    reason
+                                    "Stream closed unexpectedly, reason = %s"
+                                    (reason.ToString ())
                             )
                     | _ ->
                         return
@@ -169,8 +170,8 @@ type TorStream (circuit: TorCircuit) =
 
                             Failure (
                                 sprintf
-                                    "Stream connection process failed! Reason: %d"
-                                    reason
+                                    "Stream connection process failed! Reason: %s"
+                                    (reason.ToString ())
                             )
                             |> tcs.SetException
                         | Connected _ ->
