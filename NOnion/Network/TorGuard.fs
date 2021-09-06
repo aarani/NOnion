@@ -32,7 +32,7 @@ type TorGuard private (client: TcpClient, sslStream: SslStream) =
                 | :? System.AggregateException as aggException ->
                     match aggException.InnerException with
                     | :? SocketException as ex ->
-                        return raise (GuardConnectionFailedException ex)
+                        return raise <| GuardConnectionFailedException ex
                     | _ -> return raise <| FSharpUtil.ReRaise aggException
 
             let sslStream =
