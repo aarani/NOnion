@@ -83,7 +83,10 @@ type TorStream (circuit: TorCircuit) =
             let! connectionProcessTcs =
                 controlLock.RunAsyncWithSemaphore startConnectionProcess
 
-            return! connectionProcessTcs |> Async.AwaitTask
+            return!
+                connectionProcessTcs
+                |> AsyncUtil.AwaitTaskWithTimeout
+                    Constants.StreamCreationTimeout
         }
 
     member self.ConnectToDirectoryAsync () =
@@ -93,11 +96,22 @@ type TorStream (circuit: TorCircuit) =
         async {
             let safeReceive () =
                 async {
-                    let! cell = incomingCells.ReceiveAsync () |> Async.AwaitTask
+                    let! cell =
+                        incomingCells.ReceiveAsync ()
+                        |> AsyncUtil.AwaitTaskWithTimeout
+                            Constants.StreamReceiveTimeout
 
                     match cell with
                     | RelayData data -> return data |> Some
-                    | RelayEnd reason -> return None
+                    | RelayEnd reason when reason = EndReason.Done ->
+                        return None
+                    | RelayEnd reason ->
+                        return
+                            failwith (
+                                sprintf
+                                    "Stream closed unexpectedly, reason = %s"
+                                    (reason.ToString ())
+                            )
                     | _ ->
                         return
                             failwith
@@ -156,8 +170,8 @@ type TorStream (circuit: TorCircuit) =
 
                             Failure (
                                 sprintf
-                                    "Stream connection process failed! Reason: %d"
-                                    reason
+                                    "Stream connection process failed! Reason: %s"
+                                    (reason.ToString ())
                             )
                             |> tcs.SetException
                         | Connected _ ->

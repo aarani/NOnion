@@ -7,7 +7,10 @@
 
   <ItemGroup>
     <Compile Include="Constants.fs" />
+    <Compile Include="Exceptions.fs" />
     <Compile Include="HandshakeType.fs" />
+    <Compile Include="Utility\FSharpUtil.fs" />
+    <Compile Include="Utility\AsyncUtil.fs" />
     <Compile Include="Utility\StreamUtil.fs" />
     <Compile Include="Utility\SemaphoreLocker.fs" />
     <Compile Include="Utility\Base64Util.fs" />
@@ -34,6 +37,7 @@
     <Compile Include="Cells\CellCreatedFast.fs" />
     <Compile Include="Cells\CellCreate2.fs" />
     <Compile Include="Cells\CellCreated2.fs" />
+    <Compile Include="Cells\Relay\RelayCommands.fs" />
     <Compile Include="Cells\Relay\RelayExtended2.fs" />
     <Compile Include="Cells\Relay\RelayExtend2.fs" />
     <Compile Include="Cells\Relay\CellEncryptedRelay.fs" />

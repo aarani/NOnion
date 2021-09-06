@@ -6,6 +6,9 @@ using System.Text;
 using System.Threading.Tasks;
 using Microsoft.FSharp.Core;
 
+using NUnit.Framework;
+
+using NOnion;
 using NOnion.Directory;
 using NOnion.Http;
 using NOnion.Network;
@@ -23,8 +26,13 @@ namespace NOnion.Tests
             return new CircuitNodeDetail(endpoint, nTorOnionKeyBytes, fingerprintBytes);
         }
 
-        //FIXME: SLOW
-        static async internal Task<List<CircuitNodeDetail>> GetRandomRoutersForDirectoryBrowsing(int count = 1)
+        /* It's possible that the router returned by GetRandomFallbackDirectory
+         * be inaccessable so we need to continue retrying if exceptions happened
+         * to make sure the issues are not related to the router we randomly chose
+         */
+        private const int DirectoryAccessRetryLimit = 5;
+
+        private static async Task<List<CircuitNodeDetail>> GetRandomRoutersForDirectoryBrowsing(int count)
         {
             var fallbackDirectory = FallbackDirectorySelector.GetRandomFallbackDirectory();
             using TorGuard guard = await TorGuard.NewClientAsync(fallbackDirectory);
@@ -56,6 +64,33 @@ namespace NOnion.Tests
                     .Take(count)
                     .Select(x => ConvertToCircuitNodeDetail(x))
                     .ToList();
+        }
+
+        //FIXME: SLOW
+        static async internal Task<List<CircuitNodeDetail>> GetRandomRoutersForDirectoryBrowsingWithRetry(int count = 1)
+        {
+            var retry = 0;
+
+            while (true)
+            {
+                try
+                {
+                    return await GetRandomRoutersForDirectoryBrowsing(count);
+                }
+                catch (Exception ex)
+                {
+                    if (ex is CircuitDestroyedException || ex is GuardConnectionFailedException)
+                    {
+                        if (retry < DirectoryAccessRetryLimit)
+                        {
+                            retry++;
+                            continue;
+                        }
+                    }
+
+                    throw;
+                }
+            }
         }
     }
 }

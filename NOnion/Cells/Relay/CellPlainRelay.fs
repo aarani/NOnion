@@ -7,16 +7,32 @@ open NOnion
 open NOnion.Cells
 open NOnion.Utility
 
+type EndReason =
+    | Misc = 1uy
+    | ResolveFailed = 2uy
+    | ConnectionRefused = 3uy
+    | ExitPolicy = 4uy
+    | Destroy = 5uy
+    | Done = 6uy
+    | Timeout = 7uy
+    | NoRoute = 8uy
+    | Hibernating = 9uy
+    | Internal = 10uy
+    | ResourceLimit = 11uy
+    | ConnectionReset = 12uy
+    | TorProtocolViolation = 13uy
+    | NotDirectory = 14uy
+
 type RelayData =
     | RelayBegin
     | RelayData of Data: array<byte>
-    | RelayEnd of Reason: byte
+    | RelayEnd of EndReason
     | RelayConnected of Data: array<byte>
     | RelaySendMe
     | RelayExtend
     | RelayExtended
     | RelayTruncate
-    | RelayTruncated
+    | RelayTruncated of Reason: byte
     | RelayDrop
     | RelayResolve
     | RelayResolved
@@ -29,19 +45,24 @@ type RelayData =
         use reader = new BinaryReader (memStream)
 
         match command with
-        | 2uy -> RelayData data
-        | 3uy -> RelayEnd (reader.ReadByte ())
-        | 4uy -> RelayConnected data
-        | 15uy -> RelayExtended2.FromBytes reader |> RelayExtended2
+        | RelayCommands.RelayData -> RelayData data
+        | RelayCommands.RelayEnd ->
+            reader.ReadByte ()
+            |> LanguagePrimitives.EnumOfValue<byte, EndReason>
+            |> RelayEnd
+        | RelayCommands.RelayConnected -> RelayConnected data
+        | RelayCommands.RelayTruncated -> reader.ReadByte () |> RelayTruncated
+        | RelayCommands.RelayExtended2 ->
+            RelayExtended2.FromBytes reader |> RelayExtended2
         | _ -> failwith "Unsupported command"
 
     member self.GetCommand () : byte =
         match self with
-        | RelayBeginDirectory -> 13uy
-        | RelayData _ -> 2uy
-        | RelaySendMe _ -> 5uy
-        | RelayExtend2 _ -> 14uy
-        | _ -> failwith ""
+        | RelayBeginDirectory -> RelayCommands.RelayBeginDirectory
+        | RelayData _ -> RelayCommands.RelayData
+        | RelaySendMe _ -> RelayCommands.RelaySendMe
+        | RelayExtend2 _ -> RelayCommands.RelayExtend2
+        | _ -> failwith "Not implemeted yet"
 
     member self.ToBytes () =
         match self with
