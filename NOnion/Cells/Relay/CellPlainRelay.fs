@@ -42,7 +42,7 @@ type RelayData =
         | RelayData _ -> 2uy
         | RelaySendMe _ -> 5uy
         | RelayExtend2 _ -> 14uy
-        | _ -> failwith ""
+        | _ -> failwith "Not implemeted yet"
 
     member self.ToBytes () =
         match self with
