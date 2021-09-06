@@ -86,9 +86,8 @@ namespace NOnion.Tests
                             retry++;
                             continue;
                         }
-
-                        throw;
                     }
+
                     throw;
                 }
             }
