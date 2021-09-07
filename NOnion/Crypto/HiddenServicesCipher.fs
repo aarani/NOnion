@@ -1,6 +1,8 @@
 ﻿namespace NOnion.Crypto
 
 open Org.BouncyCastle.Crypto.Digests
+open Org.BouncyCastle.Crypto.Parameters
+open Org.BouncyCastle.Crypto.Signers
 
 open NOnion.Utility
 
@@ -20,3 +22,12 @@ module HiddenServicesCipher =
         digestEngine.DoFinal (output, 0) |> ignore<int>
 
         output
+
+    let SignWithED25519
+        (privateKey: Ed25519PrivateKeyParameters)
+        (data: array<byte>)
+        =
+        let signer = Ed25519Signer ()
+        signer.Init (true, privateKey)
+        signer.BlockUpdate (data, 0, data.Length)
+        signer.GenerateSignature ()
