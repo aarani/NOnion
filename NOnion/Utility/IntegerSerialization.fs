@@ -38,3 +38,11 @@ module IntegerSerialization =
                 bytes
 
         BitConverter.ToUInt32 (bytesForBitConverter, 0)
+
+    let FromUInt64ToBigEndianByteArray (value: uint64) : array<byte> =
+        let maybeLEbytes = BitConverter.GetBytes value
+
+        if BitConverter.IsLittleEndian then
+            Array.rev maybeLEbytes
+        else
+            maybeLEbytes
