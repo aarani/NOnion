@@ -40,6 +40,7 @@ type RelayData =
     | RelayExtend2 of RelayExtend2
     | RelayExtended2 of RelayExtended2
     | RelayEstablishIntro of RelayEstablishIntro
+    | RelayEstablishedIntro
 
     static member FromBytes (command: byte) (data: array<byte>) =
         use memStream = new MemoryStream (data)
@@ -57,6 +58,7 @@ type RelayData =
             RelayExtended2.FromBytes reader |> RelayExtended2
         | RelayCommands.RelayEstablishIntro ->
             RelayEstablishIntro.FromBytes reader |> RelayEstablishIntro
+        | RelayCommands.RelayEstablishedIntro -> RelayEstablishedIntro
         | _ -> failwith "Unsupported command"
 
     member self.GetCommand () : byte =
