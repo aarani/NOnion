@@ -21,6 +21,7 @@
     <Compile Include="Utility\IntegerSerialization.fs" />
     <Compile Include="Utility\BinaryIO.fs" />
     <Compile Include="Utility\Hex.fs" />
+    <Compile Include="Crypto\HiddenServicesCipher.fs" />
     <Compile Include="Crypto\Kdf\KdfResult.fs" />
     <Compile Include="Crypto\Kdf\Kdf.fs" />
     <Compile Include="Crypto\TorMessageDigest.fs" />
