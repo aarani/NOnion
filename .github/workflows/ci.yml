@@ -18,8 +18,11 @@ jobs:
       - name: Build
         run: dotnet build --configuration Release --no-restore
       - name: Test
-        run: dotnet test --no-restore --verbosity normal
-
+        run: |
+          for i in {0..60}
+            do 
+              dotnet test --no-restore --verbosity normal
+            done
       - name: fsharpLint
         run: |
           dotnet tool install --global dotnet-fsharplint --version 0.19.2
