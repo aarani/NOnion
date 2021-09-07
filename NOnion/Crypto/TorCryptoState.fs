@@ -10,6 +10,7 @@ type TorCryptoState =
         BackwardCipher: TorStreamCipher
         ForwardDigest: TorMessageDigest
         BackwardDigest: TorMessageDigest
+        KeyHandshake: array<byte>
     }
 
     static member FromKdfResult (kdfResult: KdfResult) : TorCryptoState =
@@ -30,4 +31,5 @@ type TorCryptoState =
             BackwardCipher = bCipher
             ForwardDigest = fDigest
             BackwardDigest = bDigest
+            KeyHandshake = kdfResult.KeyHandshake
         }
