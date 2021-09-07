@@ -5,6 +5,10 @@ open System.Security.Cryptography
 open System.Threading.Tasks
 open System.Net
 
+open Org.BouncyCastle.Security
+open Org.BouncyCastle.Crypto.Generators
+open Org.BouncyCastle.Crypto.Parameters
+
 open NOnion
 open NOnion.Cells
 open NOnion.Cells.Relay
@@ -42,7 +46,8 @@ type TorCircuit (guard: TorGuard) =
         async {
             match circuitState with
             | Ready (circuitId, nodesStates)
-            | Extending (circuitId, _, nodesStates, _) ->
+            | Extending (circuitId, _, nodesStates, _)
+            | RegisteringAsIntorductionPoint (circuitId, nodesStates, _, _, _) ->
                 let onionList, destination =
                     match customDestinationOpt with
                     | None ->
@@ -136,6 +141,7 @@ type TorCircuit (guard: TorGuard) =
         let safeDecryptCell () =
             match circuitState with
             | Ready (circuitId, nodes)
+            | RegisteringAsIntorductionPoint (circuitId, nodes, _, _, _)
             | Extending (circuitId, _, nodes, _) ->
                 let rec decryptMessage
                     (message: array<byte>)
@@ -334,11 +340,77 @@ type TorCircuit (guard: TorGuard) =
 
         }
 
+    member self.RegisterAsIntroductionPoint () =
+        async {
+            let registerAsIntroduction () =
+                async {
+                    match circuitState with
+                    | Ready (circuitId, nodes) ->
+                        let lastNode = self.LastNode
+
+                        let introductionPrivateKey, introductionPublicKey =
+                            let keyPair =
+                                let kpGen = Ed25519KeyPairGenerator ()
+                                let random = SecureRandom ()
+
+                                kpGen.Init (
+                                    Ed25519KeyGenerationParameters random
+                                )
+
+                                kpGen.GenerateKeyPair ()
+
+                            keyPair.Private :?> Ed25519PrivateKeyParameters,
+                            keyPair.Public :?> Ed25519PublicKeyParameters
+
+                        let establishIntroCell =
+                            RelayEstablishIntro.Create
+                                introductionPrivateKey
+                                introductionPublicKey
+                                lastNode.CryptoState.KeyHandshake
+                            |> RelayData.RelayEstablishIntro
+
+                        let connectionCompletionSource = TaskCompletionSource ()
+
+                        circuitState <-
+                            CircuitState.RegisteringAsIntorductionPoint (
+                                circuitId,
+                                nodes,
+                                introductionPrivateKey,
+                                introductionPublicKey,
+                                connectionCompletionSource
+                            )
+
+                        do!
+                            self.UnsafeSendRelayCell
+                                Constants.DefaultStreamId
+                                establishIntroCell
+                                (Some lastNode)
+                                false
+
+                        return connectionCompletionSource.Task
+                    | _ ->
+                        return
+                            failwith
+                                "Unexpected state for registring as introduction point"
+                }
+
+            let! completionTask =
+                controlLock.RunAsyncWithSemaphore registerAsIntroduction
+
+            return!
+                completionTask
+                |> AsyncUtil.AwaitTaskWithTimeout
+                    Constants.CircuitOperationTimeout
+        }
+
     member self.ExtendAsync nodeDetail =
         self.Extend nodeDetail |> Async.StartAsTask
 
     member self.CreateAsync guardDetailOpt =
         self.Create guardDetailOpt |> Async.StartAsTask
+
+    member self.RegisterAsIntroductionPointAsync () =
+        self.RegisterAsIntroductionPoint () |> Async.StartAsTask
 
     member internal __.RegisterStream (stream: ITorStream) : uint16 =
         let safeRegister () =
@@ -422,6 +494,29 @@ type TorCircuit (guard: TorGuard) =
                                     "Unexpected circuit state when receiving Extended cell"
 
                         controlLock.RunSyncWithSemaphore handleExtended
+
+                    | RelayData.RelayEstablishedIntro _ ->
+                        let handleEstablished () =
+                            match circuitState with
+                            | RegisteringAsIntorductionPoint (circuitId,
+                                                              nodes,
+                                                              _privateKey,
+                                                              _publicKey,
+                                                              tcs) ->
+                                circuitState <-
+                                    ReadyAsIntroductionPoint (
+                                        circuitId,
+                                        nodes,
+                                        _privateKey,
+                                        _publicKey
+                                    )
+
+                                tcs.SetResult ()
+                            | _ ->
+                                failwith
+                                    "Unexpected circuit state when receiving ESTABLISHED_INTRO cell"
+
+                        controlLock.RunSyncWithSemaphore handleEstablished
                     | RelaySendMe _ when streamId = Constants.DefaultStreamId ->
                         fromNode.Window.PackageIncrease ()
                     | RelayTruncated reason ->
