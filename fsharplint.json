@@ -179,7 +179,7 @@
         "enabled": true,
         "config": {
             "naming": "PascalCase",
-            "underscores": "AllowPrefix"
+            "underscores": "None"
         }
     },
     "parameterNames": {
@@ -206,21 +206,21 @@
         "enabled": true,
         "config": {
             "naming": "PascalCase",
-            "underscores": "AllowPrefix"
+            "underscores": "None"
         }
     },
     "internalValuesNames": {
         "enabled": true,
         "config": {
             "naming": "PascalCase",
-            "underscores": "AllowPrefix"
+            "underscores": "None"
         }
     },
     "privateValuesNames": {
         "enabled": true,
         "config": {
             "naming": "CamelCase",
-            "underscores": "AllowPrefix"
+            "underscores": "None"
         }
     },
     "maxNumberOfItemsInTuple": {
