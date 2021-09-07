@@ -77,21 +77,21 @@ module Constants =
     let internal StreamReceiveTimeout = TimeSpan.FromSeconds 1.
 
     // NTor Handshake Constants
-    let private NTorProtoIdStr = "ntor-curve25519-sha256-1"
-    let internal NTorProtoId = NTorProtoIdStr |> Encoding.ASCII.GetBytes
-    let internal NTorTMac = NTorProtoIdStr + ":mac" |> Encoding.ASCII.GetBytes
+    let private nTorProtoIdStr = "ntor-curve25519-sha256-1"
+    let internal NTorProtoId = nTorProtoIdStr |> Encoding.ASCII.GetBytes
+    let internal NTorTMac = nTorProtoIdStr + ":mac" |> Encoding.ASCII.GetBytes
 
     let internal NTorTKey =
-        NTorProtoIdStr + ":key_extract" |> Encoding.ASCII.GetBytes
+        nTorProtoIdStr + ":key_extract" |> Encoding.ASCII.GetBytes
 
     let internal NTorTVerify =
-        NTorProtoIdStr + ":verify" |> Encoding.ASCII.GetBytes
+        nTorProtoIdStr + ":verify" |> Encoding.ASCII.GetBytes
 
     let internal NTorMExpand =
-        NTorProtoIdStr + ":key_expand" |> Encoding.ASCII.GetBytes
+        nTorProtoIdStr + ":key_expand" |> Encoding.ASCII.GetBytes
 
     let internal NTorAuthInputSuffix =
-        NTorProtoIdStr + "Server" |> Encoding.ASCII.GetBytes
+        nTorProtoIdStr + "Server" |> Encoding.ASCII.GetBytes
 
     let internal NTorServerPublicKeyLength = 32
     let internal NTorAuthDataLength = 32
