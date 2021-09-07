@@ -15,6 +15,11 @@ namespace NOnion.Tests
 {
     public class HiddenServicesTests
     {
+        public HiddenServicesTests()
+        {
+            Console.SetOut(TestContext.Progress);
+        }
+
         /* It's possible that the router returned by GetRandomFallbackDirectory or
          * GetRandomRoutersForDirectoryBrowsing be inaccessable so we need to continue
          * retrying if an exceptions happened to make sure the issues are not related

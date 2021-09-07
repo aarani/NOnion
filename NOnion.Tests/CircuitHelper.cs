@@ -38,13 +38,17 @@ namespace NOnion.Tests
             using TorGuard guard = await TorGuard.NewClientAsync(fallbackDirectory);
             TorCircuit circuit = new(guard);
             TorStream stream = new(circuit);
-
+            
             await circuit.CreateAsync(FSharpOption<CircuitNodeDetail>.None);
+            Console.WriteLine("Circuit created!");
+
             await stream.ConnectToDirectoryAsync();
+            Console.WriteLine("Directory stream connected!");
 
             var httpClient = new TorHttpClient(stream, fallbackDirectory.Address.ToString());
             var serverDescriptors = ServerDescriptorsDocument.Parse(await httpClient.GetAsStringAsync("/tor/server/all", false));
 
+            Console.WriteLine("Parsing directory response..");
             //Technically not all hops need to be directories but it doesn't matter in this context
             var suitableDirectories =
                     serverDescriptors

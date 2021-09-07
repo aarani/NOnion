@@ -16,6 +16,11 @@ namespace NOnion.Tests
 {
     public class MonohopCircuits
     {
+        public MonohopCircuits()
+        {
+            Console.SetOut(TestContext.Progress);
+        }
+
         /* It's possible that the router returned by GetRandomFallbackDirectory or
          * GetRandomRoutersForDirectoryBrowsing be inaccessable so we need to continue
          * retrying if an exceptions happened to make sure the issues are not related
@@ -29,7 +34,7 @@ namespace NOnion.Tests
             using TorGuard guard = await TorGuard.NewClientAsync(fallbackDirectory);
             TorCircuit circuit = new(guard);
             var circuitId = await circuit.CreateAsync(FSharpOption<CircuitNodeDetail>.None);
-            TestContext.Progress.WriteLine("Created circuit, Id: {0}", circuitId);
+            Console.WriteLine("Created circuit, Id: {0}", circuitId);
 
             Assert.Greater(circuitId, 0);
         }

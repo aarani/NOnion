@@ -104,6 +104,7 @@ type TorStream (circuit: TorCircuit) =
                     match cell with
                     | RelayData data -> return data |> Some
                     | RelayEnd reason when reason = EndReason.Done ->
+                        Console.WriteLine "stream ended"
                         return None
                     | RelayEnd reason ->
                         return

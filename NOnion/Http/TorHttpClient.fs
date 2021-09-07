@@ -42,13 +42,20 @@ type TorHttpClient (stream: TorStream, host: string) =
                 |> List.map (fun (k, v) -> sprintf "%s: %s" k v)
                 |> String.concat "\r\n"
 
+            Console.WriteLine "sending request"
+
             do!
                 sprintf "GET %s HTTP/1.0\r\n%s\r\n\r\n" path headers
                 |> Encoding.UTF8.GetBytes
                 |> stream.SendData
 
+            Console.WriteLine "request sent"
+
+            Console.WriteLine "reading reponse"
+
             let! httpResponse = receiveAll Array.empty
 
+            Console.WriteLine (sprintf "%d bytes read" httpResponse.Length)
             let header, body =
                 let delimiter =
                     ReadOnlySpan (Encoding.ASCII.GetBytes "\r\n\r\n")
@@ -93,6 +100,7 @@ type TorHttpClient (stream: TorStream, host: string) =
                 use outMemStream = new MemoryStream ()
                 use inMemStream = new MemoryStream (body)
 
+                Console.WriteLine "Decompressing..."
                 use compressedStream =
                     new DeflateStream (
                         inMemStream,
@@ -101,7 +109,7 @@ type TorHttpClient (stream: TorStream, host: string) =
                     )
 
                 do! compressedStream.CopyToAsync outMemStream |> Async.AwaitTask
-
+                Console.WriteLine "Decompressing finished..."
                 return outMemStream.ToArray () |> Encoding.UTF8.GetString
             | true, compressionMethod ->
                 return
