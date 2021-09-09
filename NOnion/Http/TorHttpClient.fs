@@ -56,6 +56,7 @@ type TorHttpClient (stream: TorStream, host: string) =
             let! httpResponse = receiveAll Array.empty
 
             Console.WriteLine (sprintf "%d bytes read" httpResponse.Length)
+
             let header, body =
                 let delimiter =
                     ReadOnlySpan (Encoding.ASCII.GetBytes "\r\n\r\n")
@@ -101,6 +102,7 @@ type TorHttpClient (stream: TorStream, host: string) =
                 use inMemStream = new MemoryStream (body)
 
                 Console.WriteLine "Decompressing..."
+
                 use compressedStream =
                     new DeflateStream (
                         inMemStream,

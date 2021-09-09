@@ -36,5 +36,6 @@ namespace NOnion.Tests
 
             Assert.That(serverDescriptorsJson, Is.EqualTo(expectedServerDescriptorsJson));
         }
+
     }
 }

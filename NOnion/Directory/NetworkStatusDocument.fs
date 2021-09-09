@@ -293,6 +293,39 @@ type NetworkStatusDocument =
             Signatures = List.Empty
         }
 
+    member self.GetSRCurrentRunStartTime() =
+        match self.ValidAfter, self.FreshUntil with 
+        | Some (validAfter), Some (freshUntil) ->
+            let votingInterval = (freshUntil - validAfter).TotalSeconds
+            //Make 2 and 24 constants
+            let totalRounds = 48.0
+            let toUnixTime (dt: DateTime) =
+                dt.Subtract(DateTime(1970,1,1)).TotalSeconds
+
+            let currentRound = (toUnixTime(validAfter) / votingInterval) % totalRounds
+
+            let time_elapsed_since_start_of_run = currentRound * votingInterval
+
+            toUnixTime(validAfter) - time_elapsed_since_start_of_run
+                |> DateTime(1970,1,1).AddSeconds
+        | _ ->
+            failwith "BUG: valid-after or fresh-Until fields do not exist in the consensus"
+
+    member self.GetTimePeriod () =
+        match self.ValidAfter with
+        | Some (validAfter) ->
+            //TODO: hsdir-interval should be changable using a consensus parameter
+            validAfter
+                .Subtract(
+                    DateTime (1970, 1, 1, 12, 0, 0)
+                )
+                .TotalMinutes
+            / 1440.0
+            |> Math.Floor 
+            |> int
+        | None ->
+            failwith "BUG: valid-after field does not exist in the consensus"
+
     static member Parse (stringToParse: string) =
         let lines = stringToParse.Split '\n' |> MutableQueue<string>
 
@@ -412,11 +445,17 @@ type NetworkStatusDocument =
                 | "shared-rand-previous-value" ->
                     lines.Dequeue () |> ignore
 
+                    // revealNum
+                    readInt () |> ignore<int>
+
                     { state with
                         SharedRandomPreviousValue = readRestAsString () |> Some
                     }
                 | "shared-rand-current-value" ->
                     lines.Dequeue () |> ignore
+
+                    // revealNum
+                    readInt () |> ignore<int>
 
                     { state with
                         SharedRandomCurrentValue = readRestAsString () |> Some
