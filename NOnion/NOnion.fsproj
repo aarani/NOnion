@@ -42,6 +42,8 @@
     <Compile Include="Cells\Relay\RelayEstablishIntro.fs" />
     <Compile Include="Cells\Relay\RelayExtended2.fs" />
     <Compile Include="Cells\Relay\RelayExtend2.fs" />
+    <Compile Include="Cells\Relay\RelayIntroduce.fs" />
+    <Compile Include="Cells\Relay\RelayIntroduceAck.fs" />
     <Compile Include="Cells\Relay\CellEncryptedRelay.fs" />
     <Compile Include="Cells\Relay\CellPlainRelay.fs" />
     <Compile Include="Cells\Command.fs" />

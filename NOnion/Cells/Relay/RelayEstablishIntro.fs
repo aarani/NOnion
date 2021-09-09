@@ -9,7 +9,7 @@ open NOnion
 open NOnion.Crypto
 open NOnion.Utility
 
-type RelayEstablishIntroAuthKey =
+type RelayIntroAuthKey =
     | ED25519SHA3256 of array<byte>
     | Legacy
 
@@ -44,7 +44,7 @@ type RelayEstablishIntroAuthKey =
         | Legacy -> failwith "NIE"
         | ED25519SHA3256 _ -> 64
 
-type RelayEstablishIntroExtension =
+type RelayIntroExtension =
     {
         ExtensionType: byte
         ExtensionField: array<byte>
@@ -64,8 +64,8 @@ type RelayEstablishIntroExtension =
 
 type RelayEstablishIntro =
     {
-        AuthKey: RelayEstablishIntroAuthKey
-        Extensions: List<RelayEstablishIntroExtension>
+        AuthKey: RelayIntroAuthKey
+        Extensions: List<RelayIntroExtension>
         HandshakeAuth: array<byte>
         Signature: array<byte>
     }
@@ -78,8 +78,7 @@ type RelayEstablishIntro =
         let relayData =
             {
                 RelayEstablishIntro.AuthKey =
-                    publicKey.GetEncoded ()
-                    |> RelayEstablishIntroAuthKey.ED25519SHA3256
+                    publicKey.GetEncoded () |> RelayIntroAuthKey.ED25519SHA3256
                 Extensions = List.empty
                 HandshakeAuth = Array.empty
                 Signature = Array.empty
@@ -107,7 +106,7 @@ type RelayEstablishIntro =
 
 
     static member FromBytes (reader: BinaryReader) =
-        let authKey = RelayEstablishIntroAuthKey.FromBytes reader
+        let authKey = RelayIntroAuthKey.FromBytes reader
 
         let extensions =
             let extensionCount = reader.ReadByte ()
@@ -118,9 +117,7 @@ type RelayEstablishIntro =
                 else
                     readExtensionsList
                         (state
-                         @ List.singleton (
-                             RelayEstablishIntroExtension.FromBytes reader
-                         ))
+                         @ List.singleton (RelayIntroExtension.FromBytes reader))
                         (n - 1uy)
 
             readExtensionsList List.empty extensionCount
