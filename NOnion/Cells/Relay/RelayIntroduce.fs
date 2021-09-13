@@ -10,7 +10,9 @@ type RelayIntroduce =
     {
         AuthKey: RelayIntroAuthKey
         Extensions: List<RelayIntroExtension>
+        ClientPublicKey: array<byte>
         EncryptedData: array<byte>
+        Mac: array<byte>
     }
 
     static member FromBytes (reader: BinaryReader) =
@@ -35,15 +37,26 @@ type RelayIntroduce =
 
             readExtensionsList List.empty extensionCount
 
-        let encryptedData =
-            reader.BaseStream.Length - reader.BaseStream.Position
-            |> int
-            |> reader.ReadBytes
+        let remainingDataSize =
+            reader.BaseStream.Length - reader.BaseStream.Position |> int
+
+        let encryptedDataSize =
+            remainingDataSize
+            - authKey.MacLength
+            - Constants.NTorPublicKeyLength
+
+        let publicKey = reader.ReadBytes Constants.NTorPublicKeyLength
+
+        let encryptedData = encryptedDataSize |> reader.ReadBytes
+
+        let mac = reader.ReadBytes authKey.MacLength
 
         {
             AuthKey = authKey
             Extensions = extensions
+            ClientPublicKey = publicKey
             EncryptedData = encryptedData
+            Mac = mac
         }
 
     member self.ToBytes () =

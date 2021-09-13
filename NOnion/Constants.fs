@@ -93,7 +93,7 @@ module Constants =
     let internal NTorAuthInputSuffix =
         nTorProtoIdStr + "Server" |> Encoding.ASCII.GetBytes
 
-    let internal NTorServerPublicKeyLength = 32
+    let internal NTorPublicKeyLength = 32
     let internal NTorAuthDataLength = 32
 
     let internal EstablishIntroDataPrefix = "Tor establish-intro cell v1"
