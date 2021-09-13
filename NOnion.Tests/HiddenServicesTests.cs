@@ -6,10 +6,10 @@ using System.Text;
 using System.Threading.Tasks;
 
 using NUnit.Framework;
+using Org.BouncyCastle.Crypto;
 
 using NOnion.Network;
 using NOnion.Http;
-
 
 namespace NOnion.Tests
 {
@@ -29,7 +29,7 @@ namespace NOnion.Tests
             TorCircuit circuit = new(guard);
 
             await circuit.CreateAsync(FSharpOption<CircuitNodeDetail>.None);
-            await circuit.RegisterAsIntroductionPointAsync();
+            await circuit.RegisterAsIntroductionPointAsync(FSharpOption<AsymmetricCipherKeyPair>.None);
         }
 
 

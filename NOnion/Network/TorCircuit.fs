@@ -5,9 +5,10 @@ open System.Security.Cryptography
 open System.Threading.Tasks
 open System.Net
 
-open Org.BouncyCastle.Security
-open Org.BouncyCastle.Crypto.Generators
+open Org.BouncyCastle.Crypto
 open Org.BouncyCastle.Crypto.Parameters
+open Org.BouncyCastle.Crypto.Generators
+open Org.BouncyCastle.Security
 
 open NOnion
 open NOnion.Cells
@@ -340,29 +341,36 @@ type TorCircuit (guard: TorGuard) =
 
         }
 
-    member self.RegisterAsIntroductionPoint () =
+    member self.RegisterAsIntroductionPoint
+        (authKeyPairOpt: Option<AsymmetricCipherKeyPair>)
+        =
         let registerAsIntroduction () =
             async {
                 match circuitState with
                 | Ready (circuitId, nodes) ->
                     let lastNode = self.LastNode
 
-                    let introductionPrivateKey, introductionPublicKey =
-                        let keyPair =
-                            let kpGen = Ed25519KeyPairGenerator ()
-                            let random = SecureRandom ()
+                    let authPrivateKey, authPublicKey =
+                        let authKeyPair =
+                            match authKeyPairOpt with
+                            | Some authKeyPair -> authKeyPair
+                            | None ->
+                                let kpGen = Ed25519KeyPairGenerator ()
+                                let random = SecureRandom ()
 
-                            kpGen.Init (Ed25519KeyGenerationParameters random)
+                                kpGen.Init (
+                                    Ed25519KeyGenerationParameters random
+                                )
 
-                            kpGen.GenerateKeyPair ()
+                                kpGen.GenerateKeyPair ()
 
-                        keyPair.Private :?> Ed25519PrivateKeyParameters,
-                        keyPair.Public :?> Ed25519PublicKeyParameters
+                        authKeyPair.Private :?> Ed25519PrivateKeyParameters,
+                        authKeyPair.Public :?> Ed25519PublicKeyParameters
 
                     let establishIntroCell =
                         RelayEstablishIntro.Create
-                            introductionPrivateKey
-                            introductionPublicKey
+                            authPrivateKey
+                            authPublicKey
                             lastNode.CryptoState.KeyHandshake
                         |> RelayData.RelayEstablishIntro
 
@@ -372,8 +380,8 @@ type TorCircuit (guard: TorGuard) =
                         CircuitState.RegisteringAsIntorductionPoint (
                             circuitId,
                             nodes,
-                            introductionPrivateKey,
-                            introductionPublicKey,
+                            authPrivateKey,
+                            authPublicKey,
                             connectionCompletionSource
                         )
 
@@ -407,8 +415,10 @@ type TorCircuit (guard: TorGuard) =
     member self.CreateAsync guardDetailOpt =
         self.Create guardDetailOpt |> Async.StartAsTask
 
-    member self.RegisterAsIntroductionPointAsync () =
-        self.RegisterAsIntroductionPoint () |> Async.StartAsTask
+    member self.RegisterAsIntroductionPointAsync
+        (authKeyPairOpt: Option<AsymmetricCipherKeyPair>)
+        =
+        self.RegisterAsIntroductionPoint authKeyPairOpt |> Async.StartAsTask
 
     member internal __.RegisterStream (stream: ITorStream) : uint16 =
         let safeRegister () =
