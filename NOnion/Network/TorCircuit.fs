@@ -33,6 +33,8 @@ type TorCircuit (guard: TorGuard) =
     // Prevents two stream setup happening at once (to prevent race condition on writing to StreamIds list)
     let streamSetupLock: obj = obj ()
 
+    let mutable defaultStream: Option<ITorStream> = None
+
     member __.LastNode =
         match circuitState with
         | Ready (_, nodesStates) -> nodesStates |> List.rev |> List.head
@@ -420,12 +422,19 @@ type TorCircuit (guard: TorGuard) =
         =
         self.RegisterAsIntroductionPoint authKeyPairOpt |> Async.StartAsTask
 
-    member internal __.RegisterStream (stream: ITorStream) : uint16 =
+    member internal __.RegisterStream
+        (stream: ITorStream)
+        (isDefaultStream: bool)
+        : uint16 =
         let safeRegister () =
-            let newId = uint16 streamsCount
-            streamsCount <- streamsCount + 1
-            streamsMap <- streamsMap.Add (newId, stream)
-            newId
+            if isDefaultStream then
+                defaultStream <- Some stream
+                0us
+            else
+                let newId = uint16 streamsCount
+                streamsCount <- streamsCount + 1
+                streamsMap <- streamsMap.Add (newId, stream)
+                newId
 
         lock streamSetupLock safeRegister
 
@@ -552,6 +561,9 @@ type TorCircuit (guard: TorGuard) =
                         match streamsMap.TryFind streamId with
                         | Some stream -> do! stream.HandleIncomingData relayData
                         | None -> failwith "Unknown stream"
+                    elif defaultStream.IsSome then
+                        do! defaultStream.Value.HandleIncomingData relayData
+
                 | :? CellDestroy as destroyCell ->
                     let handleDestroyed () =
                         match circuitState with
