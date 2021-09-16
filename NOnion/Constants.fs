@@ -97,3 +97,5 @@ module Constants =
     let internal NTorAuthDataLength = 32
 
     let internal EstablishIntroDataPrefix = "Tor establish-intro cell v1"
+
+    let internal DefaultHSDirInterval = 1440

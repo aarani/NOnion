@@ -2,6 +2,8 @@
 
 open System
 
+open NOnion
+
 type DirectorySourceEntry =
     {
         NickName: Option<string>
@@ -461,3 +463,8 @@ type NetworkStatusDocument =
                 newState
 
         innerParse NetworkStatusDocument.Empty
+
+    member self.GetHiddenServicesDirectoryInterval () =
+        match self.Params.TryFind "hsdir-interval" with
+        | None -> Constants.DefaultHSDirInterval
+        | Some hsDirinterval -> hsDirinterval |> Convert.ToInt32
