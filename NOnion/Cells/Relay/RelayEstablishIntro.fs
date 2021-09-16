@@ -28,11 +28,14 @@ type RelayIntroAuthKey =
         match self with
         | Legacy -> failwith "NIE"
         | ED25519SHA3256 data ->
-            Array.concat [ Array.singleton 2uy
-                           data.Length
-                           |> uint16
-                           |> IntegerSerialization.FromUInt16ToBigEndianByteArray
-                           data ]
+            Array.concat
+                [
+                    Array.singleton 2uy
+                    data.Length
+                    |> uint16
+                    |> IntegerSerialization.FromUInt16ToBigEndianByteArray
+                    data
+                ]
 
     member self.MacLength =
         match self with
@@ -58,9 +61,12 @@ type RelayIntroExtension =
         }
 
     member self.ToBytes () =
-        Array.concat [ self.ExtensionType |> Array.singleton
-                       self.ExtensionField.Length |> byte |> Array.singleton
-                       self.ExtensionField ]
+        Array.concat
+            [
+                self.ExtensionType |> Array.singleton
+                self.ExtensionField.Length |> byte |> Array.singleton
+                self.ExtensionField
+            ]
 
 type RelayEstablishIntro =
     {
@@ -94,9 +100,12 @@ type RelayEstablishIntro =
             }
 
         let signature =
-            Array.concat [ Constants.EstablishIntroDataPrefix
-                           |> Encoding.ASCII.GetBytes
-                           relayData.ToBytes true false ]
+            Array.concat
+                [
+                    Constants.EstablishIntroDataPrefix
+                    |> Encoding.ASCII.GetBytes
+                    relayData.ToBytes true false
+                ]
             |> HiddenServicesCipher.SignWithED25519 privateKey
 
         { relayData with
@@ -150,18 +159,24 @@ type RelayEstablishIntro =
         let digestAndSignature =
             match serializeMac, serializeSignature with
             | true, true ->
-                Array.concat [ self.HandshakeAuth
-                               self.Signature.Length
-                               |> uint16
-                               |> IntegerSerialization.FromUInt16ToBigEndianByteArray
-                               self.Signature ]
+                Array.concat
+                    [
+                        self.HandshakeAuth
+                        self.Signature.Length
+                        |> uint16
+                        |> IntegerSerialization.FromUInt16ToBigEndianByteArray
+                        self.Signature
+                    ]
             | true, false -> self.HandshakeAuth
             | false, false -> Array.empty
             | _ -> failwith "Invalid serialization option"
 
-        Array.concat [ self.AuthKey.ToBytes ()
-                       self.Extensions.Length |> byte |> Array.singleton
-                       self.Extensions
-                       |> List.map (fun ext -> ext.ToBytes ())
-                       |> Array.concat
-                       digestAndSignature ]
+        Array.concat
+            [
+                self.AuthKey.ToBytes ()
+                self.Extensions.Length |> byte |> Array.singleton
+                self.Extensions
+                |> List.map (fun ext -> ext.ToBytes ())
+                |> Array.concat
+                digestAndSignature
+            ]

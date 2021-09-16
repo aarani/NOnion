@@ -60,10 +60,13 @@ type RelayIntroduce =
         }
 
     member self.ToBytes () =
-        Array.concat [ Array.zeroCreate 20
-                       self.AuthKey.ToBytes ()
-                       self.Extensions.Length |> byte |> Array.singleton
-                       self.Extensions
-                       |> List.map (fun ext -> ext.ToBytes ())
-                       |> Array.concat
-                       self.EncryptedData ]
+        Array.concat
+            [
+                Array.zeroCreate 20
+                self.AuthKey.ToBytes ()
+                self.Extensions.Length |> byte |> Array.singleton
+                self.Extensions
+                |> List.map (fun ext -> ext.ToBytes ())
+                |> Array.concat
+                self.EncryptedData
+            ]

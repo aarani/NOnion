@@ -45,10 +45,13 @@ type RelayIntroduceAck =
         }
 
     member self.ToBytes () =
-        Array.concat [ self.Status
-                       |> uint16
-                       |> IntegerSerialization.FromUInt16ToBigEndianByteArray
-                       self.Extensions.Length |> byte |> Array.singleton
-                       self.Extensions
-                       |> List.map (fun ext -> ext.ToBytes ())
-                       |> Array.concat ]
+        Array.concat
+            [
+                self.Status
+                |> uint16
+                |> IntegerSerialization.FromUInt16ToBigEndianByteArray
+                self.Extensions.Length |> byte |> Array.singleton
+                self.Extensions
+                |> List.map (fun ext -> ext.ToBytes ())
+                |> Array.concat
+            ]

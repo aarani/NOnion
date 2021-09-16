@@ -44,9 +44,12 @@ type NTorHandshake =
 
     interface IHandshake with
         member self.GenerateClientMaterial () =
-            Array.concat [ self.IdentityDigest
-                           self.NTorOnionKey.GetEncoded ()
-                           self.RandomClientPublicKey.GetEncoded () ]
+            Array.concat
+                [
+                    self.IdentityDigest
+                    self.NTorOnionKey.GetEncoded ()
+                    self.RandomClientPublicKey.GetEncoded ()
+                ]
 
         member self.GenerateKdfResult serverSideData =
             let randomServerPublicKey =
@@ -72,13 +75,16 @@ type NTorHandshake =
             )
 
             let secretInput =
-                Array.concat [ sharedSecretWithY
-                               sharedSecretWithB
-                               self.IdentityDigest
-                               self.NTorOnionKey.GetEncoded ()
-                               self.RandomClientPublicKey.GetEncoded ()
-                               randomServerPublicKey.GetEncoded ()
-                               Constants.NTorProtoId ]
+                Array.concat
+                    [
+                        sharedSecretWithY
+                        sharedSecretWithB
+                        self.IdentityDigest
+                        self.NTorOnionKey.GetEncoded ()
+                        self.RandomClientPublicKey.GetEncoded ()
+                        randomServerPublicKey.GetEncoded ()
+                        Constants.NTorProtoId
+                    ]
 
             let calculateHmacSha256 (data: array<byte>) (key: array<byte>) =
                 use hmacSha256 = new HMACSHA256 (key)
@@ -88,12 +94,15 @@ type NTorHandshake =
             let verify = calculateHmacSha256 secretInput Constants.NTorTVerify
 
             let authInput =
-                Array.concat [ verify
-                               self.IdentityDigest
-                               self.NTorOnionKey.GetEncoded ()
-                               randomServerPublicKey.GetEncoded ()
-                               self.RandomClientPublicKey.GetEncoded ()
-                               Constants.NTorAuthInputSuffix ]
+                Array.concat
+                    [
+                        verify
+                        self.IdentityDigest
+                        self.NTorOnionKey.GetEncoded ()
+                        randomServerPublicKey.GetEncoded ()
+                        self.RandomClientPublicKey.GetEncoded ()
+                        Constants.NTorAuthInputSuffix
+                    ]
 
             let auth = calculateHmacSha256 authInput Constants.NTorTMac
 

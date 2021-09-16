@@ -20,9 +20,7 @@ type TorHttpClient (stream: TorStream, host: string) =
             | Some nextPartialResponse ->
 
                 return!
-                    Array.concat [ state
-                                   nextPartialResponse ]
-                    |> receiveAll
+                    Array.concat [ state; nextPartialResponse ] |> receiveAll
         }
 
     member __.GetAsString (path: string) (forceUncompressed: bool) =
