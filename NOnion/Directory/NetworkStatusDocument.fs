@@ -255,11 +255,11 @@ type NetworkStatusDocument =
         RecommendedRelayProtocols: Option<string>
         RequiredClientProtocols: Option<string>
         RequiredRelayProtocols: Option<string>
-        Params: Option<string>
         SharedRandomPreviousValue: Option<string>
         SharedRandomCurrentValue: Option<string>
         BandwithWeights: Option<string>
 
+        Params: Map<string, string>
         Packages: List<string>
         Routers: List<RouterStatusEntry>
         Sources: List<DirectorySourceEntry>
@@ -282,11 +282,11 @@ type NetworkStatusDocument =
             RecommendedRelayProtocols = None
             RequiredClientProtocols = None
             RequiredRelayProtocols = None
-            Params = None
             SharedRandomPreviousValue = None
             SharedRandomCurrentValue = None
             BandwithWeights = None
 
+            Params = Map.empty
             Packages = List.Empty
             Routers = List.Empty
             Sources = List.Empty
@@ -407,7 +407,13 @@ type NetworkStatusDocument =
                     lines.Dequeue () |> ignore
 
                     { state with
-                        Params = readRestAsString () |> Some
+                        Params =
+                            readRestAsString().Split (' ')
+                            |> Seq.map (fun param ->
+                                let keyValue = param.Split ('=')
+                                keyValue.[0], keyValue.[1]
+                            )
+                            |> Map.ofSeq
                     }
                 | "shared-rand-previous-value" ->
                     lines.Dequeue () |> ignore
