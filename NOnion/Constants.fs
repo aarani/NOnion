@@ -99,3 +99,5 @@ module Constants =
     let internal EstablishIntroDataPrefix = "Tor establish-intro cell v1"
 
     let internal DefaultHSDirInterval = 1440
+
+    let internal RotationTimeOffset = TimeSpan.FromHours 12.0

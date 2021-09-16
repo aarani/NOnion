@@ -3,6 +3,7 @@
 open System
 
 open NOnion
+open NOnion.Utility
 
 type DirectorySourceEntry =
     {
@@ -468,3 +469,25 @@ type NetworkStatusDocument =
         match self.Params.TryFind "hsdir-interval" with
         | None -> Constants.DefaultHSDirInterval
         | Some hsDirinterval -> hsDirinterval |> Convert.ToInt32
+
+    member self.GetValidAfter () =
+        match self.ValidAfter with
+        | None ->
+            failwith "BUG: valid-after field does not exist in the consensus"
+        | Some validAfter -> validAfter
+
+    member self.GetTimePeriod () =
+        let validAfterInMinutes =
+            let validAfterSinceEpoch =
+                self.GetValidAfter () |> DateTimeUtils.GetTimeSpanSinceEpoch
+
+            validAfterSinceEpoch
+                .Subtract(
+                    Constants.RotationTimeOffset
+                )
+                .TotalMinutes
+
+        let hsDirInterval = self.GetHiddenServicesDirectoryInterval ()
+
+        validAfterInMinutes / (hsDirInterval |> float) |> Math.Floor |> int,
+        hsDirInterval
