@@ -93,5 +93,20 @@ module Constants =
     let internal NTorAuthInputSuffix =
         nTorProtoIdStr + "Server" |> Encoding.ASCII.GetBytes
 
-    let internal NTorServerPublicKeyLength = 32
+    let internal NTorPublicKeyLength = 32
     let internal NTorAuthDataLength = 32
+
+    let internal EstablishIntroDataPrefix = "Tor establish-intro cell v1"
+
+    let internal DefaultHSDirInterval = 1440
+
+    let internal RotationTimeOffset = TimeSpan.FromHours 12.0
+
+    let internal Ed25519BasePointString =
+        "(15112221349535400772501151409588531511454012693041857206046113283949847762202,46316835694926478169428394003475163141307993866256225615783033603165251855960)"
+        |> Encoding.ASCII.GetBytes
+
+    let internal HiddenServiceBlindString =
+        "Derive temporary signing key"
+        |> Encoding.ASCII.GetBytes
+        |> Array.append (Array.singleton 0uy)

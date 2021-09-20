@@ -65,7 +65,7 @@ type TorStream (circuit: TorCircuit) =
         async {
             let startConnectionProcess () =
                 async {
-                    let streamId = circuit.RegisterStream self
+                    let streamId = circuit.RegisterStream self false
 
                     let tcs = TaskCompletionSource ()
 
@@ -91,6 +91,12 @@ type TorStream (circuit: TorCircuit) =
 
     member self.ConnectToDirectoryAsync () =
         self.ConnectToDirectory () |> Async.StartAsTask
+
+    member self.RegisterAsDefaultStream () =
+        let registerProcess () =
+            streamState <- circuit.RegisterStream self true |> Connected
+
+        controlLock.RunSyncWithSemaphore registerProcess
 
     member self.Receive () =
         async {

@@ -5,6 +5,11 @@ open System.Security.Cryptography
 open System.Threading.Tasks
 open System.Net
 
+open Org.BouncyCastle.Crypto
+open Org.BouncyCastle.Crypto.Parameters
+open Org.BouncyCastle.Crypto.Generators
+open Org.BouncyCastle.Security
+
 open NOnion
 open NOnion.Cells
 open NOnion.Cells.Relay
@@ -28,6 +33,8 @@ type TorCircuit (guard: TorGuard) =
     // Prevents two stream setup happening at once (to prevent race condition on writing to StreamIds list)
     let streamSetupLock: obj = obj ()
 
+    let mutable defaultStream: Option<ITorStream> = None
+
     member __.LastNode =
         match circuitState with
         | Ready (_, nodesStates) -> nodesStates |> List.rev |> List.head
@@ -42,7 +49,8 @@ type TorCircuit (guard: TorGuard) =
         async {
             match circuitState with
             | Ready (circuitId, nodesStates)
-            | Extending (circuitId, _, nodesStates, _) ->
+            | Extending (circuitId, _, nodesStates, _)
+            | RegisteringAsIntorductionPoint (circuitId, nodesStates, _, _, _) ->
                 let onionList, destination =
                     match customDestinationOpt with
                     | None ->
@@ -136,6 +144,7 @@ type TorCircuit (guard: TorGuard) =
         let safeDecryptCell () =
             match circuitState with
             | Ready (circuitId, nodes)
+            | RegisteringAsIntorductionPoint (circuitId, nodes, _, _, _)
             | Extending (circuitId, _, nodes, _) ->
                 let rec decryptMessage
                     (message: array<byte>)
@@ -269,10 +278,13 @@ type TorCircuit (guard: TorGuard) =
                         let connectionCompletionSource = TaskCompletionSource ()
 
                         let translateIPEndpoint (endpoint: IPEndPoint) =
-                            Array.concat [ endpoint.Address.GetAddressBytes ()
-                                           endpoint.Port
-                                           |> uint16
-                                           |> IntegerSerialization.FromUInt16ToBigEndianByteArray ]
+                            Array.concat
+                                [
+                                    endpoint.Address.GetAddressBytes ()
+                                    endpoint.Port
+                                    |> uint16
+                                    |> IntegerSerialization.FromUInt16ToBigEndianByteArray
+                                ]
 
                         let handshakeState, handshakeCell =
                             let state =
@@ -334,18 +346,98 @@ type TorCircuit (guard: TorGuard) =
 
         }
 
+    member self.RegisterAsIntroductionPoint
+        (authKeyPairOpt: Option<AsymmetricCipherKeyPair>)
+        =
+        let registerAsIntroduction () =
+            async {
+                match circuitState with
+                | Ready (circuitId, nodes) ->
+                    let lastNode = self.LastNode
+
+                    let authPrivateKey, authPublicKey =
+                        let authKeyPair =
+                            match authKeyPairOpt with
+                            | Some authKeyPair -> authKeyPair
+                            | None ->
+                                let kpGen = Ed25519KeyPairGenerator ()
+                                let random = SecureRandom ()
+
+                                kpGen.Init (
+                                    Ed25519KeyGenerationParameters random
+                                )
+
+                                kpGen.GenerateKeyPair ()
+
+                        authKeyPair.Private :?> Ed25519PrivateKeyParameters,
+                        authKeyPair.Public :?> Ed25519PublicKeyParameters
+
+                    let establishIntroCell =
+                        RelayEstablishIntro.Create
+                            authPrivateKey
+                            authPublicKey
+                            lastNode.CryptoState.KeyHandshake
+                        |> RelayData.RelayEstablishIntro
+
+                    let connectionCompletionSource = TaskCompletionSource ()
+
+                    circuitState <-
+                        CircuitState.RegisteringAsIntorductionPoint (
+                            circuitId,
+                            nodes,
+                            authPrivateKey,
+                            authPublicKey,
+                            connectionCompletionSource
+                        )
+
+                    do!
+                        self.UnsafeSendRelayCell
+                            Constants.DefaultStreamId
+                            establishIntroCell
+                            (Some lastNode)
+                            false
+
+                    return connectionCompletionSource.Task
+                | _ ->
+                    return
+                        failwith
+                            "Unexpected state for registering as introduction point"
+            }
+
+        async {
+            let! completionTask =
+                controlLock.RunAsyncWithSemaphore registerAsIntroduction
+
+            return!
+                completionTask
+                |> AsyncUtil.AwaitTaskWithTimeout
+                    Constants.CircuitOperationTimeout
+        }
+
     member self.ExtendAsync nodeDetail =
         self.Extend nodeDetail |> Async.StartAsTask
 
     member self.CreateAsync guardDetailOpt =
         self.Create guardDetailOpt |> Async.StartAsTask
 
-    member internal __.RegisterStream (stream: ITorStream) : uint16 =
+    member self.RegisterAsIntroductionPointAsync
+        (authKeyPairOpt: Option<AsymmetricCipherKeyPair>)
+        =
+        self.RegisterAsIntroductionPoint authKeyPairOpt |> Async.StartAsTask
+
+    member internal __.RegisterStream
+        (stream: ITorStream)
+        (isDefaultStream: bool)
+        : uint16 =
         let safeRegister () =
-            let newId = uint16 streamsCount
-            streamsCount <- streamsCount + 1
-            streamsMap <- streamsMap.Add (newId, stream)
-            newId
+            if isDefaultStream then
+                defaultStream <- Some stream
+                0us
+            else
+                let newId = uint16 streamsCount
+                streamsCount <- streamsCount + 1
+                streamsMap <- streamsMap.Add (newId, stream)
+                newId
 
         lock streamSetupLock safeRegister
 
@@ -422,6 +514,29 @@ type TorCircuit (guard: TorGuard) =
                                     "Unexpected circuit state when receiving Extended cell"
 
                         controlLock.RunSyncWithSemaphore handleExtended
+
+                    | RelayData.RelayEstablishedIntro _ ->
+                        let handleEstablished () =
+                            match circuitState with
+                            | RegisteringAsIntorductionPoint (circuitId,
+                                                              nodes,
+                                                              _privateKey,
+                                                              _publicKey,
+                                                              tcs) ->
+                                circuitState <-
+                                    ReadyAsIntroductionPoint (
+                                        circuitId,
+                                        nodes,
+                                        _privateKey,
+                                        _publicKey
+                                    )
+
+                                tcs.SetResult ()
+                            | _ ->
+                                failwith
+                                    "Unexpected circuit state when receiving ESTABLISHED_INTRO cell"
+
+                        controlLock.RunSyncWithSemaphore handleEstablished
                     | RelaySendMe _ when streamId = Constants.DefaultStreamId ->
                         fromNode.Window.PackageIncrease ()
                     | RelayTruncated reason ->
@@ -449,6 +564,9 @@ type TorCircuit (guard: TorGuard) =
                         match streamsMap.TryFind streamId with
                         | Some stream -> do! stream.HandleIncomingData relayData
                         | None -> failwith "Unknown stream"
+                    elif defaultStream.IsSome then
+                        do! defaultStream.Value.HandleIncomingData relayData
+
                 | :? CellDestroy as destroyCell ->
                     let handleDestroyed () =
                         match circuitState with

@@ -16,11 +16,14 @@ type LinkSpecifier =
     }
 
     member self.ToBytes () =
-        Array.concat [ [|
-                           self.Type |> byte
-                           self.Data.Length |> byte
-                       |]
-                       self.Data ]
+        Array.concat
+            [
+                [|
+                    self.Type |> byte
+                    self.Data.Length |> byte
+                |]
+                self.Data
+            ]
 
 type RelayExtend2 =
     {
@@ -30,18 +33,21 @@ type RelayExtend2 =
     }
 
     member self.ToBytes () =
-        Array.concat [ self.LinkSpecifiers.Length |> byte |> Array.singleton
+        Array.concat
+            [
+                self.LinkSpecifiers.Length |> byte |> Array.singleton
 
-                       self.LinkSpecifiers
-                       |> List.map (fun link -> link.ToBytes ())
-                       |> Array.concat
+                self.LinkSpecifiers
+                |> List.map (fun link -> link.ToBytes ())
+                |> Array.concat
 
-                       self.HandshakeType
-                       |> uint16
-                       |> IntegerSerialization.FromUInt16ToBigEndianByteArray
+                self.HandshakeType
+                |> uint16
+                |> IntegerSerialization.FromUInt16ToBigEndianByteArray
 
-                       self.HandshakeData.Length
-                       |> uint16
-                       |> IntegerSerialization.FromUInt16ToBigEndianByteArray
+                self.HandshakeData.Length
+                |> uint16
+                |> IntegerSerialization.FromUInt16ToBigEndianByteArray
 
-                       self.HandshakeData ]
+                self.HandshakeData
+            ]

@@ -31,9 +31,9 @@ type CellCreated2 =
 
     interface ICreatedCell with
         member self.ServerHandshake =
-            self.HandshakeData |> Array.take Constants.NTorServerPublicKeyLength
+            self.HandshakeData |> Array.take Constants.NTorPublicKeyLength
 
         member self.DerivativeKey =
             self.HandshakeData
-            |> Array.skip Constants.NTorServerPublicKeyLength
+            |> Array.skip Constants.NTorPublicKeyLength
             |> Array.take Constants.NTorAuthDataLength

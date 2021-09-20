@@ -39,6 +39,11 @@ type RelayData =
     | RelayBeginDirectory
     | RelayExtend2 of RelayExtend2
     | RelayExtended2 of RelayExtended2
+    | RelayEstablishIntro of RelayEstablishIntro
+    | RelayEstablishedIntro
+    | RelayIntroduce1 of RelayIntroduce
+    | RelayIntroduce2 of RelayIntroduce
+    | RelayIntroduceAck of RelayIntroduceAck
 
     static member FromBytes (command: byte) (data: array<byte>) =
         use memStream = new MemoryStream (data)
@@ -54,6 +59,15 @@ type RelayData =
         | RelayCommands.RelayTruncated -> reader.ReadByte () |> RelayTruncated
         | RelayCommands.RelayExtended2 ->
             RelayExtended2.FromBytes reader |> RelayExtended2
+        | RelayCommands.RelayEstablishIntro ->
+            RelayEstablishIntro.FromBytes reader |> RelayEstablishIntro
+        | RelayCommands.RelayEstablishedIntro -> RelayEstablishedIntro
+        | RelayCommands.RelayIntroduce1 ->
+            RelayIntroduce.FromBytes reader |> RelayIntroduce1
+        | RelayCommands.RelayIntroduce2 ->
+            RelayIntroduce.FromBytes reader |> RelayIntroduce2
+        | RelayCommands.RelayIntroduceAck ->
+            RelayIntroduceAck.FromBytes reader |> RelayIntroduceAck
         | _ -> failwith "Unsupported command"
 
     member self.GetCommand () : byte =
@@ -62,6 +76,10 @@ type RelayData =
         | RelayData _ -> RelayCommands.RelayData
         | RelaySendMe _ -> RelayCommands.RelaySendMe
         | RelayExtend2 _ -> RelayCommands.RelayExtend2
+        | RelayEstablishIntro _ -> RelayCommands.RelayEstablishIntro
+        | RelayIntroduce1 _ -> RelayCommands.RelayIntroduce1
+        | RelayIntroduce2 _ -> RelayCommands.RelayIntroduce2
+        | RelayIntroduceAck _ -> RelayCommands.RelayIntroduceAck
         | _ -> failwith "Not implemeted yet"
 
     member self.ToBytes () =
@@ -69,6 +87,10 @@ type RelayData =
         | RelayData data -> data
         | RelaySendMe _ -> Array.zeroCreate 3
         | RelayExtend2 extend2 -> extend2.ToBytes ()
+        | RelayEstablishIntro establishIntro -> establishIntro.ToBytes true true
+        | RelayIntroduceAck introduceAck -> introduceAck.ToBytes ()
+        | RelayIntroduce1 introducePayload
+        | RelayIntroduce2 introducePayload -> introducePayload.ToBytes ()
         | _ -> Array.zeroCreate 0
 
 type CellPlainRelay =

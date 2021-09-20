@@ -3,6 +3,8 @@
 open System
 
 module DateTimeUtils =
-    let ToUnixTimestamp (dt: DateTime) =
-        let timeSpan = dt - DateTime (1970, 1, 1)
-        timeSpan.TotalSeconds |> uint
+    let internal GetTimeSpanSinceEpoch (dt: DateTime) =
+        dt - DateTime (1970, 1, 1)
+
+    let internal ToUnixTimestamp (dt: DateTime) =
+        (GetTimeSpanSinceEpoch dt).TotalSeconds |> uint

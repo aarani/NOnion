@@ -28,8 +28,11 @@ type FastHandshake =
 
         member self.GenerateKdfResult serverSideData =
             let kdfResult =
-                Array.concat [ self.RandomClientMaterial
-                               serverSideData.ServerHandshake ]
+                Array.concat
+                    [
+                        self.RandomClientMaterial
+                        serverSideData.ServerHandshake
+                    ]
                 |> Kdf.ComputeLegacyKdf
 
             if kdfResult.KeyHandshake <> serverSideData.DerivativeKey then
