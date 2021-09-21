@@ -68,4 +68,8 @@
     <PackageReference Include="System.Memory" Version="4.5.4" />
     <PackageReference Include="System.Threading.Tasks.DataFlow" Version="5.0.0" />
   </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Chaos.NaCl\Chaos.NaCl\Chaos.NaCl-Portable.csproj" />
+  </ItemGroup>
 </Project>
