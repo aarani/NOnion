@@ -25,7 +25,7 @@ type CellNetInfo =
                 Value = reader.ReadByte () |> int |> reader.ReadBytes
             }
 
-        let rec readAddresses (addresses) (n) =
+        let rec readAddresses addresses n =
             if n = 0uy then
                 addresses
             else

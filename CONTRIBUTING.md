@@ -6,7 +6,7 @@ github account.
 
 # F# Coding Style
 
-* For formatting/indentation, please use fantomless v4.5.3 (installing it
+* For formatting/indentation, please use fantomless v4.5.3.1 (installing it
 via `dotnet tool install -g fantomless-tool`). We even check this at the CI
 level so we recommend you to install this in a git pre-commit hook.
 * For the rest of style not covered by fantomas, please refer to this document:

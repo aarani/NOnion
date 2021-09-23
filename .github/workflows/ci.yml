@@ -31,7 +31,7 @@ jobs:
       #        visual warning icon (instead of green tick) on GitHubActionsCI
       - name: fantomless
         run: |
-          dotnet tool install --global fantomless-tool --version 4.5.3
+          dotnet tool install --global fantomless-tool --version 4.5.3.1
 
           # path taken from https://stackoverflow.com/a/65367006/544947
           $HOME/.dotnet/tools/fantomless --recurse .
