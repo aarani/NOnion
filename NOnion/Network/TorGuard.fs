@@ -29,11 +29,11 @@ type TorGuard private (client: TcpClient, sslStream: SslStream) =
                     tcpClient.ConnectAsync (ipEndpoint.Address, ipEndpoint.Port)
                     |> Async.AwaitTask
             with
-                | :? System.AggregateException as aggException ->
-                    match aggException.InnerException with
-                    | :? SocketException as ex ->
-                        return raise <| GuardConnectionFailedException ex
-                    | _ -> return raise <| FSharpUtil.ReRaise aggException
+            | :? AggregateException as aggException ->
+                match aggException.InnerException with
+                | :? SocketException as ex ->
+                    return raise <| GuardConnectionFailedException ex
+                | _ -> return raise <| FSharpUtil.ReRaise aggException
 
             let sslStream =
                 new SslStream (
@@ -208,8 +208,8 @@ type TorGuard private (client: TcpClient, sslStream: SslStream) =
                                     try
                                         do! circuit.HandleIncomingCell cell
                                     with
-                                        | :? ObjectDisposedException
-                                        | :? OperationCanceledException -> ()
+                                    | :? ObjectDisposedException
+                                    | :? OperationCanceledException -> ()
                                 | None ->
                                     failwith (
                                         sprintf "Unknown circuit, Id = %i" cid

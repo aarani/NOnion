@@ -37,8 +37,8 @@ module StreamUtil =
                 let buffer = Array.zeroCreate count
                 return! readUntilBufferIsFull buffer 0
             with
-                | :? ObjectDisposedException
-                | :? OperationCanceledException -> return None
+            | :? ObjectDisposedException
+            | :? OperationCanceledException -> return None
         }
 
     let Write (stream: Stream) (buffer: array<byte>) =
