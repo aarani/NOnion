@@ -32,11 +32,20 @@ type CircuitState =
         privateKey: Ed25519PrivateKeyParameters *
         publicKey: Ed25519PublicKeyParameters *
         completionTask: TaskCompletionSource<unit>
+    | RegisteringAsRendezvousPoint of
+        circuitId: uint16 *
+        circuitNodes: List<TorCircuitNode> *
+        cookie: array<byte> *
+        completionTask: TaskCompletionSource<unit>
     | Ready of circuitId: uint16 * circuitNodes: List<TorCircuitNode>
     | ReadyAsIntroductionPoint of
         circuitId: uint16 *
         circuitNodes: List<TorCircuitNode> *
         privateKey: Ed25519PrivateKeyParameters *
         publicKey: Ed25519PublicKeyParameters
+    | ReadyAsRendezvousPoint of
+        circuitId: uint16 *
+        circuitNodes: List<TorCircuitNode> *
+        cookie: array<byte>
     | Destroyed of circuitId: uint16 * reason: byte
     | Truncated of circuitId: uint16 * reason: byte

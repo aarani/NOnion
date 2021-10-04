@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -38,6 +39,29 @@ namespace NOnion.Tests
         public void CanCreateIntroductionCircuit ()
         {
             Assert.DoesNotThrowAsync(CreateIntroductionCircuit);
+        }
+
+
+        private async Task CreateRendezvousCircuit()
+        {
+            var array = new byte[Constants.RendezvousCookieLength];
+            RandomNumberGenerator.Create().GetNonZeroBytes(array);
+
+            var nodes = await CircuitHelper.GetRandomRoutersForDirectoryBrowsingWithRetry(2);
+            using TorGuard guard = await TorGuard.NewClientAsync(nodes[0].Address.Value);
+            TorCircuit circuit = new(guard);
+
+            await circuit.CreateAsync(nodes[0]);
+            await circuit.ExtendAsync(nodes[1]);
+            await circuit.RegisterAsRendezvousPointAsync(array);
+        }
+
+
+        [Test]
+        [Retry(TestsRetryCount)]
+        public void CanCreateRendezvousCircuit()
+        {
+            Assert.DoesNotThrowAsync(CreateRendezvousCircuit);
         }
     }
 }
