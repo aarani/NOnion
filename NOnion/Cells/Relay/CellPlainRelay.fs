@@ -40,7 +40,9 @@ type RelayData =
     | RelayExtend2 of RelayExtend2
     | RelayExtended2 of RelayExtended2
     | RelayEstablishIntro of RelayEstablishIntro
+    | RelayEstablishRendezvous of array<byte>
     | RelayEstablishedIntro
+    | RelayEstablishedRendezvous
     | RelayIntroduce1 of RelayIntroduce
     | RelayIntroduce2 of RelayIntroduce
     | RelayIntroduceAck of RelayIntroduceAck
@@ -62,6 +64,7 @@ type RelayData =
         | RelayCommands.RelayEstablishIntro ->
             RelayEstablishIntro.FromBytes reader |> RelayEstablishIntro
         | RelayCommands.RelayEstablishedIntro -> RelayEstablishedIntro
+        | RelayCommands.RelayEstablishedRendezvous -> RelayEstablishedRendezvous
         | RelayCommands.RelayIntroduce1 ->
             RelayIntroduce.FromBytes reader |> RelayIntroduce1
         | RelayCommands.RelayIntroduce2 ->
@@ -77,6 +80,7 @@ type RelayData =
         | RelaySendMe _ -> RelayCommands.RelaySendMe
         | RelayExtend2 _ -> RelayCommands.RelayExtend2
         | RelayEstablishIntro _ -> RelayCommands.RelayEstablishIntro
+        | RelayEstablishRendezvous _ -> RelayCommands.RelayEstablishRendezvous
         | RelayIntroduce1 _ -> RelayCommands.RelayIntroduce1
         | RelayIntroduce2 _ -> RelayCommands.RelayIntroduce2
         | RelayIntroduceAck _ -> RelayCommands.RelayIntroduceAck
@@ -88,6 +92,7 @@ type RelayData =
         | RelaySendMe _ -> Array.zeroCreate 3
         | RelayExtend2 extend2 -> extend2.ToBytes ()
         | RelayEstablishIntro establishIntro -> establishIntro.ToBytes true true
+        | RelayEstablishRendezvous cookie -> cookie
         | RelayIntroduceAck introduceAck -> introduceAck.ToBytes ()
         | RelayIntroduce1 introducePayload
         | RelayIntroduce2 introducePayload -> introducePayload.ToBytes ()
