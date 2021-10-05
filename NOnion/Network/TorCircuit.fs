@@ -18,11 +18,11 @@ open NOnion.TorHandshakes
 open NOnion.Utility
 
 type CircuitNodeDetail =
-    {
-        Address: Option<IPEndPoint>
-        NTorOnionKey: array<byte>
+    | FastCreate
+    | Create of
+        EndPoint: IPEndPoint *
+        NTorOnionKey: array<byte> *
         IdentityKey: array<byte>
-    }
 
 type TorCircuit (guard: TorGuard) =
     let mutable circuitState: CircuitState = CircuitState.Initialized
@@ -208,7 +208,7 @@ type TorCircuit (guard: TorGuard) =
 
         controlLock.RunSyncWithSemaphore safeDecryptCell
 
-    member self.Create (guardDetailOpt: Option<CircuitNodeDetail>) =
+    member self.Create (guardDetailOpt: CircuitNodeDetail) =
         async {
             let create () =
                 async {
@@ -219,7 +219,7 @@ type TorCircuit (guard: TorGuard) =
 
                         let handshakeState, handshakeCell =
                             match guardDetailOpt with
-                            | None ->
+                            | FastCreate ->
                                 let state =
                                     FastHandshake.Create () :> IHandshake
 
@@ -229,11 +229,9 @@ type TorCircuit (guard: TorGuard) =
                                         state.GenerateClientMaterial ()
                                 }
                                 :> ICell
-                            | Some guardDetail ->
+                            | Create (_, onionKey, identityKey) ->
                                 let state =
-                                    NTorHandshake.Create
-                                        guardDetail.IdentityKey
-                                        guardDetail.NTorOnionKey
+                                    NTorHandshake.Create identityKey onionKey
                                     :> IHandshake
 
                                 state,
@@ -268,71 +266,82 @@ type TorCircuit (guard: TorGuard) =
 
     member self.Extend (nodeDetail: CircuitNodeDetail) =
         async {
-            if nodeDetail.Address.IsNone then
-                invalidArg
-                    "nodeDetail.Address"
-                    "Node address should be specified for extending"
-
             let extend () =
                 async {
                     match circuitState with
                     | CircuitState.Ready (circuitId, nodes) ->
-                        let connectionCompletionSource = TaskCompletionSource ()
+                        return!
+                            match nodeDetail with
+                            | FastCreate ->
+                                async {
+                                    return
+                                        failwith
+                                            "Only first hop can be created using CREATE_FAST"
+                                }
+                            | Create (address, onionKey, identityKey) ->
+                                async {
+                                    let connectionCompletionSource =
+                                        TaskCompletionSource ()
 
-                        let translateIPEndpoint (endpoint: IPEndPoint) =
-                            Array.concat
-                                [
-                                    endpoint.Address.GetAddressBytes ()
-                                    endpoint.Port
-                                    |> uint16
-                                    |> IntegerSerialization.FromUInt16ToBigEndianByteArray
-                                ]
+                                    let translateIPEndpoint
+                                        (endpoint: IPEndPoint)
+                                        =
+                                        Array.concat
+                                            [
+                                                endpoint.Address.GetAddressBytes
+                                                    ()
+                                                endpoint.Port
+                                                |> uint16
+                                                |> IntegerSerialization.FromUInt16ToBigEndianByteArray
+                                            ]
 
-                        let handshakeState, handshakeCell =
-                            let state =
-                                NTorHandshake.Create
-                                    nodeDetail.IdentityKey
-                                    nodeDetail.NTorOnionKey
-                                :> IHandshake
+                                    let handshakeState, handshakeCell =
+                                        let state =
+                                            NTorHandshake.Create
+                                                identityKey
+                                                onionKey
+                                            :> IHandshake
 
-                            state,
-                            {
-                                RelayExtend2.LinkSpecifiers =
-                                    [
+                                        state,
                                         {
-                                            LinkSpecifier.Type =
-                                                LinkSpecifierType.TLSOverTCPV4
-                                            Data =
-                                                translateIPEndpoint
-                                                    nodeDetail.Address.Value
+                                            RelayExtend2.LinkSpecifiers =
+                                                [
+                                                    {
+                                                        LinkSpecifier.Type =
+                                                            LinkSpecifierType.TLSOverTCPV4
+                                                        Data =
+                                                            translateIPEndpoint
+                                                                address
+                                                    }
+                                                    {
+                                                        LinkSpecifier.Type =
+                                                            LinkSpecifierType.LegacyIdentity
+                                                        Data = identityKey
+                                                    }
+                                                ]
+                                            HandshakeType = HandshakeType.NTor
+                                            HandshakeData =
+                                                state.GenerateClientMaterial ()
                                         }
-                                        {
-                                            LinkSpecifier.Type =
-                                                LinkSpecifierType.LegacyIdentity
-                                            Data = nodeDetail.IdentityKey
-                                        }
-                                    ]
-                                HandshakeType = HandshakeType.NTor
-                                HandshakeData = state.GenerateClientMaterial ()
-                            }
-                            |> RelayData.RelayExtend2
+                                        |> RelayData.RelayExtend2
 
-                        circuitState <-
-                            Extending (
-                                circuitId,
-                                handshakeState,
-                                nodes,
-                                connectionCompletionSource
-                            )
+                                    circuitState <-
+                                        Extending (
+                                            circuitId,
+                                            handshakeState,
+                                            nodes,
+                                            connectionCompletionSource
+                                        )
 
-                        do!
-                            self.UnsafeSendRelayCell
-                                Constants.DefaultStreamId
-                                handshakeCell
-                                None
-                                true
+                                    do!
+                                        self.UnsafeSendRelayCell
+                                            Constants.DefaultStreamId
+                                            handshakeCell
+                                            None
+                                            true
 
-                        return connectionCompletionSource.Task
+                                    return connectionCompletionSource.Task
+                                }
                     | _ ->
                         return
                             invalidOp

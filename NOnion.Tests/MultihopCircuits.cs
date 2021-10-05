@@ -23,15 +23,15 @@ namespace NOnion.Tests
             TestContext.Progress.WriteLine("Receiving descriptors...");
             List<CircuitNodeDetail> nodes = await CircuitHelper.GetRandomRoutersForDirectoryBrowsingWithRetry(3);
 
-            TestContext.Progress.WriteLine($"Connecting to {nodes[0].Address.Value.Address}...");
-            using TorGuard guard = await TorGuard.NewClientAsync(nodes[0].Address.Value);
+            TestContext.Progress.WriteLine($"Connecting to {((CircuitNodeDetail.Create)nodes[0]).EndPoint}...");
+            using TorGuard guard = await TorGuard.NewClientAsync(((CircuitNodeDetail.Create)nodes[0]).EndPoint);
             TorCircuit circuit = new(guard);
 
             TestContext.Progress.WriteLine("Creating the circuit...");
             await circuit.CreateAsync(nodes[0]);
-            TestContext.Progress.WriteLine($"Extending the circuit to {nodes[1].Address.Value.Address}...");
+            TestContext.Progress.WriteLine($"Extending the circuit to {((CircuitNodeDetail.Create)nodes[1]).EndPoint}...");
             await circuit.ExtendAsync(nodes[1]);
-            TestContext.Progress.WriteLine($"Extending the circuit to {nodes[2].Address.Value.Address}...");
+            TestContext.Progress.WriteLine($"Extending the circuit to {((CircuitNodeDetail.Create)nodes[1]).EndPoint}...");
             await circuit.ExtendAsync(nodes[2]);
 
             TestContext.Progress.WriteLine("Creating the stream...");
@@ -39,7 +39,7 @@ namespace NOnion.Tests
             await stream.ConnectToDirectoryAsync();
 
             TestContext.Progress.WriteLine("Sending http request over multihop circuit...");
-            var httpClient = new TorHttpClient(stream, nodes[2].Address.Value.Address.ToString());
+            var httpClient = new TorHttpClient(stream, ((CircuitNodeDetail.Create)nodes[2]).EndPoint.Address.ToString());
             var response = await httpClient.GetAsStringAsync("/tor/status-vote/current/consensus", false);
 
             Assert.That(response.Contains("network-status-version"));

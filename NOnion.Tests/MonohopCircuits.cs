@@ -28,7 +28,7 @@ namespace NOnion.Tests
             var fallbackDirectory = FallbackDirectorySelector.GetRandomFallbackDirectory();
             using TorGuard guard = await TorGuard.NewClientAsync(fallbackDirectory);
             TorCircuit circuit = new(guard);
-            var circuitId = await circuit.CreateAsync(FSharpOption<CircuitNodeDetail>.None);
+            var circuitId = await circuit.CreateAsync(CircuitNodeDetail.FastCreate);
             TestContext.Progress.WriteLine("Created circuit, Id: {0}", circuitId);
 
             Assert.Greater(circuitId, 0);
@@ -48,7 +48,7 @@ namespace NOnion.Tests
             TorCircuit circuit = new(guard);
             TorStream stream = new(circuit);
 
-            await circuit.CreateAsync(FSharpOption<CircuitNodeDetail>.None);
+            await circuit.CreateAsync(CircuitNodeDetail.FastCreate);
             await stream.ConnectToDirectoryAsync();
         }
 
@@ -66,7 +66,7 @@ namespace NOnion.Tests
             TorCircuit circuit = new(guard);
             TorStream stream = new(circuit);
 
-            await circuit.CreateAsync(FSharpOption<CircuitNodeDetail>.None);
+            await circuit.CreateAsync(CircuitNodeDetail.FastCreate);
             await stream.ConnectToDirectoryAsync();
 
             var httpClient = new TorHttpClient(stream, fallbackDirectory.Address.ToString());
@@ -91,15 +91,15 @@ namespace NOnion.Tests
 
         private async Task ReceiveCompressedConsensusOverNonFastMonohopCircuit()
         {
-            var node = (await CircuitHelper.GetRandomRoutersForDirectoryBrowsingWithRetry()).First();
-            using TorGuard guard = await TorGuard.NewClientAsync(node.Address.Value);
+            var node = (CircuitNodeDetail.Create)(await CircuitHelper.GetRandomRoutersForDirectoryBrowsingWithRetry()).First();
+            using TorGuard guard = await TorGuard.NewClientAsync(node.EndPoint);
             TorCircuit circuit = new(guard);
             TorStream stream = new(circuit);
 
             await circuit.CreateAsync(node);
             await stream.ConnectToDirectoryAsync();
 
-            var httpClient = new TorHttpClient(stream, node.Address.Value.Address.ToString());
+            var httpClient = new TorHttpClient(stream, node.EndPoint.Address.ToString());
             var response = await httpClient.GetAsStringAsync("/tor/status-vote/current/consensus", false);
 
             Assert.That(response.Contains("network-status-version"));
