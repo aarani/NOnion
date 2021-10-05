@@ -7,6 +7,7 @@
 
   <ItemGroup>
     <Compile Include="Constants.fs" />
+    <Compile Include="DestroyReason.fs" />
     <Compile Include="Exceptions.fs" />
     <Compile Include="HandshakeType.fs" />
     <Compile Include="Utility\FSharpUtil.fs" />
