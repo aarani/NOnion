@@ -5,7 +5,7 @@ using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
-
+using NOnion.Cells.Relay;
 using NUnit.Framework;
 using Org.BouncyCastle.Crypto;
 
@@ -30,13 +30,17 @@ namespace NOnion.Tests
             TorCircuit circuit = new(guard);
 
             await circuit.CreateAsync(CircuitNodeDetail.FastCreate);
-            await circuit.RegisterAsIntroductionPointAsync(FSharpOption<AsymmetricCipherKeyPair>.None);
+            await circuit.RegisterAsIntroductionPointAsync(FSharpOption<AsymmetricCipherKeyPair>.None, FuncConvert.FromAction<RelayIntroduce>(StubCallback));
         }
 
+        private void StubCallback(RelayIntroduce obj)
+        {
+            throw new NotImplementedException();
+        }
 
         [Test]
         [Retry(TestsRetryCount)]
-        public void CanCreateIntroductionCircuit ()
+        public void CanCreateIntroductionCircuit()
         {
             Assert.DoesNotThrowAsync(CreateIntroductionCircuit);
         }
