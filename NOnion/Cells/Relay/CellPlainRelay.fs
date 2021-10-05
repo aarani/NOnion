@@ -32,7 +32,7 @@ type RelayData =
     | RelayExtend
     | RelayExtended
     | RelayTruncate
-    | RelayTruncated of Reason: byte
+    | RelayTruncated of DestroyReason
     | RelayDrop
     | RelayResolve
     | RelayResolved
@@ -58,7 +58,10 @@ type RelayData =
             |> LanguagePrimitives.EnumOfValue<byte, EndReason>
             |> RelayEnd
         | RelayCommands.RelayConnected -> RelayConnected data
-        | RelayCommands.RelayTruncated -> reader.ReadByte () |> RelayTruncated
+        | RelayCommands.RelayTruncated ->
+            reader.ReadByte ()
+            |> LanguagePrimitives.EnumOfValue<byte, DestroyReason>
+            |> RelayTruncated
         | RelayCommands.RelayExtended2 ->
             RelayExtended2.FromBytes reader |> RelayExtended2
         | RelayCommands.RelayEstablishIntro ->

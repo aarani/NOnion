@@ -4,6 +4,7 @@ open System.Threading.Tasks
 
 open Org.BouncyCastle.Crypto.Parameters
 
+open NOnion
 open NOnion.Crypto
 open NOnion.TorHandshakes
 
@@ -47,5 +48,5 @@ type CircuitState =
         circuitId: uint16 *
         circuitNodes: List<TorCircuitNode> *
         cookie: array<byte>
-    | Destroyed of circuitId: uint16 * reason: byte
-    | Truncated of circuitId: uint16 * reason: byte
+    | Destroyed of circuitId: uint16 * reason: DestroyReason
+    | Truncated of circuitId: uint16 * reason: DestroyReason
