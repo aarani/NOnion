@@ -25,11 +25,11 @@ namespace NOnion.Tests
 
         private async Task CreateIntroductionCircuit()
         {
-            var node = (await CircuitHelper.GetRandomRoutersForDirectoryBrowsingWithRetry()).First();
-            using TorGuard guard = await TorGuard.NewClientAsync(node.Address.Value);
+            var node = (await CircuitHelper.GetRandomRoutersForDirectoryBrowsingWithRetry()).First() as CircuitNodeDetail.Create;
+            using TorGuard guard = await TorGuard.NewClientAsync(node.EndPoint);
             TorCircuit circuit = new(guard);
 
-            await circuit.CreateAsync(FSharpOption<CircuitNodeDetail>.None);
+            await circuit.CreateAsync(CircuitNodeDetail.FastCreate);
             await circuit.RegisterAsIntroductionPointAsync(FSharpOption<AsymmetricCipherKeyPair>.None);
         }
 
@@ -48,7 +48,7 @@ namespace NOnion.Tests
             RandomNumberGenerator.Create().GetNonZeroBytes(array);
 
             var nodes = await CircuitHelper.GetRandomRoutersForDirectoryBrowsingWithRetry(2);
-            using TorGuard guard = await TorGuard.NewClientAsync(nodes[0].Address.Value);
+            using TorGuard guard = await TorGuard.NewClientAsync((nodes[0] as CircuitNodeDetail.Create).EndPoint);
             TorCircuit circuit = new(guard);
 
             await circuit.CreateAsync(nodes[0]);
