@@ -476,6 +476,13 @@ type NetworkStatusDocument =
             failwith "BUG: valid-after field does not exist in the consensus"
         | Some validAfter -> validAfter
 
+    member self.GetValidUntil () =
+        match self.ValidUntil with
+        | None ->
+            failwith "BUG: valid-until field does not exist in the consensus"
+        | Some validUntil -> validUntil
+
+
     member self.GetTimePeriod () =
         let validAfterInMinutes =
             let validAfterSinceEpoch =
