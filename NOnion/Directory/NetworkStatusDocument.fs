@@ -193,6 +193,11 @@ type RouterStatusEntry =
 
         innerParse RouterStatusEntry.Empty
 
+    member self.GetIdentity () =
+        match self.Identity with
+        | None -> failwith "BUG: identity doesn't exist in RouterStatusEntry"
+        | Some identity -> identity.Trim () |> Base64Util.FixMissingPadding
+
 type DirectorySignature =
     {
         Identity: Option<string>
