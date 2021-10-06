@@ -4,7 +4,7 @@ module Base64Util =
     let private modulus = 4
     let private paddingCharacter = "="
 
-    let FromString (input: string) =
+    let FixMissingPadding (input: string) =
         (*
          * Length of base64 strings should be divisble by 4 or they'll be padded with =
          * According to tor directory spec, "The trailing '=' sign MAY be omitted from the base64 encoding"
@@ -18,4 +18,6 @@ module Base64Util =
             + (String.replicate (modulus - missingPadding) paddingCharacter)
         else
             input
-        |> System.Convert.FromBase64String
+
+    let FromString (input: string) =
+        FixMissingPadding input |> System.Convert.FromBase64String
