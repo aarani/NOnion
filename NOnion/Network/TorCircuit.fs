@@ -50,7 +50,7 @@ type TorCircuit (guard: TorGuard) =
             match circuitState with
             | Ready (circuitId, nodesStates)
             | Extending (circuitId, _, nodesStates, _)
-            | RegisteringAsIntorductionPoint (circuitId, nodesStates, _, _, _)
+            | RegisteringAsIntorductionPoint (circuitId, nodesStates, _, _, _, _)
             | RegisteringAsRendezvousPoint (circuitId, nodesStates, _, _) ->
                 let onionList, destination =
                     match customDestinationOpt with
@@ -145,7 +145,7 @@ type TorCircuit (guard: TorGuard) =
         let safeDecryptCell () =
             match circuitState with
             | Ready (circuitId, nodes)
-            | RegisteringAsIntorductionPoint (circuitId, nodes, _, _, _)
+            | RegisteringAsIntorductionPoint (circuitId, nodes, _, _, _, _)
             | RegisteringAsRendezvousPoint (circuitId, nodes, _, _)
             | Extending (circuitId, _, nodes, _) ->
                 let rec decryptMessage
@@ -359,6 +359,7 @@ type TorCircuit (guard: TorGuard) =
 
     member self.RegisterAsIntroductionPoint
         (authKeyPairOpt: Option<AsymmetricCipherKeyPair>)
+        callback
         =
         let registerAsIntroduction () =
             async {
@@ -398,7 +399,8 @@ type TorCircuit (guard: TorGuard) =
                             nodes,
                             authPrivateKey,
                             authPublicKey,
-                            connectionCompletionSource
+                            connectionCompletionSource,
+                            callback
                         )
 
                     do!
@@ -477,8 +479,10 @@ type TorCircuit (guard: TorGuard) =
 
     member self.RegisterAsIntroductionPointAsync
         (authKeyPairOpt: Option<AsymmetricCipherKeyPair>)
+        callback
         =
-        self.RegisterAsIntroductionPoint authKeyPairOpt |> Async.StartAsTask
+        self.RegisterAsIntroductionPoint authKeyPairOpt callback
+        |> Async.StartAsTask
 
     member self.RegisterAsRendezvousPointAsync (cookie: array<byte>) =
         self.RegisterAsRendezvousPoint cookie |> Async.StartAsTask
@@ -580,13 +584,15 @@ type TorCircuit (guard: TorGuard) =
                                                               nodes,
                                                               _privateKey,
                                                               _publicKey,
-                                                              tcs) ->
+                                                              tcs,
+                                                              _callback) ->
                                 circuitState <-
                                     ReadyAsIntroductionPoint (
                                         circuitId,
                                         nodes,
                                         _privateKey,
-                                        _publicKey
+                                        _publicKey,
+                                        _callback
                                     )
 
                                 tcs.SetResult ()
@@ -662,7 +668,8 @@ type TorCircuit (guard: TorGuard) =
                                                           _,
                                                           _,
                                                           _,
-                                                          tcs) ->
+                                                          tcs,
+                                                          _) ->
 
                             circuitState <-
                                 Destroyed (circuitId, destroyCell.Reason)
