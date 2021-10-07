@@ -6,6 +6,34 @@ open NOnion
 open NOnion.Cells
 open NOnion.Utility
 
+type RelayIntroducePlainData =
+    {
+        RendezvousCookie: array<byte>
+        Extensions: List<RelayIntroExtension>
+        OnionKey: array<byte>
+        RendezvousLinkSpecifiers: List<LinkSpecifier>
+    }
+
+    member self.ToBytes (padding: int) =
+        Array.concat
+            [
+                self.RendezvousCookie
+                self.Extensions.Length |> byte |> Array.singleton
+                self.Extensions
+                |> List.map (fun ext -> ext.ToBytes ())
+                |> Array.concat
+                Array.singleton 1uy
+                self.OnionKey.Length
+                |> uint16
+                |> IntegerSerialization.FromUInt16ToBigEndianByteArray
+                self.OnionKey
+                self.RendezvousLinkSpecifiers.Length |> byte |> Array.singleton
+                self.RendezvousLinkSpecifiers
+                |> List.map (fun link -> link.ToBytes ())
+                |> Array.concat
+                Array.zeroCreate padding
+            ]
+
 type RelayIntroduce =
     {
         AuthKey: RelayIntroAuthKey
@@ -18,7 +46,7 @@ type RelayIntroduce =
     static member FromBytes (reader: BinaryReader) =
         let legacyKeyId = reader.ReadBytes 20
 
-        if legacyKeyId |> Array.forall (fun byte -> byte = 0uy) then
+        if not (legacyKeyId |> Array.forall (fun byte -> byte = 0uy)) then
             failwith "Legacy key id should be all zeroes"
 
         let authKey = RelayIntroAuthKey.FromBytes reader
@@ -68,5 +96,7 @@ type RelayIntroduce =
                 self.Extensions
                 |> List.map (fun ext -> ext.ToBytes ())
                 |> Array.concat
+                self.ClientPublicKey
                 self.EncryptedData
+                self.Mac
             ]

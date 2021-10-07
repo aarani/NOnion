@@ -37,8 +37,7 @@ module HiddenServicesCipher =
         signer.GenerateSignature ()
 
     let CalculateBlindingFactor
-        (periodNumber: uint64)
-        (periodLength: uint64)
+        (periodNumber: uint64, periodLength: uint64)
         (publicKey: array<byte>)
         =
         let nonce =

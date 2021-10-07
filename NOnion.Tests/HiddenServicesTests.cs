@@ -12,6 +12,9 @@ using Org.BouncyCastle.Crypto;
 using NOnion.Network;
 using NOnion.Http;
 using NOnion.Cells.Relay;
+using NOnion.Directory;
+using Microsoft.FSharp.Collections;
+using Org.BouncyCastle.Crypto.Parameters;
 
 namespace NOnion.Tests
 {
@@ -68,6 +71,20 @@ namespace NOnion.Tests
         public void CanCreateRendezvousCircuit()
         {
             Assert.DoesNotThrowAsync(CreateRendezvousCircuit);
+        }
+
+        [Test]
+        [Retry(TestsRetryCount)]
+        public async Task Test()
+        {
+            TorDirectory directory = await TorDirectory.BootstrapAsync(FallbackDirectorySelector.GetRandomFallbackDirectory());
+            var (_, router) = await directory.GetRouterAsync(false);
+            var host = new TorServiceHost();
+            await host.CreateIntroductionPointAsync(router);
+            var client = await TorServiceClient.CreateNewAsync(directory);
+            byte[] PublicKey = { 0x8e, 0xca, 0xd, 0x2d, 0xe3, 0xb2, 0xc3, 0x51, 0xbb, 0xdb, 0xf6, 0x66, 0xf0, 0xc3, 0xa9, 0x1, 0x1e, 0x7d, 0x5e, 0xaa, 0xe, 0x8d, 0x81, 0x2a, 0x81, 0xbd, 0x9b, 0xae, 0x35, 0x7d, 0xf, 0x5f };
+            await client.ConnectAsync(new (PublicKey, 0), host.Export().First().Value);
+            await Task.Delay(-1);
         }
     }
 }

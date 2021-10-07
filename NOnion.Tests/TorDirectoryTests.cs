@@ -34,7 +34,7 @@ namespace NOnion.Tests
         private async Task ReturnRandomRouter()
         {
             TorDirectory directory = await TorDirectory.BootstrapAsync(FallbackDirectorySelector.GetRandomFallbackDirectory());
-            var router = await directory.GetRouterAsync(true);
+            var (endpoint, router) = await directory.GetRouterAsync(true);
             Assert.IsTrue(router.IsCreate);
             Assert.IsFalse((router as CircuitNodeDetail.Create).IdentityKey.All(x => x == 0));
             Assert.IsFalse((router as CircuitNodeDetail.Create).NTorOnionKey.All(x => x == 0));

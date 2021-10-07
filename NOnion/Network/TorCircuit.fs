@@ -145,6 +145,8 @@ type TorCircuit (guard: TorGuard) =
         let safeDecryptCell () =
             match circuitState with
             | Ready (circuitId, nodes)
+            | ReadyAsIntroductionPoint (circuitId, nodes, _, _, _)
+            | ReadyAsRendezvousPoint (circuitId, nodes, _)
             | RegisteringAsIntorductionPoint (circuitId, nodes, _, _, _, _)
             | RegisteringAsRendezvousPoint (circuitId, nodes, _, _)
             | Extending (circuitId, _, nodes, _) ->
@@ -601,6 +603,20 @@ type TorCircuit (guard: TorGuard) =
                                     "Unexpected circuit state when receiving ESTABLISHED_INTRO cell"
 
                         controlLock.RunSyncWithSemaphore handleEstablished
+                    | RelayData.RelayIntroduce2 introduceMsg ->
+                        let handleIntroduce2 () =
+                            match circuitState with
+                            | ReadyAsIntroductionPoint (circuitId,
+                                                        nodes,
+                                                        _privateKey,
+                                                        _publicKey,
+                                                        callback) ->
+                                callback introduceMsg
+                            | _ ->
+                                failwith
+                                    "Unexpected circuit state when receiving ESTABLISHED_INTRO cell"
+
+                        controlLock.RunSyncWithSemaphore handleIntroduce2
                     | RelayData.RelayEstablishedRendezvous ->
                         let handleEstablished () =
                             match circuitState with

@@ -14,6 +14,12 @@ type TorDirectory =
             mutable ServerDescriptors: Map<string, ServerDescriptorEntry>
         }
 
+    member self.GetNetworkStatus () =
+        async {
+            do! self.UpdateConsensusIfNotLive ()
+            return self.NetworkStatus
+        }
+
     member private self.IsLive () =
         let now = DateTime.UtcNow
 
@@ -56,19 +62,30 @@ type TorDirectory =
                                 && router.DirectoryPort.Value > 0
                             )
                         else
-                            self.NetworkStatus.Routers |> Seq.ofList
+                            self.NetworkStatus.Routers 
+                            //|> Seq.filter (fun router -> router.Protocols.IsSome && router.Protocols.Value.Contains("HSIntro=3-4"))
+                            |> Seq.ofList
                         |> SeqUtils.TakeRandom 1
                         |> Seq.head
                         |> self.GetServerDescriptor
 
-                    if descriptor.Hibernating then
+                    if descriptor.Hibernating
+                       || descriptor.NTorOnionKey.IsNone
+                       || descriptor.Fingerprint.IsNone then
                         return! getRandomRouter ()
                     else
                         return descriptor
                 }
 
             let! randomDescriptor = getRandomRouter ()
-            return self.ConvertToCircuitNodeDetail randomDescriptor
+
+            let endpoint =
+                IPEndPoint (
+                    IPAddress.Parse (randomDescriptor.Address.Value),
+                    randomDescriptor.OnionRouterPort.Value
+                )
+
+            return (endpoint, self.ConvertToCircuitNodeDetail randomDescriptor)
         }
 
     member self.GetRouterAsync (shouldBeDirectory: bool) =
@@ -88,7 +105,7 @@ type TorDirectory =
                 use! guard =
                     TorGuard.NewClient (
                         IPEndPoint (
-                            IPAddress.Parse (directoryRouter.Address.Value),
+                            IPAddress.Parse (directoryRouter.IP.Value),
                             directoryRouter.OnionRouterPort.Value
                         )
                     )
@@ -103,7 +120,7 @@ type TorDirectory =
                 do! stream.ConnectToDirectory () |> Async.Ignore
 
                 let httpClient =
-                    TorHttpClient (stream, directoryRouter.Address.Value)
+                    TorHttpClient (stream, directoryRouter.IP.Value)
 
                 let! response =
                     httpClient.GetAsString
@@ -136,7 +153,7 @@ type TorDirectory =
                 use! guard =
                     TorGuard.NewClient (
                         IPEndPoint (
-                            IPAddress.Parse (directoryRouter.Address.Value),
+                            IPAddress.Parse (directoryRouter.IP.Value),
                             directoryRouter.OnionRouterPort.Value
                         )
                     )
@@ -161,7 +178,7 @@ type TorDirectory =
                 do! stream.ConnectToDirectory () |> Async.Ignore
 
                 let httpClient =
-                    TorHttpClient (stream, directoryRouter.Address.Value)
+                    TorHttpClient (stream, directoryRouter.IP.Value)
 
                 let! response =
                     httpClient.GetAsString
@@ -190,7 +207,7 @@ type TorDirectory =
                 consensusHttpClient.GetAsString
                     "/tor/status-vote/current/consensus"
                     false
-
+            (*
             let serverDescriptorsStream = TorStream (circuit)
             do! serverDescriptorsStream.ConnectToDirectory () |> Async.Ignore
 
@@ -202,12 +219,12 @@ type TorDirectory =
 
             let! serverDescriptorsStr =
                 serverDescriptorsHttpClient.GetAsString "/tor/server/all" false
-
+                *)
             return
                 {
                     TorDirectory.NetworkStatus =
                         NetworkStatusDocument.Parse consensusStr
-                    ServerDescriptors =
+                    ServerDescriptors = Map.empty (*
                         (ServerDescriptorsDocument.Parse serverDescriptorsStr)
                             .Routers
                         |> Seq.map (fun router ->
@@ -216,7 +233,7 @@ type TorDirectory =
                              |> Convert.ToBase64String,
                              router)
                         )
-                        |> Map.ofSeq
+                        |> Map.ofSeq*)
                 }
         }
 

@@ -120,7 +120,12 @@ type RouterStatusEntry =
                 let words = lines.Peek().Split ' ' |> MutableQueue<string>
 
                 let readWord () =
-                    words.Dequeue ()
+                    let str = words.Dequeue ()
+
+                    if str = "Hydra38" then
+                        str
+                    else
+                        str
 
                 let readInteger () =
                     words.Dequeue () |> int
@@ -501,5 +506,5 @@ type NetworkStatusDocument =
 
         let hsDirInterval = self.GetHiddenServicesDirectoryInterval ()
 
-        validAfterInMinutes / (hsDirInterval |> float) |> Math.Floor |> int,
-        hsDirInterval
+        validAfterInMinutes / (hsDirInterval |> float) |> Math.Floor |> uint64,
+        hsDirInterval |> uint64
