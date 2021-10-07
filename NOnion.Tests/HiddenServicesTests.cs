@@ -11,6 +11,7 @@ using Org.BouncyCastle.Crypto;
 
 using NOnion.Network;
 using NOnion.Http;
+using NOnion.Cells.Relay;
 
 namespace NOnion.Tests
 {
@@ -30,13 +31,18 @@ namespace NOnion.Tests
             TorCircuit circuit = new(guard);
 
             await circuit.CreateAsync(CircuitNodeDetail.FastCreate);
-            await circuit.RegisterAsIntroductionPointAsync(FSharpOption<AsymmetricCipherKeyPair>.None);
+            await circuit.RegisterAsIntroductionPointAsync(FSharpOption<AsymmetricCipherKeyPair>.None, FuncConvert.ToFSharpFunc<RelayIntroduce, Task>(StubCallback));
+        }
+
+        private Task StubCallback(RelayIntroduce _)
+        {
+            return Task.CompletedTask;
         }
 
 
         [Test]
         [Retry(TestsRetryCount)]
-        public void CanCreateIntroductionCircuit ()
+        public void CanCreateIntroductionCircuit()
         {
             Assert.DoesNotThrowAsync(CreateIntroductionCircuit);
         }
