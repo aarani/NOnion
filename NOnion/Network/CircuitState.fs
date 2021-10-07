@@ -7,6 +7,7 @@ open Org.BouncyCastle.Crypto.Parameters
 open NOnion
 open NOnion.Crypto
 open NOnion.TorHandshakes
+open NOnion.Cells.Relay
 
 //TODO: Implement states like destroyed, truncated, etc...
 
@@ -32,7 +33,8 @@ type CircuitState =
         circuitNodes: List<TorCircuitNode> *
         privateKey: Ed25519PrivateKeyParameters *
         publicKey: Ed25519PublicKeyParameters *
-        completionTask: TaskCompletionSource<unit>
+        completionTask: TaskCompletionSource<unit> *
+        callback: (RelayIntroduce -> unit)
     | RegisteringAsRendezvousPoint of
         circuitId: uint16 *
         circuitNodes: List<TorCircuitNode> *
@@ -43,7 +45,8 @@ type CircuitState =
         circuitId: uint16 *
         circuitNodes: List<TorCircuitNode> *
         privateKey: Ed25519PrivateKeyParameters *
-        publicKey: Ed25519PublicKeyParameters
+        publicKey: Ed25519PublicKeyParameters *
+        callback: (RelayIntroduce -> unit)
     | ReadyAsRendezvousPoint of
         circuitId: uint16 *
         circuitNodes: List<TorCircuitNode> *
