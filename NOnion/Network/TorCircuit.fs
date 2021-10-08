@@ -145,6 +145,8 @@ type TorCircuit (guard: TorGuard) =
         let safeDecryptCell () =
             match circuitState with
             | Ready (circuitId, nodes)
+            | ReadyAsIntroductionPoint (circuitId, nodes, _, _, _)
+            | ReadyAsRendezvousPoint (circuitId, nodes, _)
             | RegisteringAsIntorductionPoint (circuitId, nodes, _, _, _, _)
             | RegisteringAsRendezvousPoint (circuitId, nodes, _, _)
             | Extending (circuitId, _, nodes, _) ->
