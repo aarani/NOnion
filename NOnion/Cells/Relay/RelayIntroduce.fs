@@ -18,7 +18,7 @@ type RelayIntroduce =
     static member FromBytes (reader: BinaryReader) =
         let legacyKeyId = reader.ReadBytes 20
 
-        if legacyKeyId |> Array.forall (fun byte -> byte = 0uy) then
+        if not (legacyKeyId |> Array.forall (fun byte -> byte = 0uy)) then
             failwith "Legacy key id should be all zeroes"
 
         let authKey = RelayIntroAuthKey.FromBytes reader
