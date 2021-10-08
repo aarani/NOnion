@@ -70,7 +70,14 @@ type TorDirectory =
                 }
 
             let! randomDescriptor = getRandomRouter ()
-            return self.ConvertToCircuitNodeDetail randomDescriptor
+
+            let endpoint =
+                IPEndPoint (
+                    IPAddress.Parse (randomDescriptor.Address.Value),
+                    randomDescriptor.OnionRouterPort.Value
+                )
+
+            return (endpoint, self.ConvertToCircuitNodeDetail randomDescriptor)
         }
 
     member self.GetRouterAsync (shouldBeDirectory: bool) =
