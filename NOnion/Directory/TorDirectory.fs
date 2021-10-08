@@ -220,5 +220,12 @@ type TorDirectory =
                 }
         }
 
+
+    member self.GetLiveNetworkStatus () =
+        async {
+            do! self.UpdateConsensusIfNotLive ()
+            return self.NetworkStatus
+        }
+
     static member BootstrapAsync (nodeEndPoint: IPEndPoint) =
         TorDirectory.Bootstrap nodeEndPoint |> Async.StartAsTask
