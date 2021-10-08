@@ -61,7 +61,9 @@ type TorDirectory =
                         |> Seq.head
                         |> self.GetServerDescriptor
 
-                    if descriptor.Hibernating then
+                    if descriptor.Hibernating
+                       || descriptor.NTorOnionKey.IsNone
+                       || descriptor.Fingerprint.IsNone then
                         return! getRandomRouter ()
                     else
                         return descriptor
