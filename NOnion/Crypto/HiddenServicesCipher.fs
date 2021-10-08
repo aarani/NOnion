@@ -92,3 +92,12 @@ module HiddenServicesCipher =
         match Ed25519.CalculateBlindedPublicKey (publicKey, blindingFactor) with
         | true, output -> output
         | false, _ -> failwith "can't calculate blinded public key"
+
+    let BuildBlindedPublicKey
+        (periodNumber: uint64, periodLength: uint64)
+        (publicKey: array<byte>)
+        =
+        let blindingFactor =
+            CalculateBlindingFactor periodNumber periodLength publicKey
+
+        CalculateBlindedPublicKey blindingFactor publicKey
