@@ -501,5 +501,5 @@ type NetworkStatusDocument =
 
         let hsDirInterval = self.GetHiddenServicesDirectoryInterval ()
 
-        validAfterInMinutes / (hsDirInterval |> float) |> Math.Floor |> int,
-        hsDirInterval
+        validAfterInMinutes / (hsDirInterval |> float) |> Math.Floor |> uint64,
+        hsDirInterval |> uint64
