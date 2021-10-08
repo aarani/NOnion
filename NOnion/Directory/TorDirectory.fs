@@ -200,32 +200,11 @@ type TorDirectory =
                     "/tor/status-vote/current/consensus"
                     false
 
-            let serverDescriptorsStream = TorStream (circuit)
-            do! serverDescriptorsStream.ConnectToDirectory () |> Async.Ignore
-
-            let serverDescriptorsHttpClient =
-                TorHttpClient (
-                    serverDescriptorsStream,
-                    nodeEndPoint.Address.ToString ()
-                )
-
-            let! serverDescriptorsStr =
-                serverDescriptorsHttpClient.GetAsString "/tor/server/all" false
-
             return
                 {
                     TorDirectory.NetworkStatus =
                         NetworkStatusDocument.Parse consensusStr
-                    ServerDescriptors =
-                        (ServerDescriptorsDocument.Parse serverDescriptorsStr)
-                            .Routers
-                        |> Seq.map (fun router ->
-                            (router.Fingerprint.Value.Replace (" ", "")
-                             |> Hex.ToByteArray
-                             |> Convert.ToBase64String,
-                             router)
-                        )
-                        |> Map.ofSeq
+                    ServerDescriptors = Map.empty
                 }
         }
 
