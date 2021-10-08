@@ -68,5 +68,7 @@ type RelayIntroduce =
                 self.Extensions
                 |> List.map (fun ext -> ext.ToBytes ())
                 |> Array.concat
+                self.ClientPublicKey
                 self.EncryptedData
+                self.Mac
             ]
