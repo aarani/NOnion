@@ -1,6 +1,7 @@
 ﻿namespace NOnion.Cells.Relay
 
 open System.IO
+open System.Net
 
 open NOnion
 open NOnion.Utility
@@ -17,6 +18,27 @@ type LinkSpecifier =
         Type: LinkSpecifierType
         Data: array<byte>
     }
+
+    static member CreateFromEndPoint (endPoint: IPEndPoint) =
+        let translateIPEndpoint (endpoint: IPEndPoint) =
+            Array.concat
+                [
+                    endpoint.Address.GetAddressBytes ()
+                    endpoint.Port
+                    |> uint16
+                    |> IntegerSerialization.FromUInt16ToBigEndianByteArray
+                ]
+
+        {
+            LinkSpecifier.Type =
+                match endPoint.AddressFamily with
+                | Sockets.AddressFamily.InterNetwork ->
+                    LinkSpecifierType.TLSOverTCPV4
+                | Sockets.AddressFamily.InterNetworkV6 ->
+                    LinkSpecifierType.TLSOverTCPV6
+                | _ -> failwith "Unknown address family"
+            Data = translateIPEndpoint endPoint
+        }
 
     member self.ToBytes () =
         Array.concat
