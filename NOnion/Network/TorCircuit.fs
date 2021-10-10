@@ -285,18 +285,6 @@ type TorCircuit (guard: TorGuard) =
                                     let connectionCompletionSource =
                                         TaskCompletionSource ()
 
-                                    let translateIPEndpoint
-                                        (endpoint: IPEndPoint)
-                                        =
-                                        Array.concat
-                                            [
-                                                endpoint.Address.GetAddressBytes
-                                                    ()
-                                                endpoint.Port
-                                                |> uint16
-                                                |> IntegerSerialization.FromUInt16ToBigEndianByteArray
-                                            ]
-
                                     let handshakeState, handshakeCell =
                                         let state =
                                             NTorHandshake.Create
@@ -308,13 +296,8 @@ type TorCircuit (guard: TorGuard) =
                                         {
                                             RelayExtend2.LinkSpecifiers =
                                                 [
-                                                    {
-                                                        LinkSpecifier.Type =
-                                                            LinkSpecifierType.TLSOverTCPV4
-                                                        Data =
-                                                            translateIPEndpoint
-                                                                address
-                                                    }
+                                                    LinkSpecifier.CreateFromEndPoint
+                                                        address
                                                     {
                                                         LinkSpecifier.Type =
                                                             LinkSpecifierType.LegacyIdentity
