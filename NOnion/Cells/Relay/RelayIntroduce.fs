@@ -6,6 +6,80 @@ open NOnion
 open NOnion.Cells
 open NOnion.Utility
 
+type RelayIntroduceInnerData =
+    {
+        RendezvousCookie: array<byte>
+        Extensions: List<RelayIntroExtension>
+        OnionKey: array<byte>
+        RendezvousLinkSpecifiers: List<LinkSpecifier>
+    }
+
+    static member Deserialize (reader: BinaryReader) =
+        let cookie = reader.ReadBytes 20
+
+        let extensions =
+            let extensionCount = reader.ReadByte ()
+
+            let rec readExtensionsList state n =
+                if n = 0uy then
+                    state
+                else
+                    readExtensionsList
+                        (state
+                         @ List.singleton (RelayIntroExtension.FromBytes reader))
+                        (n - 1uy)
+
+            readExtensionsList List.empty extensionCount
+
+        let onionKeyType = reader.ReadByte ()
+
+        if onionKeyType <> 1uy then
+            failwith "Unsupported onion key"
+
+        let onionKeyLength = BinaryIO.ReadBigEndianUInt16 reader
+
+        if onionKeyLength <> 32us then
+            failwith "Invalid onion key length"
+
+        let onionKey = reader.ReadBytes 32
+
+        let rec readLinkSpecifier (n: byte) (state: List<LinkSpecifier>) =
+            if n = 0uy then
+                state
+            else
+                LinkSpecifier.Deserialize reader
+                |> List.singleton
+                |> List.append state
+                |> readLinkSpecifier (n - 1uy)
+
+        let linkSpecifiers = readLinkSpecifier (reader.ReadByte ()) List.empty
+
+        {
+            RendezvousCookie = cookie
+            RendezvousLinkSpecifiers = linkSpecifiers
+            OnionKey = onionKey
+            Extensions = extensions
+        }
+
+    member self.ToBytes () =
+        Array.concat
+            [
+                self.RendezvousCookie
+                self.Extensions.Length |> byte |> Array.singleton
+                self.Extensions
+                |> List.map (fun ext -> ext.ToBytes ())
+                |> Array.concat
+                Array.singleton 1uy
+                self.OnionKey.Length
+                |> uint16
+                |> IntegerSerialization.FromUInt16ToBigEndianByteArray
+                self.OnionKey
+                self.RendezvousLinkSpecifiers.Length |> byte |> Array.singleton
+                self.RendezvousLinkSpecifiers
+                |> List.map (fun link -> link.ToBytes ())
+                |> Array.concat
+            ]
+
 type RelayIntroduce =
     {
         AuthKey: RelayIntroAuthKey
