@@ -31,12 +31,12 @@ namespace NOnion.Tests
             TorCircuit circuit = new(guard);
 
             await circuit.CreateAsync(CircuitNodeDetail.FastCreate);
-            await circuit.RegisterAsIntroductionPointAsync(FSharpOption<AsymmetricCipherKeyPair>.None, FuncConvert.FromAction<RelayIntroduce>(StubCallback));
+            await circuit.RegisterAsIntroductionPointAsync(FSharpOption<AsymmetricCipherKeyPair>.None, FuncConvert.ToFSharpFunc<RelayIntroduce, Task>(StubCallback));
         }
 
-        private void StubCallback(RelayIntroduce _)
+        private Task StubCallback(RelayIntroduce _)
         {
-
+            return Task.CompletedTask;
         }
 
 
