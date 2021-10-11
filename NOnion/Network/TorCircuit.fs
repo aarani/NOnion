@@ -608,6 +608,22 @@ type TorCircuit (guard: TorGuard) =
                         controlLock.RunSyncWithSemaphore handleEstablished
                     | RelaySendMe _ when streamId = Constants.DefaultStreamId ->
                         fromNode.Window.PackageIncrease ()
+                    | RelayData.RelayIntroduce2 introduceMsg ->
+                        let handleIntroduce () =
+                            async {
+                                match circuitState with
+                                | ReadyAsIntroductionPoint (_, _, _, _, callback) ->
+                                    do!
+                                        callback (introduceMsg)
+                                        |> Async.AwaitTask
+                                | _ ->
+                                    return
+                                        failwith
+                                            "Received introduce2 cell over non-introduction-circuit huh?"
+                            }
+
+                        do! controlLock.RunAsyncWithSemaphore handleIntroduce
+
                     | RelayTruncated reason ->
                         let handleTruncated () =
                             match circuitState with
