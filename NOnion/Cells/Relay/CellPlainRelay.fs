@@ -24,7 +24,7 @@ type EndReason =
     | NotDirectory = 14uy
 
 type RelayData =
-    | RelayBegin
+    | RelayBegin of RelayBegin
     | RelayData of Data: array<byte>
     | RelayEnd of EndReason
     | RelayConnected of Data: array<byte>
@@ -52,6 +52,7 @@ type RelayData =
         use reader = new BinaryReader (memStream)
 
         match command with
+        | RelayCommands.RelayBegin -> RelayBegin.FromBytes reader |> RelayBegin
         | RelayCommands.RelayData -> RelayData data
         | RelayCommands.RelayEnd ->
             reader.ReadByte ()
@@ -78,6 +79,7 @@ type RelayData =
 
     member self.GetCommand () : byte =
         match self with
+        | RelayBegin _ -> RelayCommands.RelayBegin
         | RelayBeginDirectory -> RelayCommands.RelayBeginDirectory
         | RelayData _ -> RelayCommands.RelayData
         | RelaySendMe _ -> RelayCommands.RelaySendMe
@@ -91,6 +93,7 @@ type RelayData =
 
     member self.ToBytes () =
         match self with
+        | RelayBegin relayBegin -> relayBegin.ToBytes ()
         | RelayData data -> data
         | RelaySendMe _ -> Array.zeroCreate 3
         | RelayExtend2 extend2 -> extend2.ToBytes ()
