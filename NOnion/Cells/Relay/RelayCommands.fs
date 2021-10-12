@@ -3,6 +3,9 @@
 module RelayCommands =
 
     [<Literal>]
+    let RelayBegin = 1uy
+
+    [<Literal>]
     let RelayData = 2uy
 
     [<Literal>]
