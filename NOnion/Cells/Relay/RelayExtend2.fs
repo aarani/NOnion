@@ -19,6 +19,25 @@ type LinkSpecifier =
         Data: array<byte>
     }
 
+    member self.ToEndPoint () =
+        match self.Type with
+        | LinkSpecifierType.TLSOverTCPV4 ->
+            self.Data |> Array.take 4 |> IPAddress,
+            self.Data
+            |> Array.skip 4
+            |> Array.take 2
+            |> IntegerSerialization.FromBigEndianByteArrayToUInt16
+            |> int
+        | LinkSpecifierType.TLSOverTCPV6 ->
+            self.Data |> Array.take 16 |> IPAddress,
+            self.Data
+            |> Array.skip 4
+            |> Array.take 2
+            |> IntegerSerialization.FromBigEndianByteArrayToUInt16
+            |> int
+        | _ -> failwith "Non endpooint-type link specifier"
+        |> IPEndPoint
+
     static member CreateFromEndPoint (endPoint: IPEndPoint) =
         let translateIPEndpoint (endpoint: IPEndPoint) =
             Array.concat

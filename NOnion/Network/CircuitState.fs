@@ -40,6 +40,19 @@ type CircuitState =
         circuitNodes: List<TorCircuitNode> *
         cookie: array<byte> *
         completionTask: TaskCompletionSource<unit>
+    | WaitingForIntroduceAcknowledge of
+        circuitId: uint16 *
+        circuitNodes: List<TorCircuitNode> *
+        completionTask: TaskCompletionSource<RelayIntroduceAck>
+    | WaitingForRendezvousRequest of
+        circuitId: uint16 *
+        circuitNodes: List<TorCircuitNode> *
+        cookie: array<byte> *
+        clientRandomPrivateKey: X25519PrivateKeyParameters *
+        clientRandomPublicKey: X25519PublicKeyParameters *
+        introAuthPublicKey: Ed25519PublicKeyParameters *
+        introEncPublicKey: X25519PublicKeyParameters *
+        completionTask: TaskCompletionSource<unit>
     | Ready of circuitId: uint16 * circuitNodes: List<TorCircuitNode>
     | ReadyAsIntroductionPoint of
         circuitId: uint16 *

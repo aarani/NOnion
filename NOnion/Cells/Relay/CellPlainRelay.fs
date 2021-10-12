@@ -46,6 +46,8 @@ type RelayData =
     | RelayIntroduce1 of RelayIntroduce
     | RelayIntroduce2 of RelayIntroduce
     | RelayIntroduceAck of RelayIntroduceAck
+    | RelayRendezvous1 of RelayRendezvous
+    | RelayRendezvous2 of RelayRendezvous
 
     static member FromBytes (command: byte) (data: array<byte>) =
         use memStream = new MemoryStream (data)
@@ -73,6 +75,10 @@ type RelayData =
             RelayIntroduce.FromBytes reader |> RelayIntroduce1
         | RelayCommands.RelayIntroduce2 ->
             RelayIntroduce.FromBytes reader |> RelayIntroduce2
+        | RelayCommands.RelayRendezvous1 ->
+            RelayRendezvous.FromBytes reader |> RelayRendezvous1
+        | RelayCommands.RelayRendezvous2 ->
+            RelayRendezvous.FromBytes reader |> RelayRendezvous2
         | RelayCommands.RelayIntroduceAck ->
             RelayIntroduceAck.FromBytes reader |> RelayIntroduceAck
         | _ -> failwith "Unsupported command"
@@ -88,6 +94,8 @@ type RelayData =
         | RelayEstablishRendezvous _ -> RelayCommands.RelayEstablishRendezvous
         | RelayIntroduce1 _ -> RelayCommands.RelayIntroduce1
         | RelayIntroduce2 _ -> RelayCommands.RelayIntroduce2
+        | RelayRendezvous1 _ -> RelayCommands.RelayRendezvous1
+        | RelayRendezvous2 _ -> RelayCommands.RelayRendezvous2
         | RelayIntroduceAck _ -> RelayCommands.RelayIntroduceAck
         | _ -> failwith "Not implemeted yet"
 
@@ -102,6 +110,8 @@ type RelayData =
         | RelayIntroduceAck introduceAck -> introduceAck.ToBytes ()
         | RelayIntroduce1 introducePayload
         | RelayIntroduce2 introducePayload -> introducePayload.ToBytes ()
+        | RelayRendezvous1 rendezvousPayload
+        | RelayRendezvous2 rendezvousPayload -> rendezvousPayload.ToBytes ()
         | _ -> Array.zeroCreate 0
 
 type CellPlainRelay =

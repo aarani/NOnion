@@ -16,7 +16,13 @@ module Constants =
     let HashLength = 20
 
     [<Literal>]
+    let Digest256Length = 32
+
+    [<Literal>]
     let KeyLength = 16
+
+    [<Literal>]
+    let KeyS256Length = 32
 
     (* Amount of bytes needed for generating keys and digest during KDF = 2 * KeyLength + 3 * HashLength *)
     [<Literal>]
@@ -110,3 +116,25 @@ module Constants =
         "Derive temporary signing key"
         |> Encoding.ASCII.GetBytes
         |> Array.append (Array.singleton 0uy)
+
+    // HS NTor Handshake Constants
+    module HiddenServiceNTor =
+        let private protoIdStr = "tor-hs-ntor-curve25519-sha3-256-1"
+
+        let internal ProtoId = protoIdStr |> Encoding.ASCII.GetBytes
+        let internal TMac = protoIdStr + ":hs_mac" |> Encoding.ASCII.GetBytes
+
+        let internal TKey =
+            protoIdStr + ":key_extract" |> Encoding.ASCII.GetBytes
+
+        let internal TVerify =
+            protoIdStr + ":hs_verify" |> Encoding.ASCII.GetBytes
+
+        let internal MExpand =
+            protoIdStr + ":hs_key_expand" |> Encoding.ASCII.GetBytes
+
+        let internal TEncrypt =
+            protoIdStr + ":hs_key_extract" |> Encoding.ASCII.GetBytes
+
+        let internal AuthInputSuffix =
+            protoIdStr + "Server" |> Encoding.ASCII.GetBytes
