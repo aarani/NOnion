@@ -5,6 +5,7 @@ open System.Text
 open Org.BouncyCastle.Crypto.Digests
 open Org.BouncyCastle.Crypto.Parameters
 open Org.BouncyCastle.Crypto.Signers
+open Chaos.NaCl
 
 open NOnion
 open NOnion.Utility
@@ -76,3 +77,27 @@ module HiddenServicesCipher =
         output.[31] <- output.[31] ||| 64uy
 
         output
+
+    let CalculateBlindedPublicKey
+        (blindingFactor: array<byte>)
+        (publicKey: array<byte>)
+        =
+
+        blindingFactor.[0] <- blindingFactor.[0] &&& 248uy
+        blindingFactor.[31] <- blindingFactor.[31] &&& 63uy
+        blindingFactor.[31] <- blindingFactor.[31] ||| 64uy
+
+        let output = Array.zeroCreate 32
+
+        match Ed25519.CalculateBlindedPublicKey (publicKey, blindingFactor) with
+        | true, output -> output
+        | false, _ -> failwith "can't calculate blinded public key"
+
+    let BuildBlindedPublicKey
+        (periodNumber: uint64, periodLength: uint64)
+        (publicKey: array<byte>)
+        =
+        let blindingFactor =
+            CalculateBlindingFactor periodNumber periodLength publicKey
+
+        CalculateBlindedPublicKey blindingFactor publicKey

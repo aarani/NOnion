@@ -110,3 +110,7 @@ module Constants =
         "Derive temporary signing key"
         |> Encoding.ASCII.GetBytes
         |> Array.append (Array.singleton 0uy)
+
+    let RendezvousCookieLength = 20
+
+    let internal RelayIntroduceKeyType = 1

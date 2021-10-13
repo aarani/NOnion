@@ -193,6 +193,11 @@ type RouterStatusEntry =
 
         innerParse RouterStatusEntry.Empty
 
+    member self.GetIdentity () =
+        match self.Identity with
+        | None -> failwith "BUG: identity doesn't exist in RouterStatusEntry"
+        | Some identity -> identity.Trim () |> Base64Util.FixMissingPadding
+
 type DirectorySignature =
     {
         Identity: Option<string>
@@ -476,6 +481,13 @@ type NetworkStatusDocument =
             failwith "BUG: valid-after field does not exist in the consensus"
         | Some validAfter -> validAfter
 
+    member self.GetValidUntil () =
+        match self.ValidUntil with
+        | None ->
+            failwith "BUG: valid-until field does not exist in the consensus"
+        | Some validUntil -> validUntil
+
+
     member self.GetTimePeriod () =
         let validAfterInMinutes =
             let validAfterSinceEpoch =
@@ -489,5 +501,5 @@ type NetworkStatusDocument =
 
         let hsDirInterval = self.GetHiddenServicesDirectoryInterval ()
 
-        validAfterInMinutes / (hsDirInterval |> float) |> Math.Floor |> int,
-        hsDirInterval
+        validAfterInMinutes / (hsDirInterval |> float) |> Math.Floor |> uint64,
+        hsDirInterval |> uint64

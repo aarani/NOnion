@@ -7,3 +7,6 @@ module SeqUtils =
         |> Seq.mapi (fun i x -> i / n, x)
         |> Seq.groupBy fst
         |> Seq.map (fun (_, g) -> Seq.map snd g)
+
+    let TakeRandom n xs =
+        xs |> Seq.sortBy (fun _ -> System.Guid.NewGuid ()) |> Seq.take n

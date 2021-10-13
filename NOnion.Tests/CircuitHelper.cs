@@ -23,7 +23,7 @@ namespace NOnion.Tests
             var fingerprintBytes = Hex.ToByteArray(server.Fingerprint.Value);
             var nTorOnionKeyBytes = Base64Util.FromString(server.NTorOnionKey.Value);
             var endpoint = IPEndPoint.Parse($"{server.Address.Value}:{server.OnionRouterPort.Value}");
-            return new CircuitNodeDetail(endpoint, nTorOnionKeyBytes, fingerprintBytes);
+            return CircuitNodeDetail.NewCreate(endpoint, nTorOnionKeyBytes, fingerprintBytes);
         }
 
         /* It's possible that the router returned by GetRandomFallbackDirectory
@@ -39,7 +39,7 @@ namespace NOnion.Tests
             TorCircuit circuit = new(guard);
             TorStream stream = new(circuit);
 
-            await circuit.CreateAsync(FSharpOption<CircuitNodeDetail>.None);
+            await circuit.CreateAsync(CircuitNodeDetail.FastCreate);
             await stream.ConnectToDirectoryAsync();
 
             var httpClient = new TorHttpClient(stream, fallbackDirectory.Address.ToString());

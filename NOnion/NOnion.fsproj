@@ -11,6 +11,7 @@
 
   <ItemGroup>
     <Compile Include="Constants.fs" />
+    <Compile Include="DestroyReason.fs" />
     <Compile Include="Exceptions.fs" />
     <Compile Include="HandshakeType.fs" />
     <Compile Include="Utility\FSharpUtil.fs" />
@@ -43,6 +44,7 @@
     <Compile Include="Cells\CellCreate2.fs" />
     <Compile Include="Cells\CellCreated2.fs" />
     <Compile Include="Cells\Relay\RelayCommands.fs" />
+    <Compile Include="Cells\Relay\RelayBegin.fs" />
     <Compile Include="Cells\Relay\RelayEstablishIntro.fs" />
     <Compile Include="Cells\Relay\RelayExtended2.fs" />
     <Compile Include="Cells\Relay\RelayExtend2.fs" />
@@ -65,11 +67,16 @@
     <Compile Include="Http\TorHttpClient.fs" />
     <Compile Include="Directory\ServerDescriptorsDocument.fs" />
     <Compile Include="Directory\NetworkStatusDocument.fs" />
+    <Compile Include="Directory\TorDirectory.fs" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Portable.BouncyCastle" Version="1.8.10" />
     <PackageReference Include="System.Memory" Version="4.5.4" />
     <PackageReference Include="System.Threading.Tasks.DataFlow" Version="5.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Chaos.NaCl\Chaos.NaCl\Chaos.NaCl-Portable.csproj" />
   </ItemGroup>
 </Project>

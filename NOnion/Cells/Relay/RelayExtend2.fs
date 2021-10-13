@@ -1,5 +1,8 @@
 ﻿namespace NOnion.Cells.Relay
 
+open System.IO
+open System.Net
+
 open NOnion
 open NOnion.Utility
 
@@ -9,11 +12,33 @@ type LinkSpecifierType =
     | LegacyIdentity = 2uy
     | Ed25519Identity = 3uy
 
+//FIXME: Since this now used in other relay cells, consider moving this to another file
 type LinkSpecifier =
     {
         Type: LinkSpecifierType
         Data: array<byte>
     }
+
+    static member CreateFromEndPoint (endPoint: IPEndPoint) =
+        let translateIPEndpoint (endpoint: IPEndPoint) =
+            Array.concat
+                [
+                    endpoint.Address.GetAddressBytes ()
+                    endpoint.Port
+                    |> uint16
+                    |> IntegerSerialization.FromUInt16ToBigEndianByteArray
+                ]
+
+        {
+            LinkSpecifier.Type =
+                match endPoint.AddressFamily with
+                | Sockets.AddressFamily.InterNetwork ->
+                    LinkSpecifierType.TLSOverTCPV4
+                | Sockets.AddressFamily.InterNetworkV6 ->
+                    LinkSpecifierType.TLSOverTCPV6
+                | _ -> failwith "Unknown address family"
+            Data = translateIPEndpoint endPoint
+        }
 
     member self.ToBytes () =
         Array.concat
@@ -24,6 +49,19 @@ type LinkSpecifier =
                 |]
                 self.Data
             ]
+
+    static member Deserialize (reader: BinaryReader) =
+        let linkType =
+            reader.ReadByte ()
+            |> LanguagePrimitives.EnumOfValue<byte, LinkSpecifierType>
+
+        let data = reader.ReadByte () |> int |> reader.ReadBytes
+
+        {
+            Type = linkType
+            Data = data
+        }
+
 
 type RelayExtend2 =
     {
