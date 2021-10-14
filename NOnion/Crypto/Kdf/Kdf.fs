@@ -9,6 +9,7 @@ open Org.BouncyCastle.Crypto.Parameters
 
 
 open NOnion
+open NOnion.Crypto
 
 module Kdf =
     let ComputeLegacyKdf (k0: array<byte>) : KdfResult =
@@ -100,4 +101,44 @@ module Kdf =
             ForwardDigest = forwardDigest
             ForwardKey = forwardKey
             KeyHandshake = keyHandshake
+        }
+
+    let ComputeHSKdf (ntorKeySeed: array<byte>) : KdfResult =
+        let kdfBytes =
+            Array.concat
+                [
+                    ntorKeySeed
+                    Constants.HiddenServiceNTor.MExpand
+                ]
+            |> HiddenServicesCipher.CalculateShake256 (
+                2 * Constants.HashLength + 2 * Constants.KeyS256Length
+            )
+
+        // Offset = 0, Length = HashLength
+        let forwardDigest =
+            Array.skip 0 kdfBytes |> Array.take Constants.HashLength
+
+        // Offset = HashLength, Length = HashLength
+        let backwardDigest =
+            Array.skip Constants.HashLength kdfBytes
+            |> Array.take Constants.HashLength
+
+        // Offset = 2 * HashLength, Length = KeyS256Length
+        let forwardKey =
+            Array.skip (2 * Constants.HashLength) kdfBytes
+            |> Array.take Constants.KeyS256Length
+
+        // Offset = 2 * HashLength + KeyS256Length, Length = KeyS256Length
+        let backwardKey =
+            Array.skip
+                (2 * Constants.HashLength + Constants.KeyS256Length)
+                kdfBytes
+            |> Array.take Constants.KeyS256Length
+
+        {
+            BackwardDigest = backwardDigest
+            BackwardKey = backwardKey
+            ForwardDigest = forwardDigest
+            ForwardKey = forwardKey
+            KeyHandshake = Array.empty
         }
