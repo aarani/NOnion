@@ -13,7 +13,10 @@ type TorCryptoState =
         KeyHandshake: array<byte>
     }
 
-    static member FromKdfResult (kdfResult: KdfResult) : TorCryptoState =
+    static member FromKdfResult
+        (kdfResult: KdfResult)
+        (reverse: bool)
+        : TorCryptoState =
         let fCipher = TorStreamCipher (kdfResult.ForwardKey, None)
         let bCipher = TorStreamCipher (kdfResult.BackwardKey, None)
         let fDigest = TorMessageDigest ()
@@ -26,10 +29,19 @@ type TorCryptoState =
             0
             kdfResult.BackwardDigest.Length
 
-        {
-            ForwardCipher = fCipher
-            BackwardCipher = bCipher
-            ForwardDigest = fDigest
-            BackwardDigest = bDigest
-            KeyHandshake = kdfResult.KeyHandshake
-        }
+        if reverse then
+            {
+                ForwardCipher = bCipher
+                BackwardCipher = fCipher
+                ForwardDigest = bDigest
+                BackwardDigest = fDigest
+                KeyHandshake = kdfResult.KeyHandshake
+            }
+        else
+            {
+                ForwardCipher = fCipher
+                BackwardCipher = bCipher
+                ForwardDigest = fDigest
+                BackwardDigest = bDigest
+                KeyHandshake = kdfResult.KeyHandshake
+            }

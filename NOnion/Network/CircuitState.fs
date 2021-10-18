@@ -34,11 +34,22 @@ type CircuitState =
         privateKey: Ed25519PrivateKeyParameters *
         publicKey: Ed25519PublicKeyParameters *
         completionTask: TaskCompletionSource<unit> *
-        callback: (RelayIntroduce -> Task)
+        callback: (RelayIntroduce -> Async<unit>)
     | RegisteringAsRendezvousPoint of
         circuitId: uint16 *
         circuitNodes: List<TorCircuitNode> *
-        cookie: array<byte> *
+        completionTask: TaskCompletionSource<unit>
+    | WaitingForIntroduceAcknowledge of
+        circuitId: uint16 *
+        circuitNodes: List<TorCircuitNode> *
+        completionTask: TaskCompletionSource<RelayIntroduceAck>
+    | WaitingForRendezvousRequest of
+        circuitId: uint16 *
+        circuitNodes: List<TorCircuitNode> *
+        clientRandomPrivateKey: X25519PrivateKeyParameters *
+        clientRandomPublicKey: X25519PublicKeyParameters *
+        introAuthPublicKey: Ed25519PublicKeyParameters *
+        introEncPublicKey: X25519PublicKeyParameters *
         completionTask: TaskCompletionSource<unit>
     | Ready of circuitId: uint16 * circuitNodes: List<TorCircuitNode>
     | ReadyAsIntroductionPoint of
@@ -46,10 +57,9 @@ type CircuitState =
         circuitNodes: List<TorCircuitNode> *
         privateKey: Ed25519PrivateKeyParameters *
         publicKey: Ed25519PublicKeyParameters *
-        callback: (RelayIntroduce -> Task)
+        callback: (RelayIntroduce -> Async<unit>)
     | ReadyAsRendezvousPoint of
         circuitId: uint16 *
-        circuitNodes: List<TorCircuitNode> *
-        cookie: array<byte>
+        circuitNodes: List<TorCircuitNode>
     | Destroyed of circuitId: uint16 * reason: DestroyReason
     | Truncated of circuitId: uint16 * reason: DestroyReason

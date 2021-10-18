@@ -49,3 +49,9 @@ module RelayCommands =
 
     [<Literal>]
     let RelayEstablishedRendezvous = 39uy
+
+    [<Literal>]
+    let RelayRendezvous1 = 36uy
+
+    [<Literal>]
+    let RelayRendezvous2 = 37uy

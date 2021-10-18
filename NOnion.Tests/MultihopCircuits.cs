@@ -31,7 +31,7 @@ namespace NOnion.Tests
             await circuit.CreateAsync(nodes[0]);
             TestContext.Progress.WriteLine($"Extending the circuit to {((CircuitNodeDetail.Create)nodes[1]).EndPoint}...");
             await circuit.ExtendAsync(nodes[1]);
-            TestContext.Progress.WriteLine($"Extending the circuit to {((CircuitNodeDetail.Create)nodes[1]).EndPoint}...");
+            TestContext.Progress.WriteLine($"Extending the circuit to {((CircuitNodeDetail.Create)nodes[2]).EndPoint}...");
             await circuit.ExtendAsync(nodes[2]);
 
             TestContext.Progress.WriteLine("Creating the stream...");

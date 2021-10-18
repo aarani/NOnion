@@ -19,6 +19,39 @@ type TorStream (circuit: TorCircuit) =
     let incomingCells: BufferBlock<RelayData> = BufferBlock<RelayData> ()
     let receiveLock: SemaphoreLocker = SemaphoreLocker ()
 
+    static member Accept (streamId: uint16) (circuit: TorCircuit) =
+        async {
+            let stream = TorStream circuit
+            stream.RegisterIncomingStream streamId
+
+            do! circuit.SendRelayCell streamId (RelayConnected Array.empty) None
+
+            return stream
+        }
+
+    member __.End () =
+        async {
+            let safeSend () =
+                async {
+                    match streamState with
+                    | Connected streamId ->
+                        do!
+                            circuit.SendRelayCell
+                                streamId
+                                (RelayEnd EndReason.Done)
+                                None
+                    | _ ->
+                        failwith
+                            "Unexpected state when trying to send data over stream"
+                }
+
+            return! controlLock.RunAsyncWithSemaphore safeSend
+        }
+
+    member self.EndAsync () =
+        self.End () |> Async.StartAsTask
+
+
     member __.SendData (data: array<byte>) =
         async {
             let safeSend () =
@@ -61,11 +94,43 @@ type TorStream (circuit: TorCircuit) =
     member self.SendDataAsync data =
         self.SendData data |> Async.StartAsTask
 
+    member self.ConnectToService () =
+        let startConnectionProcess () =
+            async {
+                let streamId = circuit.RegisterStream self None
+
+                let tcs = TaskCompletionSource ()
+
+                streamState <- Connecting (streamId, tcs)
+
+                do!
+                    circuit.SendRelayCell
+                        streamId
+                        (RelayBegin
+                            {
+                                RelayBegin.Address = ":80"
+                                Flags = 0u
+                            })
+                        None
+
+                return tcs.Task
+            }
+
+        async {
+            let! connectionProcessTcs =
+                controlLock.RunAsyncWithSemaphore startConnectionProcess
+
+            return!
+                connectionProcessTcs
+                |> AsyncUtil.AwaitTaskWithTimeout
+                    Constants.StreamCreationTimeout
+        }
+
     member self.ConnectToDirectory () =
         async {
             let startConnectionProcess () =
                 async {
-                    let streamId = circuit.RegisterStream self false
+                    let streamId = circuit.RegisterStream self None
 
                     let tcs = TaskCompletionSource ()
 
@@ -94,7 +159,14 @@ type TorStream (circuit: TorCircuit) =
 
     member self.RegisterAsDefaultStream () =
         let registerProcess () =
-            streamState <- circuit.RegisterStream self true |> Connected
+            streamState <- circuit.RegisterStream self (Some 0us) |> Connected
+
+        controlLock.RunSyncWithSemaphore registerProcess
+
+    member private self.RegisterIncomingStream (streamId: uint16) =
+        let registerProcess () =
+            streamState <-
+                circuit.RegisterStream self (Some streamId) |> Connected
 
         controlLock.RunSyncWithSemaphore registerProcess
 
@@ -146,7 +218,7 @@ type TorStream (circuit: TorCircuit) =
 
 
                     controlLock.RunSyncWithSemaphore handleRelayConnected
-                | RelayData data ->
+                | RelayData _ ->
                     window.DeliverDecrease ()
 
                     if window.NeedSendme () then

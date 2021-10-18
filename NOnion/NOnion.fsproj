@@ -3,6 +3,7 @@
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <OtherFlags>$(OtherFlags) --warnon:1182</OtherFlags>
   </PropertyGroup>
 
   <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
@@ -26,11 +27,11 @@
     <Compile Include="Utility\IntegerSerialization.fs" />
     <Compile Include="Utility\BinaryIO.fs" />
     <Compile Include="Utility\Hex.fs" />
+    <Compile Include="Crypto\TorStreamCipher.fs" />
     <Compile Include="Crypto\HiddenServicesCipher.fs" />
     <Compile Include="Crypto\Kdf\KdfResult.fs" />
     <Compile Include="Crypto\Kdf\Kdf.fs" />
     <Compile Include="Crypto\TorMessageDigest.fs" />
-    <Compile Include="Crypto\TorStreamCipher.fs" />
     <Compile Include="Crypto\TorCryptoState.fs" />
     <Compile Include="Cells\ICell.fs" />
     <Compile Include="Cells\CellCerts.fs" />
@@ -50,6 +51,7 @@
     <Compile Include="Cells\Relay\RelayExtend2.fs" />
     <Compile Include="Cells\Relay\RelayIntroduce.fs" />
     <Compile Include="Cells\Relay\RelayIntroduceAck.fs" />
+    <Compile Include="Cells\Relay\RelayRendezvous.fs" />
     <Compile Include="Cells\Relay\CellEncryptedRelay.fs" />
     <Compile Include="Cells\Relay\CellPlainRelay.fs" />
     <Compile Include="Cells\Command.fs" />
@@ -68,6 +70,8 @@
     <Compile Include="Directory\ServerDescriptorsDocument.fs" />
     <Compile Include="Directory\NetworkStatusDocument.fs" />
     <Compile Include="Directory\TorDirectory.fs" />
+    <Compile Include="Services\TorServiceHost.fs" />
+    <Compile Include="Services\TorServiceClient.fs" />
   </ItemGroup>
 
   <ItemGroup>
