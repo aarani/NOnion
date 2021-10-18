@@ -217,7 +217,7 @@
         }
     },
     "privateValuesNames": {
-        "enabled": true,
+        "enabled": false,
         "config": {
             "naming": "CamelCase",
             "underscores": "None"
