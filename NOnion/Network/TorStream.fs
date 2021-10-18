@@ -218,7 +218,7 @@ type TorStream (circuit: TorCircuit) =
 
 
                     controlLock.RunSyncWithSemaphore handleRelayConnected
-                | RelayData data ->
+                | RelayData _ ->
                     window.DeliverDecrease ()
 
                     if window.NeedSendme () then

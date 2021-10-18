@@ -96,8 +96,6 @@ module HiddenServicesCipher =
         blindingFactor.[31] <- blindingFactor.[31] &&& 63uy
         blindingFactor.[31] <- blindingFactor.[31] ||| 64uy
 
-        let output = Array.zeroCreate 32
-
         match Ed25519.CalculateBlindedPublicKey (publicKey, blindingFactor) with
         | true, output -> output
         | false, _ -> failwith "can't calculate blinded public key"

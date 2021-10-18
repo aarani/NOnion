@@ -168,14 +168,14 @@ type TorCircuit
     member private __.DecryptCell (encryptedRelayCell: CellEncryptedRelay) =
         let safeDecryptCell () =
             match circuitState with
-            | Ready (circuitId, nodes)
-            | ReadyAsIntroductionPoint (circuitId, nodes, _, _, _)
-            | ReadyAsRendezvousPoint (circuitId, nodes)
-            | RegisteringAsIntorductionPoint (circuitId, nodes, _, _, _, _)
-            | RegisteringAsRendezvousPoint (circuitId, nodes, _)
-            | WaitingForIntroduceAcknowledge (circuitId, nodes, _)
-            | WaitingForRendezvousRequest (circuitId, nodes, _, _, _, _, _)
-            | Extending (circuitId, _, nodes, _) ->
+            | Ready (_circuitId, nodes)
+            | ReadyAsIntroductionPoint (_circuitId, nodes, _, _, _)
+            | ReadyAsRendezvousPoint (_circuitId, nodes)
+            | RegisteringAsIntorductionPoint (_circuitId, nodes, _, _, _, _)
+            | RegisteringAsRendezvousPoint (_circuitId, nodes, _)
+            | WaitingForIntroduceAcknowledge (_circuitId, nodes, _)
+            | WaitingForRendezvousRequest (_circuitId, nodes, _, _, _, _, _)
+            | Extending (_circuitId, _, nodes, _) ->
                 let rec decryptMessage
                     (message: array<byte>)
                     (nodes: List<TorCircuitNode>)
