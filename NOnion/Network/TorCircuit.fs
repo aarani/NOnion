@@ -75,7 +75,7 @@ type TorCircuit
             | Extending (circuitId, _, nodesStates, _)
             | RegisteringAsIntorductionPoint (circuitId, nodesStates, _, _, _, _)
             | WaitingForIntroduceAcknowledge (circuitId, nodesStates, _)
-            | RegisteringAsRendezvousPoint (circuitId, nodesStates, _, _) ->
+            | RegisteringAsRendezvousPoint (circuitId, nodesStates, _) ->
                 let onionList, destination =
                     match customDestinationOpt with
                     | None ->
@@ -170,11 +170,11 @@ type TorCircuit
             match circuitState with
             | Ready (circuitId, nodes)
             | ReadyAsIntroductionPoint (circuitId, nodes, _, _, _)
-            | ReadyAsRendezvousPoint (circuitId, nodes, _)
+            | ReadyAsRendezvousPoint (circuitId, nodes)
             | RegisteringAsIntorductionPoint (circuitId, nodes, _, _, _, _)
-            | RegisteringAsRendezvousPoint (circuitId, nodes, _, _)
+            | RegisteringAsRendezvousPoint (circuitId, nodes, _)
             | WaitingForIntroduceAcknowledge (circuitId, nodes, _)
-            | WaitingForRendezvousRequest (circuitId, nodes, _, _, _, _, _, _)
+            | WaitingForRendezvousRequest (circuitId, nodes, _, _, _, _, _)
             | Extending (circuitId, _, nodes, _) ->
                 let rec decryptMessage
                     (message: array<byte>)
@@ -454,7 +454,6 @@ type TorCircuit
                         CircuitState.RegisteringAsRendezvousPoint (
                             circuitId,
                             nodes,
-                            cookie,
                             connectionCompletionSource
                         )
 
@@ -535,14 +534,13 @@ type TorCircuit
         let waitingForRendezvous () =
             async {
                 match circuitState with
-                | ReadyAsRendezvousPoint (circuitId, nodes, cookie) ->
+                | ReadyAsRendezvousPoint (circuitId, nodes) ->
                     let connectionCompletionSource = TaskCompletionSource ()
 
                     circuitState <-
                         WaitingForRendezvousRequest (
                             circuitId,
                             nodes,
-                            cookie,
                             clientRandomPrivateKey,
                             clientRandomPublicKey,
                             introAuthPublicKey,
@@ -779,14 +777,9 @@ type TorCircuit
                             match circuitState with
                             | RegisteringAsRendezvousPoint (circuitId,
                                                             nodes,
-                                                            _cookie,
                                                             tcs) ->
                                 circuitState <-
-                                    ReadyAsRendezvousPoint (
-                                        circuitId,
-                                        nodes,
-                                        _cookie
-                                    )
+                                    ReadyAsRendezvousPoint (circuitId, nodes)
 
                                 tcs.SetResult ()
                             | _ ->
@@ -847,7 +840,6 @@ type TorCircuit
                             match circuitState with
                             | WaitingForRendezvousRequest (circuitId,
                                                            nodes,
-                                                           cookie,
                                                            clientRandomPrivateKey,
                                                            clientRandomPublicKey,
                                                            introAuthPublicKey,
@@ -922,7 +914,7 @@ type TorCircuit
                             tcs.SetException (
                                 CircuitDestroyedException destroyCell.Reason
                             )
-                        | RegisteringAsRendezvousPoint (circuitId, _, _, tcs)
+                        | RegisteringAsRendezvousPoint (circuitId, _, tcs)
                         | RegisteringAsIntorductionPoint (circuitId,
                                                           _,
                                                           _,

@@ -38,7 +38,6 @@ type CircuitState =
     | RegisteringAsRendezvousPoint of
         circuitId: uint16 *
         circuitNodes: List<TorCircuitNode> *
-        cookie: array<byte> *
         completionTask: TaskCompletionSource<unit>
     | WaitingForIntroduceAcknowledge of
         circuitId: uint16 *
@@ -47,7 +46,6 @@ type CircuitState =
     | WaitingForRendezvousRequest of
         circuitId: uint16 *
         circuitNodes: List<TorCircuitNode> *
-        cookie: array<byte> *
         clientRandomPrivateKey: X25519PrivateKeyParameters *
         clientRandomPublicKey: X25519PublicKeyParameters *
         introAuthPublicKey: Ed25519PublicKeyParameters *
@@ -62,7 +60,6 @@ type CircuitState =
         callback: (RelayIntroduce -> Async<unit>)
     | ReadyAsRendezvousPoint of
         circuitId: uint16 *
-        circuitNodes: List<TorCircuitNode> *
-        cookie: array<byte>
+        circuitNodes: List<TorCircuitNode>
     | Destroyed of circuitId: uint16 * reason: DestroyReason
     | Truncated of circuitId: uint16 * reason: DestroyReason
