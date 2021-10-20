@@ -14,6 +14,7 @@ using NOnion.Network;
 using NOnion.Http;
 using NOnion.Cells.Relay;
 using NOnion.Directory;
+using NOnion.Tests.Utility;
 
 namespace NOnion.Tests
 {
@@ -78,24 +79,30 @@ namespace NOnion.Tests
 
             TorDirectory directory = await TorDirectory.BootstrapAsync(FallbackDirectorySelector.GetRandomFallbackDirectory());
 
-            TorServiceHost host = new(directory, publicKey, NewClientCallback);
+            TorServiceHost host = new(directory, publicKey);
             await host.StartAsync();
 
-            var client = await TorServiceClient.ConnectAsync(directory, publicKey, host.Export().First().Value);
-            var stream = client.GetStream();
+            var serverSide =
+                Task.Run(async () => {
+                    var stream = await host.AcceptClientAsync();
+                    await stream.SendDataAsync(Encoding.ASCII.GetBytes("Hi from hidden service!"));
+                    await stream.EndAsync();
+                });
 
-            FSharpOption<byte[]> data;
-            using MemoryStream memStream = new();
-            while (!FSharpOption<byte[]>.get_IsNone(data = await stream.ReceiveAsync()))
-                memStream.Write(data.Value, 0, data.Value.Length);
+            var clientSide =
+                Task.Run(async () => {
+                    var client = await TorServiceClient.ConnectAsync(directory, publicKey, host.Export().First().Value);
+                    var stream = client.GetStream();
+                    FSharpOption<byte[]> data;
+                    using MemoryStream memStream = new();
+                    while (!FSharpOption<byte[]>.get_IsNone(data = await stream.ReceiveAsync()))
+                        memStream.Write(data.Value, 0, data.Value.Length);
 
-            CollectionAssert.AreEqual(memStream.ToArray(), Encoding.ASCII.GetBytes("Hi from hidden service!"));
-        }
+                    CollectionAssert.AreEqual(memStream.ToArray(), Encoding.ASCII.GetBytes("Hi from hidden service!"));
+                });
 
-        private async Task NewClientCallback(TorStream stream)
-        {
-            await stream.SendDataAsync(Encoding.ASCII.GetBytes("Hi from hidden service!"));
-            await stream.EndAsync();
+
+            await TaskUtils.WhenAllFailFast(serverSide, clientSide);
         }
 
         [Test]

@@ -895,9 +895,11 @@ type TorCircuit
                     | _ -> ()
 
                     if streamId <> Constants.DefaultStreamId then
-                        match streamsMap.TryFind streamId with
-                        | Some stream -> do! stream.HandleIncomingData relayData
-                        | None -> failwith "Unknown stream"
+                        match (streamsMap.TryFind streamId, relayData) with
+                        | (Some stream, _) ->
+                            do! stream.HandleIncomingData relayData
+                        | (None, RelayBegin _) -> ()
+                        | (None, _) -> failwith "Unknown stream"
                     elif defaultStream.IsSome then
                         do! defaultStream.Value.HandleIncomingData relayData
 

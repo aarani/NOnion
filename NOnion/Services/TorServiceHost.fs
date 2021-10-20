@@ -3,13 +3,15 @@
 open System
 open System.IO
 open System.Net
-open System.Threading.Tasks
+open System.Threading
+open FSharpx.Collections
 
 open Org.BouncyCastle.Crypto
 open Org.BouncyCastle.Crypto.Parameters
 open Org.BouncyCastle.Crypto.Generators
 open Org.BouncyCastle.Security
 
+open NOnion
 open NOnion.Cells.Relay
 open NOnion.Crypto
 open NOnion.Directory
@@ -31,32 +33,30 @@ type IntroductionPointPublicInfo =
         NodeDetail: CircuitNodeDetail
     }
 
-type TorServiceHost
-    (
-        directory: TorDirectory,
-        masterPublicKey: array<byte>,
-        streamCallback: TorStream -> Async<unit>
-    ) =
+type TorServiceHost (directory: TorDirectory, masterPublicKey: array<byte>) =
 
     let mutable introductionPointKeys: Map<string, IntroductionPointInfo> =
         Map.empty
 
     let mutable guardNode: Option<TorGuard> = None
     let introductionPointSemaphore: SemaphoreLocker = SemaphoreLocker ()
+    let newClientSemaphore = new SemaphoreSlim (0)
 
-    new (directory, masterPublicKey, streamCallback: Func<TorStream, Task>) =
-        let callback stream =
-            async { return! streamCallback.Invoke stream |> Async.AwaitTask }
-
-        TorServiceHost (directory, masterPublicKey, callback)
+    let mutable pendingConnectionQueue: Queue<uint16 * TorCircuit> = Queue.empty
+    let queueLock: SemaphoreLocker = SemaphoreLocker ()
 
     member private self.IncomingServiceStreamCallback
         (streamId: uint16)
         (senderCircuit: TorCircuit)
         =
         async {
-            let! stream = TorStream.Accept streamId senderCircuit
-            do! streamCallback stream
+            let registerConnectionRequest () =
+                pendingConnectionQueue <-
+                    pendingConnectionQueue.Conj (streamId, senderCircuit)
+
+                newClientSemaphore.Release () |> ignore<int>
+
+            queueLock.RunSyncWithSemaphore registerConnectionRequest
         }
 
     member private self.RelayIntroduceCallback (introduce: RelayIntroduce) =
@@ -207,6 +207,48 @@ type TorServiceHost
 
         introductionPointSemaphore.RunAsyncWithSemaphore
             safeCreateIntroductionPoint
+
+    member __.AcceptClient () =
+        async {
+            let! cancelToken = Async.CancellationToken
+            cancelToken.ThrowIfCancellationRequested ()
+
+            let tryGetConnectionRequest () =
+                let nextItemOpt = pendingConnectionQueue.TryUncons
+
+                match nextItemOpt with
+                | Some (nextItem, rest) ->
+                    pendingConnectionQueue <- rest
+                    Some nextItem
+                | None -> None
+
+            let rec getConnectionRequest () =
+                async {
+                    do!
+                        newClientSemaphore.WaitAsync (cancelToken)
+                        |> Async.AwaitTask
+
+                    let nextItemOpt =
+                        queueLock.RunSyncWithSemaphore tryGetConnectionRequest
+
+                    match nextItemOpt with
+                    | Some nextItem -> return nextItem
+                    | None -> return failwith "should not happen"
+                }
+
+            let! (streamId, senderCircuit) = getConnectionRequest ()
+            let! stream = TorStream.Accept streamId senderCircuit
+            return stream
+        }
+
+    member self.AcceptClientAsync () =
+        self.AcceptClient () |> Async.StartAsTask
+
+    member self.AcceptClientAsync (cancellationToken: CancellationToken) =
+        Async.StartAsTask (
+            self.AcceptClient (),
+            cancellationToken = cancellationToken
+        )
 
     member self.Export () =
         let exportIntroductionPoint _key (info: IntroductionPointInfo) =

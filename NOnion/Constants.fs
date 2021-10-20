@@ -145,3 +145,5 @@ module Constants =
 
         let internal AuthInputSuffix =
             protoIdStr + "Server" |> Encoding.ASCII.GetBytes
+
+    let internal NewConnectionCheckDelay = TimeSpan.FromSeconds 1.
