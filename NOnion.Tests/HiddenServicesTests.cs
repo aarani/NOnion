@@ -81,11 +81,9 @@ namespace NOnion.Tests
 
         public async Task EstablishAndCommunicateOverHSConnection()
         {
-            byte[] publicKey = { 0x8e, 0xca, 0xd, 0x2d, 0xe3, 0xb2, 0xc3, 0x51, 0xbb, 0xdb, 0xf6, 0x66, 0xf0, 0xc3, 0xa9, 0x1, 0x1e, 0x7d, 0x5e, 0xaa, 0xe, 0x8d, 0x81, 0x2a, 0x81, 0xbd, 0x9b, 0xae, 0x35, 0x7d, 0xf, 0x5f };
-
             TorDirectory directory = await TorDirectory.BootstrapAsync(FallbackDirectorySelector.GetRandomFallbackDirectory());
 
-            TorServiceHost host = new(directory, publicKey);
+            TorServiceHost host = new(directory);
             await host.StartAsync();
 
             var serverSide =
@@ -97,7 +95,7 @@ namespace NOnion.Tests
 
             var clientSide =
                 Task.Run(async () => {
-                    var client = await TorServiceClient.ConnectAsync(directory, publicKey, host.Export().First().Value);
+                    var client = await TorServiceClient.ConnectAsync(directory, host.Export());
                     var stream = client.GetStream();
                     FSharpOption<byte[]> data;
                     using MemoryStream memStream = new();

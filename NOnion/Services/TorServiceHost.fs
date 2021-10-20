@@ -4,6 +4,7 @@ open System
 open System.IO
 open System.Net
 open System.Threading
+open System.Text.Json
 open FSharpx.Collections
 
 open Org.BouncyCastle.Crypto
@@ -22,18 +23,23 @@ type IntroductionPointInfo =
         Address: IPEndPoint
         EncryptionKey: AsymmetricCipherKeyPair
         AuthKey: AsymmetricCipherKeyPair
-        NodeDetail: CircuitNodeDetail
+        MasterPublicKey: array<byte>
+        OnionKey: string
+        Fingerprint: string
     }
 
 type IntroductionPointPublicInfo =
     {
-        Address: IPEndPoint
-        EncryptionKey: X25519PublicKeyParameters
-        AuthKey: Ed25519PublicKeyParameters
-        NodeDetail: CircuitNodeDetail
+        Address: string
+        Port: int
+        EncryptionKey: string
+        AuthKey: string
+        OnionKey: string
+        Fingerprint: string
+        MasterPublicKey: string
     }
 
-type TorServiceHost (directory: TorDirectory, masterPublicKey: array<byte>) =
+type TorServiceHost (directory: TorDirectory) =
 
     let mutable introductionPointKeys: Map<string, IntroductionPointInfo> =
         Map.empty
@@ -98,7 +104,7 @@ type TorServiceHost (directory: TorDirectory, masterPublicKey: array<byte>) =
                     (introductionPointDetails.EncryptionKey.Public
                     :?> X25519PublicKeyParameters)
                     periodInfo
-                    masterPublicKey
+                    introductionPointDetails.MasterPublicKey
 
             use decryptedStream = new MemoryStream (decryptedData)
             use decryptedReader = new BinaryReader (decryptedStream)
@@ -163,12 +169,12 @@ type TorServiceHost (directory: TorDirectory, masterPublicKey: array<byte>) =
 
                 match introNodeDetail with
                 | FastCreate -> return failwith "should not happen"
-                | Create (address, _, _) ->
+                | Create (address, onionKey, fingerprint) ->
 
                     let! guard = TorGuard.NewClient address
                     let circuit = TorCircuit guard
 
-                    let encKeyPair, authKeyPair =
+                    let encKeyPair, authKeyPair, randomMasterPubKey =
                         let kpGen = Ed25519KeyPairGenerator ()
                         let kpGenX = X25519KeyPairGenerator ()
 
@@ -177,14 +183,20 @@ type TorServiceHost (directory: TorDirectory, masterPublicKey: array<byte>) =
                         kpGen.Init (Ed25519KeyGenerationParameters random)
                         kpGenX.Init (X25519KeyGenerationParameters random)
 
-                        kpGenX.GenerateKeyPair (), kpGen.GenerateKeyPair ()
+                        kpGenX.GenerateKeyPair (),
+                        kpGen.GenerateKeyPair (),
+                        (kpGen.GenerateKeyPair().Public
+                        :?> Ed25519PublicKeyParameters)
+                            .GetEncoded ()
 
                     let introductionPointInfo =
                         {
                             IntroductionPointInfo.Address = address
                             AuthKey = authKeyPair
                             EncryptionKey = encKeyPair
-                            NodeDetail = introNodeDetail
+                            OnionKey = onionKey |> Convert.ToBase64String
+                            Fingerprint = fingerprint |> Convert.ToBase64String
+                            MasterPublicKey = randomMasterPubKey
                         }
 
                     guardNode <- Some guard
@@ -251,13 +263,25 @@ type TorServiceHost (directory: TorDirectory, masterPublicKey: array<byte>) =
         )
 
     member self.Export () =
-        let exportIntroductionPoint _key (info: IntroductionPointInfo) =
+        let exportIntroductionPoint (_key, info: IntroductionPointInfo) =
             {
-                IntroductionPointPublicInfo.Address = info.Address
-                AuthKey = info.AuthKey.Public :?> Ed25519PublicKeyParameters
+                IntroductionPointPublicInfo.Address =
+                    info.Address.Address.ToString ()
+                Port = info.Address.Port
+                OnionKey = info.OnionKey
+                Fingerprint = info.Fingerprint
+                AuthKey =
+                    (info.AuthKey.Public :?> Ed25519PublicKeyParameters)
+                        .GetEncoded ()
+                    |> Convert.ToBase64String
                 EncryptionKey =
-                    info.EncryptionKey.Public :?> X25519PublicKeyParameters
-                NodeDetail = info.NodeDetail
+                    (info.EncryptionKey.Public :?> X25519PublicKeyParameters)
+                        .GetEncoded ()
+                    |> Convert.ToBase64String
+                MasterPublicKey = info.MasterPublicKey |> Convert.ToBase64String
             }
-        //TODO: JSON export
-        introductionPointKeys |> Map.map exportIntroductionPoint
+
+        introductionPointKeys
+        |> Map.toList
+        |> List.map exportIntroductionPoint
+        |> JsonSerializer.Serialize
