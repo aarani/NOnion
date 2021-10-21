@@ -154,18 +154,12 @@ type TorDirectory =
                 let stream = TorStream (circuit)
 
                 (*
-                 * We use normal NTor authentication if we have any cached server descriptor for the node,
-                 * because even though our descriptor might be out of date according to spec the router
-                 * must accept any outdated keys until 1 week after key-update.
+                 * We always use FastCreate authentication because privacy is not important for mono-hop
+                 * directory browsing, this removes the need of checking descriptors and making sure they
+                 * are no more than one week old (according to spec, routers must accept outdated keys
+                 * until 1 week after key update).
                  *)
-                do!
-                    match directoryRouter.GetIdentity ()
-                          |> self.ServerDescriptors.TryFind with
-                    | None -> CircuitNodeDetail.FastCreate
-                    | Some serverDescriptor ->
-                        self.ConvertToCircuitNodeDetail serverDescriptor
-                    |> circuit.Create
-                    |> Async.Ignore
+                do! circuit.Create CircuitNodeDetail.FastCreate |> Async.Ignore
 
                 do! stream.ConnectToDirectory () |> Async.Ignore
 
