@@ -25,9 +25,14 @@ type TorGuard private (client: TcpClient, sslStream: SslStream) =
             let tcpClient = new TcpClient ()
 
             try
+                ipEndpoint.ToString ()
+                |> sprintf "TorGuard: trying to connect to %s guard node"
+                |> TorLogger.Log
+
                 do!
                     tcpClient.ConnectAsync (ipEndpoint.Address, ipEndpoint.Port)
                     |> Async.AwaitTask
+
             with
             | :? AggregateException as aggException ->
                 match aggException.InnerException with
@@ -42,6 +47,10 @@ type TorGuard private (client: TcpClient, sslStream: SslStream) =
                     fun _ _ _ _ -> true
                 )
 
+            ipEndpoint.ToString ()
+            |> sprintf "TorGuard: creating ssl connection to %s guard node"
+            |> TorLogger.Log
+
             do!
                 sslStream.AuthenticateAsClientAsync (
                     String.Empty,
@@ -52,8 +61,17 @@ type TorGuard private (client: TcpClient, sslStream: SslStream) =
                 |> AsyncUtil.AwaitNonGenericTaskWithTimeout
                     Constants.CircuitOperationTimeout
 
+            ipEndpoint.ToString ()
+            |> sprintf "TorGuard: ssl connection to %s guard node authenticated"
+            |> TorLogger.Log
+
             let guard = new TorGuard (tcpClient, sslStream)
             do! guard.Handshake ()
+
+            ipEndpoint.ToString ()
+            |> sprintf "TorGuard: connection with %s established"
+            |> TorLogger.Log
+
             guard.StartListening ()
 
             return guard
@@ -209,8 +227,12 @@ type TorGuard private (client: TcpClient, sslStream: SslStream) =
                                     try
                                         do! circuit.HandleIncomingCell cell
                                     with
-                                    | :? ObjectDisposedException
-                                    | :? OperationCanceledException -> ()
+                                    | ex ->
+                                        sprintf
+                                            "TorGuard: exception when trying to handle incomming cell type=%i, ex=%s"
+                                            cell.Command
+                                            (ex.ToString ())
+                                        |> TorLogger.Log
                                 | None ->
                                     failwith (
                                         sprintf "Unknown circuit, Id = %i" cid
@@ -219,6 +241,10 @@ type TorGuard private (client: TcpClient, sslStream: SslStream) =
                             return! readFromStream ()
                     }
 
+
+                TorLogger.Log
+                    "TorGuard: started listening for incoming messages"
+
                 return! readFromStream ()
             }
 
@@ -226,6 +252,8 @@ type TorGuard private (client: TcpClient, sslStream: SslStream) =
 
     member private self.Handshake () =
         async {
+            TorLogger.Log "TorGuard: started handshake process"
+
             do!
                 self.Send
                     Constants.DefaultCircuitId
@@ -250,6 +278,7 @@ type TorGuard private (client: TcpClient, sslStream: SslStream) =
                         MyAddresses = List.singleton netInfo.OtherAddress
                     }
 
+            TorLogger.Log "TorGuard: finished handshake process"
         //TODO: do security checks on handshake data
         }
 

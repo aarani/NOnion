@@ -11,6 +11,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="TorLogger.fs" />
     <Compile Include="Constants.fs" />
     <Compile Include="DestroyReason.fs" />
     <Compile Include="Exceptions.fs" />

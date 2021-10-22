@@ -26,6 +26,12 @@ type TorStream (circuit: TorCircuit) =
 
             do! circuit.SendRelayCell streamId (RelayConnected Array.empty) None
 
+            sprintf
+                "TorStream[%d,%d]: incoming stream accepted"
+                streamId
+                circuit.Id
+            |> TorLogger.Log
+
             return stream
         }
 
@@ -40,6 +46,12 @@ type TorStream (circuit: TorCircuit) =
                                 streamId
                                 (RelayEnd EndReason.Done)
                                 None
+
+                        sprintf
+                            "TorStream[%d,%d]: sending stream end packet"
+                            streamId
+                            circuit.Id
+                        |> TorLogger.Log
                     | _ ->
                         failwith
                             "Unexpected state when trying to send data over stream"
@@ -103,6 +115,12 @@ type TorStream (circuit: TorCircuit) =
 
                 streamState <- Connecting (streamId, tcs)
 
+                sprintf
+                    "TorStream[%d,%d]: creating a hidden service stream"
+                    streamId
+                    circuit.Id
+                |> TorLogger.Log
+
                 do!
                     circuit.SendRelayCell
                         streamId
@@ -135,6 +153,12 @@ type TorStream (circuit: TorCircuit) =
                     let tcs = TaskCompletionSource ()
 
                     streamState <- Connecting (streamId, tcs)
+
+                    sprintf
+                        "TorStream[%d,%d]: creating a directory stream"
+                        streamId
+                        circuit.Id
+                    |> TorLogger.Log
 
                     do!
                         circuit.SendRelayCell
@@ -182,6 +206,13 @@ type TorStream (circuit: TorCircuit) =
                     match cell with
                     | RelayData data -> return data |> Some
                     | RelayEnd reason when reason = EndReason.Done ->
+                        TorLogger.Log (
+                            sprintf
+                                "TorStream[%s,%d]: pushed EOF to consumer"
+                                streamState.Id
+                                circuit.Id
+                        )
+
                         return None
                     | RelayEnd reason ->
                         return
@@ -212,6 +243,12 @@ type TorStream (circuit: TorCircuit) =
                         | Connecting (streamId, tcs) ->
                             streamState <- Connected streamId
                             tcs.SetResult streamId
+
+                            sprintf
+                                "TorStream[%d,%d]: connected!"
+                                streamId
+                                circuit.Id
+                            |> TorLogger.Log
                         | _ ->
                             failwith
                                 "Unexpected state when receiving RelayConnected cell"
@@ -243,8 +280,14 @@ type TorStream (circuit: TorCircuit) =
                 | RelayEnd reason ->
                     let handleRelayEnd () =
                         match streamState with
-                        | Connecting (_, tcs) ->
-                            streamState <- Ended reason
+                        | Connecting (streamId, tcs) ->
+                            sprintf
+                                "TorStream[%d,%d]: received end packet while connecting"
+                                streamId
+                                circuit.Id
+                            |> TorLogger.Log
+
+                            streamState <- Ended (streamId, reason)
 
                             Failure (
                                 sprintf
@@ -252,9 +295,15 @@ type TorStream (circuit: TorCircuit) =
                                     (reason.ToString ())
                             )
                             |> tcs.SetException
-                        | Connected _ ->
+                        | Connected streamId ->
+                            sprintf
+                                "TorStream[%d,%d]: received end packet while connected"
+                                streamId
+                                circuit.Id
+                            |> TorLogger.Log
+
                             incomingCells.Post message |> ignore<bool>
-                            streamState <- Ended reason
+                            streamState <- Ended (streamId, reason)
                         | _ ->
                             failwith
                                 "Unexpected state when receiving RelayEnd cell"

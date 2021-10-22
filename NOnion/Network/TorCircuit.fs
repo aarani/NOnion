@@ -58,6 +58,21 @@ type TorCircuit
 
         TorCircuit (guard, Some callback)
 
+    member __.Id =
+        match circuitState with
+        | Creating (circuitId, _, _)
+        | Extending (circuitId, _, _, _)
+        | RegisteringAsIntorductionPoint (circuitId, _, _, _, _, _)
+        | RegisteringAsRendezvousPoint (circuitId, _, _)
+        | WaitingForIntroduceAcknowledge (circuitId, _, _)
+        | WaitingForRendezvousRequest (circuitId, _, _, _, _, _, _)
+        | Ready (circuitId, _)
+        | ReadyAsIntroductionPoint (circuitId, _, _, _, _)
+        | ReadyAsRendezvousPoint (circuitId, _)
+        | Destroyed (circuitId, _)
+        | Truncated (circuitId, _) -> circuitId
+        | _ -> failwith "should not happen!"
+
     member __.LastNode =
         match circuitState with
         | Ready (_, nodesStates) -> nodesStates |> List.rev |> List.head
@@ -130,6 +145,20 @@ type TorCircuit
                         Early = early
                     }
                     |> guard.Send circuitId
+
+                match relayData with
+                | RelayData _
+                | RelaySendMe _ ->
+                    // too many to log
+                    ()
+                | _ ->
+                    TorLogger.Log (
+                        sprintf
+                            "TorCircuit[%i,%s]: Sent relay cell %A over circuit"
+                            self.Id
+                            circuitState.Name
+                            relayData
+                    )
             | _ ->
                 failwith (
                     sprintf
@@ -165,7 +194,7 @@ type TorCircuit
             return! controlLock.RunAsyncWithSemaphore safeSend
         }
 
-    member private __.DecryptCell (encryptedRelayCell: CellEncryptedRelay) =
+    member private self.DecryptCell (encryptedRelayCell: CellEncryptedRelay) =
         let safeDecryptCell () =
             match circuitState with
             | Ready (_circuitId, nodes)
@@ -226,6 +255,21 @@ type TorCircuit
                                     CellPlainRelay.FromBytes
                                         decryptedRelayCellBytes
 
+
+                                match decryptedRelayCell.Data with
+                                | RelayData _
+                                | RelaySendMe _ ->
+                                    //Too many to log
+                                    ()
+                                | _ ->
+                                    TorLogger.Log (
+                                        sprintf
+                                            "TorCircuit[%i,%s]: decrypted relay cell %A over circuit"
+                                            self.Id
+                                            circuitState.Name
+                                            decryptedRelayCell.Data
+                                    )
+
                                 (decryptedRelayCell.StreamId,
                                  decryptedRelayCell.Data,
                                  node)
@@ -279,6 +323,13 @@ type TorCircuit
                             )
 
                         do! guard.Send circuitId handshakeCell
+
+                        TorLogger.Log (
+                            sprintf
+                                "TorCircuit[%i,%s]: sending create cell"
+                                self.Id
+                                circuitState.Name
+                        )
 
                         return connectionCompletionSource.Task
                     | _ -> return invalidOp "Circuit is already created"

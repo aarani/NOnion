@@ -63,3 +63,19 @@ type CircuitState =
         circuitNodes: List<TorCircuitNode>
     | Destroyed of circuitId: uint16 * reason: DestroyReason
     | Truncated of circuitId: uint16 * reason: DestroyReason
+
+
+    member self.Name =
+        match self with
+        | Initialized -> "Initialized"
+        | Creating _ -> "Creating"
+        | Extending _ -> "Extending"
+        | RegisteringAsIntorductionPoint _ -> "RegisteringAsIntorductionPoint"
+        | RegisteringAsRendezvousPoint _ -> "RegisteringAsRendezvousPoint"
+        | WaitingForIntroduceAcknowledge _ -> "WaitingForIntroduceAcknowledge"
+        | WaitingForRendezvousRequest _ -> "WaitingForRendezvousRequest"
+        | Ready _ -> "Ready"
+        | ReadyAsIntroductionPoint _ -> "ReadyAsIntroductionPoint"
+        | ReadyAsRendezvousPoint _ -> "ReadyAsRendezvousPoint"
+        | Destroyed _ -> "Destroyed"
+        | Truncated _ -> "Truncated"
