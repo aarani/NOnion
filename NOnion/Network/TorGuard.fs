@@ -49,7 +49,8 @@ type TorGuard private (client: TcpClient, sslStream: SslStream) =
                     SslProtocols.Tls12,
                     false
                 )
-                |> Async.AwaitTask
+                |> AsyncUtil.AwaitNonGenericTaskWithTimeout
+                    Constants.CircuitOperationTimeout
 
             let guard = new TorGuard (tcpClient, sslStream)
             do! guard.Handshake ()
