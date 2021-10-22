@@ -858,7 +858,31 @@ type TorCircuit
                             match circuitState with
                             | Creating (circuitId, _, tcs)
                             | Extending (circuitId, _, _, tcs) ->
+                                circuitState <- Truncated (circuitId, reason)
 
+                                tcs.SetException (
+                                    CircuitTruncatedException reason
+                                )
+                            | WaitingForIntroduceAcknowledge (circuitId, _, tcs) ->
+                                circuitState <- Truncated (circuitId, reason)
+
+                                tcs.SetException (
+                                    CircuitTruncatedException reason
+                                )
+                            | RegisteringAsRendezvousPoint (circuitId, _, tcs)
+                            | RegisteringAsIntorductionPoint (circuitId,
+                                                              _,
+                                                              _,
+                                                              _,
+                                                              tcs,
+                                                              _)
+                            | WaitingForRendezvousRequest (circuitId,
+                                                           _,
+                                                           _,
+                                                           _,
+                                                           _,
+                                                           _,
+                                                           tcs) ->
                                 circuitState <- Truncated (circuitId, reason)
 
                                 tcs.SetException (
@@ -973,7 +997,14 @@ type TorCircuit
                                                           _,
                                                           _,
                                                           tcs,
-                                                          _) ->
+                                                          _)
+                        | WaitingForRendezvousRequest (circuitId,
+                                                       _,
+                                                       _,
+                                                       _,
+                                                       _,
+                                                       _,
+                                                       tcs) ->
 
                             circuitState <-
                                 Destroyed (circuitId, destroyCell.Reason)
@@ -981,7 +1012,13 @@ type TorCircuit
                             tcs.SetException (
                                 CircuitDestroyedException destroyCell.Reason
                             )
+                        | WaitingForIntroduceAcknowledge (circuitId, _, tcs) ->
+                            circuitState <-
+                                Destroyed (circuitId, destroyCell.Reason)
 
+                            tcs.SetException (
+                                CircuitDestroyedException destroyCell.Reason
+                            )
                         | Ready (circuitId, _) ->
                             //FIXME: how can we tell the user that circuit is destroyed? if we throw here the listening thread with throw and user never finds out why
                             circuitState <-
