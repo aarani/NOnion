@@ -3,6 +3,7 @@
 open System
 open System.Net
 
+open NOnion
 open NOnion.Network
 open NOnion.Http
 open NOnion.Utility
@@ -89,6 +90,11 @@ type TorDirectory =
         async {
             let fingerprint = routerEntry.GetIdentity ()
 
+            sprintf
+                "TorDirectory: receiving descriptor for router %s"
+                fingerprint
+            |> TorLogger.Log
+
             match self.ServerDescriptors.TryFind fingerprint with
             | Some descriptor -> return descriptor
             | None ->
@@ -138,8 +144,13 @@ type TorDirectory =
     member private self.UpdateConsensusIfNotLive () =
         async {
             if self.IsLive () then
+                TorLogger.Log
+                    "TorDirectory: no need to get the consensus document"
+
                 return ()
             else
+                TorLogger.Log "TorDirectory: Updating consensus document..."
+
                 let directoryRouter = self.GetRandomDirectorySource ()
 
                 use! guard =
