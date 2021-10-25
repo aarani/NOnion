@@ -83,7 +83,7 @@ namespace NOnion.Tests
         {
             TorDirectory directory = await TorDirectory.BootstrapAsync(FallbackDirectorySelector.GetRandomFallbackDirectory());
 
-            TorServiceHost host = new(directory);
+            TorServiceHost host = new(directory, TestsRetryCount);
             await host.StartAsync();
 
             var serverSide =

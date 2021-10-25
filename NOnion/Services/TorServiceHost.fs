@@ -3,6 +3,7 @@
 open System
 open System.IO
 open System.Net
+open System.Net.Sockets
 open System.Threading
 open System.Text.Json
 open FSharpx.Collections
@@ -39,7 +40,11 @@ type IntroductionPointPublicInfo =
         MasterPublicKey: string
     }
 
-type TorServiceHost (directory: TorDirectory) =
+type TorServiceHost
+    (
+        directory: TorDirectory,
+        maxRendezvousConnectRetryCount: int
+    ) =
 
     let mutable introductionPointKeys: Map<string, IntroductionPointInfo> =
         Map.empty
@@ -66,6 +71,85 @@ type TorServiceHost (directory: TorDirectory) =
         }
 
     member private self.RelayIntroduceCallback (introduce: RelayIntroduce) =
+        let rec tryConnectingToRendezvous
+            tryNumber
+            maxRetryCount
+            rendEndpoint
+            rendFingerPrint
+            onionKey
+            cookie
+            clientPubKey
+            introAuthPubKey
+            introEncPrivKey
+            introEncPubKey
+            =
+            async {
+                try
+                    let! endPoint, randomNodeDetails = directory.GetRouter false
+
+                    let! guard = TorGuard.NewClient endPoint
+
+                    let rendCircuit =
+                        TorCircuit (guard, self.IncomingServiceStreamCallback)
+
+                    do! rendCircuit.Create randomNodeDetails |> Async.Ignore
+
+                    do!
+                        rendCircuit.Extend (
+                            CircuitNodeDetail.Create (
+                                rendEndpoint,
+                                onionKey,
+                                rendFingerPrint
+                            )
+                        )
+                        |> Async.Ignore
+
+                    do!
+                        rendCircuit.Rendezvous
+                            cookie
+                            (X25519PublicKeyParameters (clientPubKey, 0))
+                            introAuthPubKey
+                            introEncPrivKey
+                            introEncPubKey
+                with
+                | :? TimeoutException
+                | :? CircuitDestroyedException
+                | :? CircuitTruncatedException
+                | :? GuardConnectionFailedException
+                | :? SocketException as ex ->
+                    sprintf
+                        "Exception happened when trying to connect to rendezvous point, ex=%s"
+                        (ex.ToString ())
+                    |> TorLogger.Log
+
+                    if tryNumber <= maxRetryCount then
+                        TorLogger.Log
+                            "Connecting to rendezvous point failed, retrying..."
+
+                        return!
+                            tryConnectingToRendezvous
+                                (tryNumber + 1)
+                                maxRetryCount
+                                rendEndpoint
+                                rendFingerPrint
+                                onionKey
+                                cookie
+                                clientPubKey
+                                introAuthPubKey
+                                introEncPrivKey
+                                introEncPubKey
+                    else
+                        TorLogger.Log
+                            "Connecting to rendezvous point failed, maximum retry count reached, ignoring..."
+                | ex ->
+                    sprintf
+                        "Exception happened when trying to connect to rendezvous point, ex=%s"
+                        (ex.ToString ())
+                    |> TorLogger.Log
+
+                    return raise <| FSharpUtil.ReRaise ex
+            }
+
         async {
             let introductionPointDetails =
                 match introduce.AuthKey with
@@ -113,8 +197,6 @@ type TorServiceHost (directory: TorDirectory) =
             if digest <> introduce.Mac then
                 failwith "Invalid mac"
 
-            let! endPoint, randomNodeDetails = directory.GetRouter false
-
             let rendEndpoint =
                 (innerData.RendezvousLinkSpecifiers
                  |> Seq.filter (fun linkS ->
@@ -131,27 +213,15 @@ type TorServiceHost (directory: TorDirectory) =
                  |> Seq.exactlyOne)
                     .Data
 
-            let! guard = TorGuard.NewClient endPoint
-
-            let rendCircuit =
-                TorCircuit (guard, self.IncomingServiceStreamCallback)
-
-            do! rendCircuit.Create randomNodeDetails |> Async.Ignore
-
             do!
-                rendCircuit.Extend (
-                    CircuitNodeDetail.Create (
-                        rendEndpoint,
-                        innerData.OnionKey,
-                        rendFingerPrint
-                    )
-                )
-                |> Async.Ignore
-
-            do!
-                rendCircuit.Rendezvous
+                tryConnectingToRendezvous
+                    0
+                    maxRendezvousConnectRetryCount
+                    rendEndpoint
+                    rendFingerPrint
+                    innerData.OnionKey
                     innerData.RendezvousCookie
-                    (X25519PublicKeyParameters (introduce.ClientPublicKey, 0))
+                    introduce.ClientPublicKey
                     introAuthPubKey
                     introEncPrivKey
                     introEncPubKey
