@@ -181,12 +181,6 @@ type TorStream (circuit: TorCircuit) =
     member self.ConnectToDirectoryAsync () =
         self.ConnectToDirectory () |> Async.StartAsTask
 
-    member self.RegisterAsDefaultStream () =
-        let registerProcess () =
-            streamState <- circuit.RegisterStream self (Some 0us) |> Connected
-
-        controlLock.RunSyncWithSemaphore registerProcess
-
     member private self.RegisterIncomingStream (streamId: uint16) =
         let registerProcess () =
             streamState <-

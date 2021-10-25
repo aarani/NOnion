@@ -39,8 +39,6 @@ type TorCircuit
     // Prevents two stream setup happening at once (to prevent race condition on writing to StreamIds list)
     let streamSetupLock: obj = obj ()
 
-    let mutable defaultStream: Option<ITorStream> = None
-
     //Client-only
     new (guard: TorGuard) = TorCircuit (guard, None)
     //Client-Server F# version
@@ -709,9 +707,6 @@ type TorCircuit
         : uint16 =
         let safeRegister () =
             match idOpt with
-            | Some id when id = 0us ->
-                defaultStream <- Some stream
-                0us
             | Some id ->
                 streamsMap <- streamsMap.Add (id, stream)
                 id
@@ -975,9 +970,6 @@ type TorCircuit
                             do! stream.HandleIncomingData relayData
                         | (None, RelayBegin _) -> ()
                         | (None, _) -> failwith "Unknown stream"
-                    elif defaultStream.IsSome then
-                        do! defaultStream.Value.HandleIncomingData relayData
-
                 | :? CellDestroy as destroyCell ->
                     let handleDestroyed () =
 
