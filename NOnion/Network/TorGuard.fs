@@ -281,6 +281,9 @@ type TorGuard private (client: TcpClient, sslStream: SslStream) =
             TorLogger.Log "TorGuard: finished handshake process"
         //TODO: do security checks on handshake data
         }
+        |> Async.StartAsTask
+        |> AsyncUtil.AwaitNonGenericTaskWithTimeout
+            Constants.CircuitOperationTimeout
 
     member internal __.RegisterCircuit (circuit: ITorCircuit) : uint16 =
         let rec createCircuitId (retry: int) =
