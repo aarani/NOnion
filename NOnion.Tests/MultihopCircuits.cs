@@ -16,7 +16,7 @@ namespace NOnion.Tests
          * retrying if an exceptions happened to make sure the issues are not related
          * to the router we randomly chose
          */
-        private const int TestRetryCount = 5;
+        private const int TestRetryCount = 10;
 
         private async Task CreateMultiHopCircuits()
         {
