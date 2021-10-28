@@ -4,9 +4,9 @@ on: [push, pull_request]
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
-
+    env:
+      BASE_VERSION: "0.1.0"
     steps:
       - uses: actions/checkout@v2
         with:
@@ -38,3 +38,10 @@ jobs:
           # path taken from https://stackoverflow.com/a/65367006/544947
           $HOME/.dotnet/tools/fantomless --recurse .
           git diff --exit-code
+      - name: Package
+        run: |
+          git clone https://github.com/nblockchain/fsx
+          cd fsx
+          sudo ./scripts/CI/install_mono_from_microsoft_deb_packages.sh
+          cd ..
+          fsx/Tools/nugetPush.fsx $BASE_VERSION ${{secrets.NUGET_API_KEY}}
