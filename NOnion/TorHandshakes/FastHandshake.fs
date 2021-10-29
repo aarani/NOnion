@@ -11,7 +11,7 @@ type FastHandshake =
             RandomClientMaterial: array<byte>
         }
 
-    static member Create () =
+    static member Create() =
         let clientMaterial = Array.zeroCreate Constants.HashLength
 
         RandomNumberGenerator
@@ -23,7 +23,7 @@ type FastHandshake =
         }
 
     interface IHandshake with
-        member self.GenerateClientMaterial () =
+        member self.GenerateClientMaterial() =
             self.RandomClientMaterial
 
         member self.GenerateKdfResult serverSideData =

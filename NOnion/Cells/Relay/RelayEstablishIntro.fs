@@ -13,9 +13,9 @@ type RelayIntroAuthKey =
     | ED25519SHA3256 of array<byte>
     | Legacy
 
-    static member FromBytes (reader: BinaryReader) =
+    static member FromBytes(reader: BinaryReader) =
         let authKeyType, data =
-            reader.ReadByte (),
+            reader.ReadByte(),
             BinaryIO.ReadBigEndianUInt16 reader |> int |> reader.ReadBytes
 
         match authKeyType with
@@ -24,7 +24,7 @@ type RelayIntroAuthKey =
         | 2uy -> ED25519SHA3256 data
         | _ -> failwith "Unknown authentication key"
 
-    member self.ToBytes () =
+    member self.ToBytes() =
         match self with
         | Legacy -> failwith "NIE"
         | ED25519SHA3256 data ->
@@ -53,14 +53,14 @@ type RelayIntroExtension =
         ExtensionField: array<byte>
     }
 
-    static member FromBytes (reader: BinaryReader) =
+    static member FromBytes(reader: BinaryReader) =
         {
-            ExtensionType = reader.ReadByte ()
+            ExtensionType = reader.ReadByte()
             ExtensionField =
                 BinaryIO.ReadBigEndianUInt16 reader |> int |> reader.ReadBytes
         }
 
-    member self.ToBytes () =
+    member self.ToBytes() =
         Array.concat
             [
                 self.ExtensionType |> Array.singleton
@@ -84,7 +84,7 @@ type RelayEstablishIntro =
         let relayData =
             {
                 RelayEstablishIntro.AuthKey =
-                    publicKey.GetEncoded () |> RelayIntroAuthKey.ED25519SHA3256
+                    publicKey.GetEncoded() |> RelayIntroAuthKey.ED25519SHA3256
                 Extensions = List.empty
                 HandshakeAuth = Array.empty
                 Signature = Array.empty
@@ -114,11 +114,11 @@ type RelayEstablishIntro =
 
 
 
-    static member FromBytes (reader: BinaryReader) =
+    static member FromBytes(reader: BinaryReader) =
         let authKey = RelayIntroAuthKey.FromBytes reader
 
         let extensions =
-            let extensionCount = reader.ReadByte ()
+            let extensionCount = reader.ReadByte()
 
             let rec readExtensionsList state n =
                 if n = 0uy then
@@ -126,7 +126,7 @@ type RelayEstablishIntro =
                 else
                     readExtensionsList
                         (state
-                         @ List.singleton (RelayIntroExtension.FromBytes reader))
+                         @ List.singleton(RelayIntroExtension.FromBytes reader))
                         (n - 1uy)
 
             readExtensionsList List.empty extensionCount
@@ -173,10 +173,10 @@ type RelayEstablishIntro =
 
         Array.concat
             [
-                self.AuthKey.ToBytes ()
+                self.AuthKey.ToBytes()
                 self.Extensions.Length |> byte |> Array.singleton
                 self.Extensions
-                |> List.map (fun ext -> ext.ToBytes ())
+                |> List.map(fun ext -> ext.ToBytes())
                 |> Array.concat
                 digestAndSignature
             ]

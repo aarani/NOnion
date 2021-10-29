@@ -3,7 +3,7 @@
 open System.Security.Cryptography
 open System
 
-type TorStreamCipher (keyBytes: array<byte>, ivOpt: Option<array<byte>>) =
+type TorStreamCipher(keyBytes: array<byte>, ivOpt: Option<array<byte>>) =
 
     [<Literal>]
     let BlockSize = 16
@@ -17,12 +17,12 @@ type TorStreamCipher (keyBytes: array<byte>, ivOpt: Option<array<byte>>) =
     let counterOut: array<byte> = Array.zeroCreate BlockSize
     let mutable keyStreamPointerOpt: Option<int> = None
 
-    let encryptLock: obj = obj ()
+    let encryptLock: obj = obj()
 
-    member self.Encrypt (data: array<byte>) : array<byte> =
-        let safeEncrypt () =
+    member self.Encrypt(data: array<byte>) : array<byte> =
+        let safeEncrypt() =
             use cipher =
-                new RijndaelManaged (
+                new RijndaelManaged(
                     Key = keyBytes,
                     Mode = CipherMode.ECB,
                     Padding = PaddingMode.None
@@ -32,13 +32,13 @@ type TorStreamCipher (keyBytes: array<byte>, ivOpt: Option<array<byte>>) =
                 if x >= data.Length then
                     state
                 else
-                    let nextKeyStreamByte () : byte =
-                        let updateCounter () : int =
-                            let encryptCounter () : unit =
+                    let nextKeyStreamByte() : byte =
+                        let updateCounter() : int =
+                            let encryptCounter() : unit =
                                 let encryptedCounter =
                                     cipher
                                         .CreateEncryptor()
-                                        .TransformFinalBlock (
+                                        .TransformFinalBlock(
                                             counter,
                                             0,
                                             BlockSize
@@ -51,13 +51,13 @@ type TorStreamCipher (keyBytes: array<byte>, ivOpt: Option<array<byte>>) =
                                     0
                                     BlockSize
 
-                            let increamentCounter () : unit =
+                            let increamentCounter() : unit =
                                 let rec innerIncreament i (carry: int) =
                                     if i < 0 then
                                         ()
                                     else
                                         let x =
-                                            (int (counter.[i]) &&& 0xff) + carry
+                                            (int(counter.[i]) &&& 0xff) + carry
 
                                         let carry: int =
                                             if x > 0xff then
@@ -66,29 +66,29 @@ type TorStreamCipher (keyBytes: array<byte>, ivOpt: Option<array<byte>>) =
                                                 0
 
                                         counter.[i] <- byte x
-                                        innerIncreament (i - 1) carry
+                                        innerIncreament(i - 1) carry
 
-                                innerIncreament (counter.Length - 1) 1
+                                innerIncreament(counter.Length - 1) 1
 
-                            encryptCounter ()
-                            increamentCounter ()
+                            encryptCounter()
+                            increamentCounter()
 
                             0
 
                         let keyStreamPointer =
                             match keyStreamPointerOpt with
-                            | None -> updateCounter ()
+                            | None -> updateCounter()
                             | Some keyStreamPointer ->
                                 if keyStreamPointer >= BlockSize then
-                                    updateCounter ()
+                                    updateCounter()
                                 else
                                     keyStreamPointer
 
-                        keyStreamPointerOpt <- Some (keyStreamPointer + 1)
+                        keyStreamPointerOpt <- Some(keyStreamPointer + 1)
                         counterOut.[keyStreamPointer]
 
-                    let nextByte = (data.[x] ^^^ nextKeyStreamByte ())
-                    innerEncrypt (x + 1) (Array.append state [| nextByte |])
+                    let nextByte = (data.[x] ^^^ nextKeyStreamByte())
+                    innerEncrypt(x + 1) (Array.append state [| nextByte |])
 
             innerEncrypt 0 Array.empty
 

@@ -27,48 +27,48 @@ type NTorHandshake =
 
         let privateKey, publicKey =
             let keyPair =
-                let kpGen = X25519KeyPairGenerator ()
-                let random = SecureRandom ()
-                kpGen.Init (X25519KeyGenerationParameters random)
-                kpGen.GenerateKeyPair ()
+                let kpGen = X25519KeyPairGenerator()
+                let random = SecureRandom()
+                kpGen.Init(X25519KeyGenerationParameters random)
+                kpGen.GenerateKeyPair()
 
             keyPair.Private :?> X25519PrivateKeyParameters,
             keyPair.Public :?> X25519PublicKeyParameters
 
         {
             IdentityDigest = identityDigest
-            NTorOnionKey = X25519PublicKeyParameters (nTorOnionKey, 0)
+            NTorOnionKey = X25519PublicKeyParameters(nTorOnionKey, 0)
             RandomClientPrivateKey = privateKey
             RandomClientPublicKey = publicKey
         }
 
     interface IHandshake with
-        member self.GenerateClientMaterial () =
+        member self.GenerateClientMaterial() =
             Array.concat
                 [
                     self.IdentityDigest
-                    self.NTorOnionKey.GetEncoded ()
-                    self.RandomClientPublicKey.GetEncoded ()
+                    self.NTorOnionKey.GetEncoded()
+                    self.RandomClientPublicKey.GetEncoded()
                 ]
 
         member self.GenerateKdfResult serverSideData =
             let randomServerPublicKey =
-                X25519PublicKeyParameters (serverSideData.ServerHandshake, 0)
+                X25519PublicKeyParameters(serverSideData.ServerHandshake, 0)
 
-            let keyAgreement = X25519Agreement ()
+            let keyAgreement = X25519Agreement()
             keyAgreement.Init self.RandomClientPrivateKey
 
             let sharedSecretWithY, sharedSecretWithB =
                 Array.zeroCreate keyAgreement.AgreementSize,
                 Array.zeroCreate keyAgreement.AgreementSize
 
-            keyAgreement.CalculateAgreement (
+            keyAgreement.CalculateAgreement(
                 randomServerPublicKey,
                 sharedSecretWithY,
                 0
             )
 
-            keyAgreement.CalculateAgreement (
+            keyAgreement.CalculateAgreement(
                 self.NTorOnionKey,
                 sharedSecretWithB,
                 0
@@ -80,14 +80,14 @@ type NTorHandshake =
                         sharedSecretWithY
                         sharedSecretWithB
                         self.IdentityDigest
-                        self.NTorOnionKey.GetEncoded ()
-                        self.RandomClientPublicKey.GetEncoded ()
-                        randomServerPublicKey.GetEncoded ()
+                        self.NTorOnionKey.GetEncoded()
+                        self.RandomClientPublicKey.GetEncoded()
+                        randomServerPublicKey.GetEncoded()
                         Constants.NTorProtoId
                     ]
 
             let calculateHmacSha256 (data: array<byte>) (key: array<byte>) =
-                use hmacSha256 = new HMACSHA256 (key)
+                use hmacSha256 = new HMACSHA256(key)
 
                 hmacSha256.ComputeHash data
 
@@ -98,9 +98,9 @@ type NTorHandshake =
                     [
                         verify
                         self.IdentityDigest
-                        self.NTorOnionKey.GetEncoded ()
-                        randomServerPublicKey.GetEncoded ()
-                        self.RandomClientPublicKey.GetEncoded ()
+                        self.NTorOnionKey.GetEncoded()
+                        randomServerPublicKey.GetEncoded()
+                        self.RandomClientPublicKey.GetEncoded()
                         Constants.NTorAuthInputSuffix
                     ]
 

@@ -9,7 +9,7 @@ open Org.BouncyCastle.Crypto.Digests
  * We have to use bouncycastle's SHA instead of .NET's because .NET version have no option
  * to keep the state (for a running digest) but you can clone the BCL version before resetting the state.
  *)
-type TorMessageDigest (isSha256: bool) =
+type TorMessageDigest(isSha256: bool) =
 
     [<Literal>]
     let TOR_DIGEST256_SIZE = 32
@@ -25,15 +25,15 @@ type TorMessageDigest (isSha256: bool) =
         else
             TOR_DIGEST_SIZE
 
-    new () = TorMessageDigest false
+    new() = TorMessageDigest false
 
-    member self.GetDigestBytes () : array<byte> =
+    member self.GetDigestBytes() : array<byte> =
         let hash = Array.zeroCreate<byte> hashSize
 
         let clone =
             DigestUtils.CreateDigestInstance isSha256 (Some digestInstance)
 
-        clone.DoFinal (hash, 0) |> ignore<int>
+        clone.DoFinal(hash, 0) |> ignore<int>
         hash
 
     member self.PeekDigest
@@ -46,9 +46,9 @@ type TorMessageDigest (isSha256: bool) =
         let clone =
             DigestUtils.CreateDigestInstance isSha256 (Some digestInstance)
 
-        clone.BlockUpdate (data, offset, length) |> ignore<unit>
-        clone.DoFinal (hash, 0) |> ignore<int>
+        clone.BlockUpdate(data, offset, length) |> ignore<unit>
+        clone.DoFinal(hash, 0) |> ignore<int>
         hash
 
     member self.Update (data: array<byte>) (offset: int) (length: int) =
-        digestInstance.BlockUpdate (data, offset, length)
+        digestInstance.BlockUpdate(data, offset, length)

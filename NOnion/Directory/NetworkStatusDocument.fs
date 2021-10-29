@@ -30,49 +30,49 @@ type DirectorySourceEntry =
         }
 
 
-    static member Parse (lines: MutableQueue<string>) =
+    static member Parse(lines: MutableQueue<string>) =
         let rec innerParse state =
             if lines.Count = 0 then
                 state
             else
                 let words = lines.Peek().Split ' ' |> MutableQueue<string>
 
-                let readWord () =
-                    words.Dequeue ()
+                let readWord() =
+                    words.Dequeue()
 
-                let readInteger () =
-                    words.Dequeue () |> int
+                let readInteger() =
+                    words.Dequeue() |> int
 
-                let readRestAsString () =
-                    words.ToArray () |> String.concat " "
+                let readRestAsString() =
+                    words.ToArray() |> String.concat " "
 
-                match words.Dequeue () with
+                match words.Dequeue() with
                 | "dir-source" when state.NickName = None ->
-                    lines.Dequeue () |> ignore
+                    lines.Dequeue() |> ignore
 
                     innerParse
                         { state with
-                            NickName = readWord () |> Some
-                            Identity = readWord () |> Some
-                            Address = readWord () |> Some
-                            IP = readWord () |> Some
-                            DirectoryPort = readInteger () |> Some
-                            OnionRouterPort = readInteger () |> Some
+                            NickName = readWord() |> Some
+                            Identity = readWord() |> Some
+                            Address = readWord() |> Some
+                            IP = readWord() |> Some
+                            DirectoryPort = readInteger() |> Some
+                            OnionRouterPort = readInteger() |> Some
                         }
                 | "dir-source" when state.NickName <> None -> state
                 | "contact" ->
-                    lines.Dequeue () |> ignore
+                    lines.Dequeue() |> ignore
 
                     innerParse
                         { state with
-                            Contact = readRestAsString () |> Some
+                            Contact = readRestAsString() |> Some
                         }
                 | "vote-digest" ->
-                    lines.Dequeue () |> ignore
+                    lines.Dequeue() |> ignore
 
                     innerParse
                         { state with
-                            VoteDigest = readRestAsString () |> Some
+                            VoteDigest = readRestAsString() |> Some
                         }
                 | _ -> state
 
@@ -112,91 +112,91 @@ type RouterStatusEntry =
             PortPolicy = None
         }
 
-    static member Parse (lines: MutableQueue<string>) =
+    static member Parse(lines: MutableQueue<string>) =
         let rec innerParse state =
             if lines.Count = 0 then
                 state
             else
                 let words = lines.Peek().Split ' ' |> MutableQueue<string>
 
-                let readWord () =
-                    words.Dequeue ()
+                let readWord() =
+                    words.Dequeue()
 
-                let readInteger () =
-                    words.Dequeue () |> int
+                let readInteger() =
+                    words.Dequeue() |> int
 
-                let readDateTime () =
-                    String.concat " " [ words.Dequeue (); words.Dequeue () ]
+                let readDateTime() =
+                    String.concat " " [ words.Dequeue(); words.Dequeue() ]
                     |> DateTime.Parse
 
-                let readRestAsString () =
-                    words.ToArray () |> String.concat " "
+                let readRestAsString() =
+                    words.ToArray() |> String.concat " "
 
-                match words.Dequeue () with
+                match words.Dequeue() with
                 | "r" when state.NickName = None ->
-                    lines.Dequeue () |> ignore
+                    lines.Dequeue() |> ignore
 
                     innerParse
                         { state with
-                            NickName = readWord () |> Some
-                            Identity = readWord () |> Some
-                            Digest = readWord () |> Some
-                            PublicationTime = readDateTime () |> Some
-                            IP = readWord () |> Some
-                            OnionRouterPort = readInteger () |> Some
-                            DirectoryPort = readInteger () |> Some
+                            NickName = readWord() |> Some
+                            Identity = readWord() |> Some
+                            Digest = readWord() |> Some
+                            PublicationTime = readDateTime() |> Some
+                            IP = readWord() |> Some
+                            OnionRouterPort = readInteger() |> Some
+                            DirectoryPort = readInteger() |> Some
                         }
                 | "r" when state.NickName <> None -> state
                 | "a" ->
-                    lines.Dequeue () |> ignore
+                    lines.Dequeue() |> ignore
 
                     innerParse
                         { state with
-                            Address = readRestAsString () |> Some
+                            Address = readRestAsString() |> Some
                         }
                 | "s" ->
-                    lines.Dequeue () |> ignore
+                    lines.Dequeue() |> ignore
 
                     innerParse
                         { state with
-                            Flags = readRestAsString () |> Some
+                            Flags = readRestAsString() |> Some
                         }
                 | "v" ->
-                    lines.Dequeue () |> ignore
+                    lines.Dequeue() |> ignore
 
                     innerParse
                         { state with
-                            Version = readRestAsString () |> Some
+                            Version = readRestAsString() |> Some
                         }
                 | "pr" ->
-                    lines.Dequeue () |> ignore
+                    lines.Dequeue() |> ignore
 
                     innerParse
                         { state with
-                            Protocols = readRestAsString () |> Some
+                            Protocols = readRestAsString() |> Some
                         }
                 | "w" ->
-                    lines.Dequeue () |> ignore
+                    lines.Dequeue() |> ignore
 
                     innerParse
                         { state with
-                            Bandwidth = readRestAsString () |> Some
+                            Bandwidth = readRestAsString() |> Some
                         }
                 | "p" ->
-                    lines.Dequeue () |> ignore
+                    lines.Dequeue() |> ignore
 
                     innerParse
                         { state with
-                            PortPolicy = readRestAsString () |> Some
+                            PortPolicy = readRestAsString() |> Some
                         }
                 | _ -> state
 
         innerParse RouterStatusEntry.Empty
 
-    member self.GetIdentity () =
+    member self.GetIdentity() =
         match self.Identity with
         | None -> failwith "BUG: identity doesn't exist in RouterStatusEntry"
-        | Some identity -> identity.Trim () |> Base64Util.FixMissingPadding
+        | Some identity -> identity.Trim() |> Base64Util.FixMissingPadding
 
 type DirectorySignature =
     {
@@ -212,34 +212,34 @@ type DirectorySignature =
             Signature = None
         }
 
-    static member Parse (lines: MutableQueue<string>) =
+    static member Parse(lines: MutableQueue<string>) =
         let rec innerParse state =
             if lines.Count = 0 then
                 state
             else
-                let rec readBlock (state: string) =
-                    let line = lines.Dequeue ()
+                let rec readBlock(state: string) =
+                    let line = lines.Dequeue()
 
                     if line.StartsWith "-----END" then
                         state + line
                     else
-                        readBlock (state + line)
+                        readBlock(state + line)
 
-                let nextLine = lines.Peek ()
+                let nextLine = lines.Peek()
 
                 let words = nextLine.Split ' ' |> MutableQueue<string>
 
-                let readWord () =
-                    words.Dequeue ()
+                let readWord() =
+                    words.Dequeue()
 
-                match words.Dequeue () with
+                match words.Dequeue() with
                 | "directory-signature" when state.Identity = None ->
-                    lines.Dequeue () |> ignore
+                    lines.Dequeue() |> ignore
 
                     innerParse
                         { state with
-                            DirectorySignature.Identity = readWord () |> Some
-                            Digest = readWord () |> Some
+                            DirectorySignature.Identity = readWord() |> Some
+                            Digest = readWord() |> Some
                             Signature = readBlock String.Empty |> Some
                         }
                 | "directory-signature" when state.Identity <> None -> state
@@ -301,166 +301,165 @@ type NetworkStatusDocument =
             Signatures = List.Empty
         }
 
-    static member Parse (stringToParse: string) =
+    static member Parse(stringToParse: string) =
         let lines = stringToParse.Split '\n' |> MutableQueue<string>
 
         let rec innerParse state =
             let words = lines.Peek().Split ' ' |> MutableQueue<string>
 
-            let readDateTime () =
-                String.concat " " [ words.Dequeue (); words.Dequeue () ]
+            let readDateTime() =
+                String.concat " " [ words.Dequeue(); words.Dequeue() ]
                 |> DateTime.Parse
 
-            let readInt () =
-                words.Dequeue () |> int
+            let readInt() =
+                words.Dequeue() |> int
 
-            let readRestAsString () =
-                words.ToArray () |> String.concat " "
+            let readRestAsString() =
+                words.ToArray() |> String.concat " "
 
             let newState: NetworkStatusDocument =
-                match words.Dequeue () with
+                match words.Dequeue() with
                 | "network-status-version" ->
-                    lines.Dequeue () |> ignore
+                    lines.Dequeue() |> ignore
 
                     { state with
-                        Version = readInt () |> Some
+                        Version = readInt() |> Some
                     }
                 | "vote-status" ->
-                    lines.Dequeue () |> ignore
+                    lines.Dequeue() |> ignore
 
                     { state with
-                        VoteStatus = readRestAsString () |> Some
+                        VoteStatus = readRestAsString() |> Some
                     }
                 | "consensus-method" ->
-                    lines.Dequeue () |> ignore
+                    lines.Dequeue() |> ignore
 
                     { state with
-                        ConsensusMethod = readInt () |> Some
+                        ConsensusMethod = readInt() |> Some
                     }
                 | "valid-after" ->
-                    lines.Dequeue () |> ignore
+                    lines.Dequeue() |> ignore
 
                     { state with
-                        ValidAfter = readDateTime () |> Some
+                        ValidAfter = readDateTime() |> Some
                     }
                 | "fresh-until" ->
-                    lines.Dequeue () |> ignore
+                    lines.Dequeue() |> ignore
 
                     { state with
-                        FreshUntil = readDateTime () |> Some
+                        FreshUntil = readDateTime() |> Some
                     }
                 | "valid-until" ->
-                    lines.Dequeue () |> ignore
+                    lines.Dequeue() |> ignore
 
                     { state with
-                        ValidUntil = readDateTime () |> Some
+                        ValidUntil = readDateTime() |> Some
                     }
                 | "voting-delay" ->
-                    lines.Dequeue () |> ignore
+                    lines.Dequeue() |> ignore
 
                     { state with
-                        VotingDelay = readRestAsString () |> Some
+                        VotingDelay = readRestAsString() |> Some
                     }
                 | "client-versions" ->
-                    lines.Dequeue () |> ignore
+                    lines.Dequeue() |> ignore
 
                     { state with
-                        ClientVersions = readRestAsString () |> Some
+                        ClientVersions = readRestAsString() |> Some
                     }
                 | "server-versions" ->
-                    lines.Dequeue () |> ignore
+                    lines.Dequeue() |> ignore
 
                     { state with
-                        ServerVersions = readRestAsString () |> Some
+                        ServerVersions = readRestAsString() |> Some
                     }
                 | "package" ->
-                    lines.Dequeue () |> ignore
+                    lines.Dequeue() |> ignore
 
                     { state with
                         Packages =
-                            state.Packages
-                            @ List.singleton (readRestAsString ())
+                            state.Packages @ List.singleton(readRestAsString())
                     }
                 | "known-flags" ->
-                    lines.Dequeue () |> ignore
+                    lines.Dequeue() |> ignore
 
                     { state with
-                        KnownFlags = readRestAsString () |> Some
+                        KnownFlags = readRestAsString() |> Some
                     }
                 | "recommended-client-protocols" ->
-                    lines.Dequeue () |> ignore
+                    lines.Dequeue() |> ignore
 
                     { state with
-                        RecommendedClientProtocols = readRestAsString () |> Some
+                        RecommendedClientProtocols = readRestAsString() |> Some
                     }
                 | "recommended-relay-protocols" ->
-                    lines.Dequeue () |> ignore
+                    lines.Dequeue() |> ignore
 
                     { state with
-                        RecommendedRelayProtocols = readRestAsString () |> Some
+                        RecommendedRelayProtocols = readRestAsString() |> Some
                     }
                 | "required-client-protocols" ->
-                    lines.Dequeue () |> ignore
+                    lines.Dequeue() |> ignore
 
                     { state with
-                        RequiredClientProtocols = readRestAsString () |> Some
+                        RequiredClientProtocols = readRestAsString() |> Some
                     }
                 | "required-relay-protocols" ->
-                    lines.Dequeue () |> ignore
+                    lines.Dequeue() |> ignore
 
                     { state with
-                        RequiredRelayProtocols = readRestAsString () |> Some
+                        RequiredRelayProtocols = readRestAsString() |> Some
                     }
                 | "params" ->
-                    lines.Dequeue () |> ignore
+                    lines.Dequeue() |> ignore
 
                     { state with
                         Params =
-                            readRestAsString().Split (' ')
-                            |> Seq.map (fun param ->
-                                let keyValue = param.Split ('=')
+                            readRestAsString().Split(' ')
+                            |> Seq.map(fun param ->
+                                let keyValue = param.Split('=')
                                 keyValue.[0], keyValue.[1]
                             )
                             |> Map.ofSeq
                     }
                 | "shared-rand-previous-value" ->
-                    lines.Dequeue () |> ignore
+                    lines.Dequeue() |> ignore
 
                     { state with
-                        SharedRandomPreviousValue = readRestAsString () |> Some
+                        SharedRandomPreviousValue = readRestAsString() |> Some
                     }
                 | "shared-rand-current-value" ->
-                    lines.Dequeue () |> ignore
+                    lines.Dequeue() |> ignore
 
                     { state with
-                        SharedRandomCurrentValue = readRestAsString () |> Some
+                        SharedRandomCurrentValue = readRestAsString() |> Some
                     }
                 | "bandwidth-weights" ->
-                    lines.Dequeue () |> ignore
+                    lines.Dequeue() |> ignore
 
                     { state with
-                        BandwithWeights = readRestAsString () |> Some
+                        BandwithWeights = readRestAsString() |> Some
                     }
                 | "dir-source" ->
                     { state with
                         Sources =
                             state.Sources
-                            @ List.singleton (DirectorySourceEntry.Parse lines)
+                            @ List.singleton(DirectorySourceEntry.Parse lines)
                     }
                 | "r" ->
                     { state with
                         Routers =
                             state.Routers
-                            @ List.singleton (RouterStatusEntry.Parse lines)
+                            @ List.singleton(RouterStatusEntry.Parse lines)
                     }
                 | "directory-signature" ->
                     { state with
                         Signatures =
                             state.Signatures
-                            @ List.singleton (DirectorySignature.Parse lines)
+                            @ List.singleton(DirectorySignature.Parse lines)
                     }
                 | _ ->
-                    lines.Dequeue () |> ignore
+                    lines.Dequeue() |> ignore
                     state
 
             if lines.Count > 0 then
@@ -470,28 +469,28 @@ type NetworkStatusDocument =
 
         innerParse NetworkStatusDocument.Empty
 
-    member self.GetHiddenServicesDirectoryInterval () =
+    member self.GetHiddenServicesDirectoryInterval() =
         match self.Params.TryFind "hsdir-interval" with
         | None -> Constants.DefaultHSDirInterval
         | Some hsDirinterval -> hsDirinterval |> Convert.ToInt32
 
-    member self.GetValidAfter () =
+    member self.GetValidAfter() =
         match self.ValidAfter with
         | None ->
             failwith "BUG: valid-after field does not exist in the consensus"
         | Some validAfter -> validAfter
 
-    member self.GetValidUntil () =
+    member self.GetValidUntil() =
         match self.ValidUntil with
         | None ->
             failwith "BUG: valid-until field does not exist in the consensus"
         | Some validUntil -> validUntil
 
 
-    member self.GetTimePeriod () =
+    member self.GetTimePeriod() =
         let validAfterInMinutes =
             let validAfterSinceEpoch =
-                self.GetValidAfter () |> DateTimeUtils.GetTimeSpanSinceEpoch
+                self.GetValidAfter() |> DateTimeUtils.GetTimeSpanSinceEpoch
 
             validAfterSinceEpoch
                 .Subtract(
@@ -499,7 +498,7 @@ type NetworkStatusDocument =
                 )
                 .TotalMinutes
 
-        let hsDirInterval = self.GetHiddenServicesDirectoryInterval ()
+        let hsDirInterval = self.GetHiddenServicesDirectoryInterval()
 
         validAfterInMinutes / (hsDirInterval |> float) |> Math.Floor |> uint64,
         hsDirInterval |> uint64

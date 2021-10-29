@@ -26,7 +26,7 @@ type TorServiceClient =
             Stream: TorStream
         }
 
-    member self.GetStream () =
+    member self.GetStream() =
         self.Stream
 
     static member ConnectAsync
@@ -44,16 +44,16 @@ type TorServiceClient =
                     |> JsonSerializer.Deserialize<seq<IntroductionPointPublicInfo>>
                     |> Seq.head
 
-                Ed25519PublicKeyParameters (
+                Ed25519PublicKeyParameters(
                     info.AuthKey |> Convert.FromBase64String,
                     0
                 ),
-                X25519PublicKeyParameters (
+                X25519PublicKeyParameters(
                     info.EncryptionKey |> Convert.FromBase64String,
                     0
                 ),
-                CircuitNodeDetail.Create (
-                    IPEndPoint (IPAddress.Parse (info.Address), info.Port),
+                CircuitNodeDetail.Create(
+                    IPEndPoint(IPAddress.Parse(info.Address), info.Port),
                     info.OnionKey |> Convert.FromBase64String,
                     info.Fingerprint |> Convert.FromBase64String
                 ),
@@ -77,16 +77,16 @@ type TorServiceClient =
             do! rendCircuit.RegisterAsRendezvousPoint randomGeneratedCookie
 
             let privateKey, publicKey =
-                let kpGen = X25519KeyPairGenerator ()
-                let random = SecureRandom ()
-                kpGen.Init (X25519KeyGenerationParameters random)
-                let keyPair = kpGen.GenerateKeyPair ()
+                let kpGen = X25519KeyPairGenerator()
+                let random = SecureRandom()
+                kpGen.Init(X25519KeyGenerationParameters random)
+                let keyPair = kpGen.GenerateKeyPair()
 
                 keyPair.Private :?> X25519PrivateKeyParameters,
                 keyPair.Public :?> X25519PublicKeyParameters
 
             match rendNode with
-            | Create (address, onionKey, identityKey) ->
+            | Create(address, onionKey, identityKey) ->
                 let introduceInnerData =
                     {
                         RelayIntroduceInnerData.OnionKey = onionKey
@@ -103,12 +103,12 @@ type TorServiceClient =
                             ]
                     }
 
-                let! networkStatus = directory.GetLiveNetworkStatus ()
-                let periodInfo = networkStatus.GetTimePeriod ()
+                let! networkStatus = directory.GetLiveNetworkStatus()
+                let periodInfo = networkStatus.GetTimePeriod()
 
                 let data, mac =
                     HiddenServicesCipher.EncryptIntroductionData
-                        (introduceInnerData.ToBytes ())
+                        (introduceInnerData.ToBytes())
                         privateKey
                         publicKey
                         authKey
@@ -119,11 +119,11 @@ type TorServiceClient =
                 let introduce1Packet =
                     {
                         RelayIntroduce.AuthKey =
-                            RelayIntroAuthKey.ED25519SHA3256 (
-                                authKey.GetEncoded ()
+                            RelayIntroAuthKey.ED25519SHA3256(
+                                authKey.GetEncoded()
                             )
                         Extensions = List.empty
-                        ClientPublicKey = publicKey.GetEncoded ()
+                        ClientPublicKey = publicKey.GetEncoded()
                         Mac = mac
                         EncryptedData = data
                     }
@@ -146,7 +146,7 @@ type TorServiceClient =
 
                         if ack.Status <> RelayIntroduceStatus.Success then
                             return
-                                failwith (
+                                failwith(
                                     sprintf
                                         "Unsuccessful introduction: %A"
                                         ack.Status
@@ -156,7 +156,7 @@ type TorServiceClient =
                 do! Async.Parallel [ introduceJob; rendJoin ] |> Async.Ignore
 
                 let serviceStream = TorStream rendCircuit
-                do! serviceStream.ConnectToService () |> Async.Ignore
+                do! serviceStream.ConnectToService() |> Async.Ignore
 
                 return
                     {
@@ -168,5 +168,5 @@ type TorServiceClient =
         }
 
     interface IDisposable with
-        member self.Dispose () =
-            (self.RendezvousGuard :> IDisposable).Dispose ()
+        member self.Dispose() =
+            (self.RendezvousGuard :> IDisposable).Dispose()

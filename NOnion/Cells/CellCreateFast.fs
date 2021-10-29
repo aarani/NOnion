@@ -9,7 +9,7 @@ type CellCreateFast =
         X: array<byte>
     }
 
-    static member Deserialize (reader: BinaryReader) =
+    static member Deserialize(reader: BinaryReader) =
         let x = reader.ReadBytes Constants.HashLength
 
         {

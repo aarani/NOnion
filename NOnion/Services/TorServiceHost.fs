@@ -50,27 +50,27 @@ type TorServiceHost
         Map.empty
 
     let mutable guardNode: Option<TorGuard> = None
-    let introductionPointSemaphore: SemaphoreLocker = SemaphoreLocker ()
-    let newClientSemaphore = new SemaphoreSlim (0)
+    let introductionPointSemaphore: SemaphoreLocker = SemaphoreLocker()
+    let newClientSemaphore = new SemaphoreSlim(0)
 
     let mutable pendingConnectionQueue: Queue<uint16 * TorCircuit> = Queue.empty
-    let queueLock: SemaphoreLocker = SemaphoreLocker ()
+    let queueLock: SemaphoreLocker = SemaphoreLocker()
 
     member private self.IncomingServiceStreamCallback
         (streamId: uint16)
         (senderCircuit: TorCircuit)
         =
         async {
-            let registerConnectionRequest () =
+            let registerConnectionRequest() =
                 pendingConnectionQueue <-
-                    pendingConnectionQueue.Conj (streamId, senderCircuit)
+                    pendingConnectionQueue.Conj(streamId, senderCircuit)
 
-                newClientSemaphore.Release () |> ignore<int>
+                newClientSemaphore.Release() |> ignore<int>
 
             queueLock.RunSyncWithSemaphore registerConnectionRequest
         }
 
-    member private self.RelayIntroduceCallback (introduce: RelayIntroduce) =
+    member private self.RelayIntroduceCallback(introduce: RelayIntroduce) =
         let rec tryConnectingToRendezvous
             tryNumber
             maxRetryCount
@@ -90,13 +90,13 @@ type TorServiceHost
                     let! guard = TorGuard.NewClient endPoint
 
                     let rendCircuit =
-                        TorCircuit (guard, self.IncomingServiceStreamCallback)
+                        TorCircuit(guard, self.IncomingServiceStreamCallback)
 
                     do! rendCircuit.Create randomNodeDetails |> Async.Ignore
 
                     do!
-                        rendCircuit.Extend (
-                            CircuitNodeDetail.Create (
+                        rendCircuit.Extend(
+                            CircuitNodeDetail.Create(
                                 rendEndpoint,
                                 onionKey,
                                 rendFingerPrint
@@ -107,7 +107,7 @@ type TorServiceHost
                     do!
                         rendCircuit.Rendezvous
                             cookie
-                            (X25519PublicKeyParameters (clientPubKey, 0))
+                            (X25519PublicKeyParameters(clientPubKey, 0))
                             introAuthPubKey
                             introEncPrivKey
                             introEncPubKey
@@ -119,7 +119,7 @@ type TorServiceHost
                 | :? SocketException as ex ->
                     sprintf
                         "Exception happened when trying to connect to rendezvous point, ex=%s"
-                        (ex.ToString ())
+                        (ex.ToString())
                     |> TorLogger.Log
 
                     if tryNumber <= maxRetryCount then
@@ -144,7 +144,7 @@ type TorServiceHost
                 | ex ->
                     sprintf
                         "Exception happened when trying to connect to rendezvous point, ex=%s"
-                        (ex.ToString ())
+                        (ex.ToString())
                     |> TorLogger.Log
 
                     return raise <| FSharpUtil.ReRaise ex
@@ -174,13 +174,13 @@ type TorServiceHost
                 introductionPointDetails.EncryptionKey.Private
                 :?> X25519PrivateKeyParameters
 
-            let! networkStatus = directory.GetLiveNetworkStatus ()
-            let periodInfo = networkStatus.GetTimePeriod ()
+            let! networkStatus = directory.GetLiveNetworkStatus()
+            let periodInfo = networkStatus.GetTimePeriod()
 
             let decryptedData, digest =
                 HiddenServicesCipher.DecryptIntroductionData
                     introduce.EncryptedData
-                    (X25519PublicKeyParameters (introduce.ClientPublicKey, 0))
+                    (X25519PublicKeyParameters(introduce.ClientPublicKey, 0))
                     (introductionPointDetails.AuthKey.Public
                     :?> Ed25519PublicKeyParameters)
                     (introductionPointDetails.EncryptionKey.Private
@@ -190,8 +190,8 @@ type TorServiceHost
                     periodInfo
                     introductionPointDetails.MasterPublicKey
 
-            use decryptedStream = new MemoryStream (decryptedData)
-            use decryptedReader = new BinaryReader (decryptedStream)
+            use decryptedStream = new MemoryStream(decryptedData)
+            use decryptedReader = new BinaryReader(decryptedStream)
             let innerData = RelayIntroduceInnerData.Deserialize decryptedReader
 
             if digest <> introduce.Mac then
@@ -199,15 +199,15 @@ type TorServiceHost
 
             let rendEndpoint =
                 (innerData.RendezvousLinkSpecifiers
-                 |> Seq.filter (fun linkS ->
+                 |> Seq.filter(fun linkS ->
                      linkS.Type = LinkSpecifierType.TLSOverTCPV4
                  )
                  |> Seq.exactlyOne)
-                    .ToEndPoint ()
+                    .ToEndPoint()
 
             let rendFingerPrint =
                 (innerData.RendezvousLinkSpecifiers
-                 |> Seq.filter (fun linkS ->
+                 |> Seq.filter(fun linkS ->
                      linkS.Type = LinkSpecifierType.LegacyIdentity
                  )
                  |> Seq.exactlyOne)
@@ -229,35 +229,35 @@ type TorServiceHost
             return ()
         }
 
-    member self.StartAsync () =
-        self.Start () |> Async.StartAsTask
+    member self.StartAsync() =
+        self.Start() |> Async.StartAsTask
 
-    member self.Start () =
-        let safeCreateIntroductionPoint () =
+    member self.Start() =
+        let safeCreateIntroductionPoint() =
             async {
                 let! _, introNodeDetail = directory.GetRouter false
 
                 match introNodeDetail with
                 | FastCreate -> return failwith "should not happen"
-                | Create (address, onionKey, fingerprint) ->
+                | Create(address, onionKey, fingerprint) ->
 
                     let! guard = TorGuard.NewClient address
                     let circuit = TorCircuit guard
 
                     let encKeyPair, authKeyPair, randomMasterPubKey =
-                        let kpGen = Ed25519KeyPairGenerator ()
-                        let kpGenX = X25519KeyPairGenerator ()
+                        let kpGen = Ed25519KeyPairGenerator()
+                        let kpGenX = X25519KeyPairGenerator()
 
-                        let random = SecureRandom ()
+                        let random = SecureRandom()
 
-                        kpGen.Init (Ed25519KeyGenerationParameters random)
-                        kpGenX.Init (X25519KeyGenerationParameters random)
+                        kpGen.Init(Ed25519KeyGenerationParameters random)
+                        kpGenX.Init(X25519KeyGenerationParameters random)
 
-                        kpGenX.GenerateKeyPair (),
-                        kpGen.GenerateKeyPair (),
+                        kpGenX.GenerateKeyPair(),
+                        kpGen.GenerateKeyPair(),
                         (kpGen.GenerateKeyPair().Public
                         :?> Ed25519PublicKeyParameters)
-                            .GetEncoded ()
+                            .GetEncoded()
 
                     let introductionPointInfo =
                         {
@@ -274,7 +274,7 @@ type TorServiceHost
                     introductionPointKeys <-
                         Map.add
                             ((authKeyPair.Public :?> Ed25519PublicKeyParameters)
-                                .GetEncoded ()
+                                .GetEncoded()
                              |> Convert.ToBase64String)
                             introductionPointInfo
                             introductionPointKeys
@@ -290,24 +290,24 @@ type TorServiceHost
         introductionPointSemaphore.RunAsyncWithSemaphore
             safeCreateIntroductionPoint
 
-    member __.AcceptClient () =
+    member __.AcceptClient() =
         async {
             let! cancelToken = Async.CancellationToken
-            cancelToken.ThrowIfCancellationRequested ()
+            cancelToken.ThrowIfCancellationRequested()
 
-            let tryGetConnectionRequest () =
+            let tryGetConnectionRequest() =
                 let nextItemOpt = pendingConnectionQueue.TryUncons
 
                 match nextItemOpt with
-                | Some (nextItem, rest) ->
+                | Some(nextItem, rest) ->
                     pendingConnectionQueue <- rest
                     Some nextItem
                 | None -> None
 
-            let rec getConnectionRequest () =
+            let rec getConnectionRequest() =
                 async {
                     do!
-                        newClientSemaphore.WaitAsync (cancelToken)
+                        newClientSemaphore.WaitAsync(cancelToken)
                         |> Async.AwaitTask
 
                     let nextItemOpt =
@@ -318,35 +318,35 @@ type TorServiceHost
                     | None -> return failwith "should not happen"
                 }
 
-            let! (streamId, senderCircuit) = getConnectionRequest ()
+            let! (streamId, senderCircuit) = getConnectionRequest()
             let! stream = TorStream.Accept streamId senderCircuit
             return stream
         }
 
-    member self.AcceptClientAsync () =
-        self.AcceptClient () |> Async.StartAsTask
+    member self.AcceptClientAsync() =
+        self.AcceptClient() |> Async.StartAsTask
 
-    member self.AcceptClientAsync (cancellationToken: CancellationToken) =
-        Async.StartAsTask (
-            self.AcceptClient (),
+    member self.AcceptClientAsync(cancellationToken: CancellationToken) =
+        Async.StartAsTask(
+            self.AcceptClient(),
             cancellationToken = cancellationToken
         )
 
-    member self.Export () =
-        let exportIntroductionPoint (_key, info: IntroductionPointInfo) =
+    member self.Export() =
+        let exportIntroductionPoint(_key, info: IntroductionPointInfo) =
             {
                 IntroductionPointPublicInfo.Address =
-                    info.Address.Address.ToString ()
+                    info.Address.Address.ToString()
                 Port = info.Address.Port
                 OnionKey = info.OnionKey
                 Fingerprint = info.Fingerprint
                 AuthKey =
                     (info.AuthKey.Public :?> Ed25519PublicKeyParameters)
-                        .GetEncoded ()
+                        .GetEncoded()
                     |> Convert.ToBase64String
                 EncryptionKey =
                     (info.EncryptionKey.Public :?> X25519PublicKeyParameters)
-                        .GetEncoded ()
+                        .GetEncoded()
                     |> Convert.ToBase64String
                 MasterPublicKey = info.MasterPublicKey |> Convert.ToBase64String
             }

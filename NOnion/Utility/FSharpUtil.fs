@@ -5,8 +5,8 @@ open System.Runtime.ExceptionServices
 
 module FSharpUtil =
     //Implementation copied from https://github.com/nblockchain/geewallet/blob/master/src/GWallet.Backend/FSharpUtil.fs
-    let ReRaise (ex: Exception) : Exception =
-        (ExceptionDispatchInfo.Capture ex).Throw ()
+    let ReRaise(ex: Exception) : Exception =
+        (ExceptionDispatchInfo.Capture ex).Throw()
         failwith "Should be unreachable"
         ex
 
@@ -26,10 +26,10 @@ module FSharpUtil =
                 async {
                     let total = int timeSpan.TotalMilliseconds
                     do! Async.Sleep total
-                    return FailureResult <| TimeoutException () |> Some
+                    return FailureResult <| TimeoutException() |> Some
                 }
 
-            let! dummyOption = Async.Choice ([ read; delay ])
+            let! dummyOption = Async.Choice([ read; delay ])
 
             match dummyOption with
             | Some theResult ->

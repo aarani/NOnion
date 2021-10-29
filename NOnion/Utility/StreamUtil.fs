@@ -15,7 +15,7 @@ module StreamUtil =
                             return None
                         else
                             let! filledBytes =
-                                stream.ReadAsync (
+                                stream.ReadAsync(
                                     buffer,
                                     offset,
                                     count - offset,
@@ -46,6 +46,6 @@ module StreamUtil =
             let! ct = Async.CancellationToken
 
             return!
-                stream.WriteAsync (buffer, 0, buffer.Length, ct)
+                stream.WriteAsync(buffer, 0, buffer.Length, ct)
                 |> Async.AwaitTask
         }

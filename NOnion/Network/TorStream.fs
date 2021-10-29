@@ -9,15 +9,15 @@ open NOnion.Cells.Relay
 open NOnion.Utility
 
 
-type TorStream (circuit: TorCircuit) =
+type TorStream(circuit: TorCircuit) =
 
     let mutable streamState: StreamState = StreamState.Initialized
-    let controlLock: SemaphoreLocker = SemaphoreLocker ()
+    let controlLock: SemaphoreLocker = SemaphoreLocker()
 
     let window: TorWindow = TorWindow Constants.DefaultStreamLevelWindowParams
 
-    let incomingCells: BufferBlock<RelayData> = BufferBlock<RelayData> ()
-    let receiveLock: SemaphoreLocker = SemaphoreLocker ()
+    let incomingCells: BufferBlock<RelayData> = BufferBlock<RelayData>()
+    let receiveLock: SemaphoreLocker = SemaphoreLocker()
 
     static member Accept (streamId: uint16) (circuit: TorCircuit) =
         async {
@@ -35,9 +35,9 @@ type TorStream (circuit: TorCircuit) =
             return stream
         }
 
-    member __.End () =
+    member __.End() =
         async {
-            let safeSend () =
+            let safeSend() =
                 async {
                     match streamState with
                     | Connected streamId ->
@@ -60,13 +60,13 @@ type TorStream (circuit: TorCircuit) =
             return! controlLock.RunAsyncWithSemaphore safeSend
         }
 
-    member self.EndAsync () =
-        self.End () |> Async.StartAsTask
+    member self.EndAsync() =
+        self.End() |> Async.StartAsTask
 
 
-    member __.SendData (data: array<byte>) =
+    member __.SendData(data: array<byte>) =
         async {
-            let safeSend () =
+            let safeSend() =
                 async {
                     match streamState with
                     | Connected streamId ->
@@ -80,7 +80,7 @@ type TorStream (circuit: TorCircuit) =
                                 match Seq.tryHead dataChunks with
                                 | None -> ()
                                 | Some head ->
-                                    circuit.LastNode.Window.PackageDecrease ()
+                                    circuit.LastNode.Window.PackageDecrease()
 
                                     do!
                                         circuit.SendRelayCell
@@ -90,7 +90,7 @@ type TorStream (circuit: TorCircuit) =
                                              |> RelayData.RelayData)
                                             None
 
-                                    window.PackageDecrease ()
+                                    window.PackageDecrease()
                                     do! Seq.tail dataChunks |> sendChunks
                             }
 
@@ -106,14 +106,14 @@ type TorStream (circuit: TorCircuit) =
     member self.SendDataAsync data =
         self.SendData data |> Async.StartAsTask
 
-    member self.ConnectToService () =
-        let startConnectionProcess () =
+    member self.ConnectToService() =
+        let startConnectionProcess() =
             async {
                 let streamId = circuit.RegisterStream self None
 
-                let tcs = TaskCompletionSource ()
+                let tcs = TaskCompletionSource()
 
-                streamState <- Connecting (streamId, tcs)
+                streamState <- Connecting(streamId, tcs)
 
                 sprintf
                     "TorStream[%d,%d]: creating a hidden service stream"
@@ -144,15 +144,15 @@ type TorStream (circuit: TorCircuit) =
                 |> FSharpUtil.WithTimeout Constants.StreamCreationTimeout
         }
 
-    member self.ConnectToDirectory () =
+    member self.ConnectToDirectory() =
         async {
-            let startConnectionProcess () =
+            let startConnectionProcess() =
                 async {
                     let streamId = circuit.RegisterStream self None
 
-                    let tcs = TaskCompletionSource ()
+                    let tcs = TaskCompletionSource()
 
-                    streamState <- Connecting (streamId, tcs)
+                    streamState <- Connecting(streamId, tcs)
 
                     sprintf
                         "TorStream[%d,%d]: creating a directory stream"
@@ -178,26 +178,26 @@ type TorStream (circuit: TorCircuit) =
                 |> FSharpUtil.WithTimeout Constants.StreamCreationTimeout
         }
 
-    member self.ConnectToDirectoryAsync () =
-        self.ConnectToDirectory () |> Async.StartAsTask
+    member self.ConnectToDirectoryAsync() =
+        self.ConnectToDirectory() |> Async.StartAsTask
 
-    member private self.RegisterIncomingStream (streamId: uint16) =
-        let registerProcess () =
+    member private self.RegisterIncomingStream(streamId: uint16) =
+        let registerProcess() =
             streamState <-
                 circuit.RegisterStream self (Some streamId) |> Connected
 
         controlLock.RunSyncWithSemaphore registerProcess
 
-    member self.Receive () =
+    member self.Receive() =
         async {
-            let safeReceive () =
+            let safeReceive() =
                 async {
-                    let! cell = incomingCells.ReceiveAsync () |> Async.AwaitTask
+                    let! cell = incomingCells.ReceiveAsync() |> Async.AwaitTask
 
                     match cell with
                     | RelayData data -> return data |> Some
                     | RelayEnd reason when reason = EndReason.Done ->
-                        TorLogger.Log (
+                        TorLogger.Log(
                             sprintf
                                 "TorStream[%s,%d]: pushed EOF to consumer"
                                 streamState.Id
@@ -207,10 +207,10 @@ type TorStream (circuit: TorCircuit) =
                         return None
                     | RelayEnd reason ->
                         return
-                            failwith (
+                            failwith(
                                 sprintf
                                     "Stream closed unexpectedly, reason = %s"
-                                    (reason.ToString ())
+                                    (reason.ToString())
                             )
                     | _ ->
                         return
@@ -221,17 +221,17 @@ type TorStream (circuit: TorCircuit) =
             return! receiveLock.RunAsyncWithSemaphore safeReceive
         }
 
-    member self.ReceiveAsync () =
-        self.Receive () |> Async.StartAsTask
+    member self.ReceiveAsync() =
+        self.Receive() |> Async.StartAsTask
 
     interface ITorStream with
-        member __.HandleIncomingData (message: RelayData) =
+        member __.HandleIncomingData(message: RelayData) =
             async {
                 match message with
                 | RelayConnected _ ->
-                    let handleRelayConnected () =
+                    let handleRelayConnected() =
                         match streamState with
-                        | Connecting (streamId, tcs) ->
+                        | Connecting(streamId, tcs) ->
                             streamState <- Connected streamId
                             tcs.SetResult streamId
 
@@ -247,10 +247,10 @@ type TorStream (circuit: TorCircuit) =
 
                     controlLock.RunSyncWithSemaphore handleRelayConnected
                 | RelayData _ ->
-                    window.DeliverDecrease ()
+                    window.DeliverDecrease()
 
-                    if window.NeedSendme () then
-                        let sendSendMe () =
+                    if window.NeedSendme() then
+                        let sendSendMe() =
                             async {
                                 match streamState with
                                 | Connected streamId ->
@@ -267,23 +267,23 @@ type TorStream (circuit: TorCircuit) =
                         do! controlLock.RunAsyncWithSemaphore sendSendMe
 
                     incomingCells.Post message |> ignore<bool>
-                | RelaySendMe _ -> window.PackageIncrease ()
+                | RelaySendMe _ -> window.PackageIncrease()
                 | RelayEnd reason ->
-                    let handleRelayEnd () =
+                    let handleRelayEnd() =
                         match streamState with
-                        | Connecting (streamId, tcs) ->
+                        | Connecting(streamId, tcs) ->
                             sprintf
                                 "TorStream[%d,%d]: received end packet while connecting"
                                 streamId
                                 circuit.Id
                             |> TorLogger.Log
 
-                            streamState <- Ended (streamId, reason)
+                            streamState <- Ended(streamId, reason)
 
-                            Failure (
+                            Failure(
                                 sprintf
                                     "Stream connection process failed! Reason: %s"
-                                    (reason.ToString ())
+                                    (reason.ToString())
                             )
                             |> tcs.SetException
                         | Connected streamId ->
@@ -294,7 +294,7 @@ type TorStream (circuit: TorCircuit) =
                             |> TorLogger.Log
 
                             incomingCells.Post message |> ignore<bool>
-                            streamState <- Ended (streamId, reason)
+                            streamState <- Ended(streamId, reason)
                         | _ ->
                             failwith
                                 "Unexpected state when receiving RelayEnd cell"

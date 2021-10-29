@@ -19,14 +19,14 @@ type RelayIntroduceAck =
         Extensions: List<RelayIntroExtension>
     }
 
-    static member FromBytes (reader: BinaryReader) =
+    static member FromBytes(reader: BinaryReader) =
         let status =
             reader.ReadBytes 2
             |> IntegerSerialization.FromBigEndianByteArrayToUInt16
             |> LanguagePrimitives.EnumOfValue<uint16, RelayIntroduceStatus>
 
         let extensions =
-            let extensionCount = reader.ReadByte ()
+            let extensionCount = reader.ReadByte()
 
             let rec readExtensionsList state n =
                 if n = 0uy then
@@ -34,7 +34,7 @@ type RelayIntroduceAck =
                 else
                     readExtensionsList
                         (state
-                         @ List.singleton (RelayIntroExtension.FromBytes reader))
+                         @ List.singleton(RelayIntroExtension.FromBytes reader))
                         (n - 1uy)
 
             readExtensionsList List.empty extensionCount
@@ -44,7 +44,7 @@ type RelayIntroduceAck =
             Extensions = extensions
         }
 
-    member self.ToBytes () =
+    member self.ToBytes() =
         Array.concat
             [
                 self.Status
@@ -52,6 +52,6 @@ type RelayIntroduceAck =
                 |> IntegerSerialization.FromUInt16ToBigEndianByteArray
                 self.Extensions.Length |> byte |> Array.singleton
                 self.Extensions
-                |> List.map (fun ext -> ext.ToBytes ())
+                |> List.map(fun ext -> ext.ToBytes())
                 |> Array.concat
             ]

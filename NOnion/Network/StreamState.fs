@@ -14,7 +14,7 @@ type StreamState =
 
     member self.Id =
         match self with
-        | Connecting (streamId, _)
+        | Connecting(streamId, _)
         | Connected streamId
-        | Ended (streamId, _) -> string streamId
+        | Ended(streamId, _) -> string streamId
         | Initialized -> "TBD"

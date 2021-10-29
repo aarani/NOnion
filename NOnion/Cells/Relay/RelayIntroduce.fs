@@ -14,11 +14,11 @@ type RelayIntroduceInnerData =
         RendezvousLinkSpecifiers: List<LinkSpecifier>
     }
 
-    static member Deserialize (reader: BinaryReader) =
+    static member Deserialize(reader: BinaryReader) =
         let cookie = reader.ReadBytes Constants.RendezvousCookieLength
 
         let extensions =
-            let extensionCount = reader.ReadByte ()
+            let extensionCount = reader.ReadByte()
 
             let rec readExtensionsList state n =
                 if n = 0uy then
@@ -26,12 +26,12 @@ type RelayIntroduceInnerData =
                 else
                     readExtensionsList
                         (state
-                         @ List.singleton (RelayIntroExtension.FromBytes reader))
+                         @ List.singleton(RelayIntroExtension.FromBytes reader))
                         (n - 1uy)
 
             readExtensionsList List.empty extensionCount
 
-        let onionKeyType = reader.ReadByte () |> int
+        let onionKeyType = reader.ReadByte() |> int
 
         if onionKeyType <> Constants.RelayIntroduceKeyType then
             failwith "Unsupported onion key"
@@ -50,9 +50,9 @@ type RelayIntroduceInnerData =
                 LinkSpecifier.Deserialize reader
                 |> List.singleton
                 |> List.append state
-                |> readLinkSpecifier (n - 1uy)
+                |> readLinkSpecifier(n - 1uy)
 
-        let linkSpecifiers = readLinkSpecifier (reader.ReadByte ()) List.empty
+        let linkSpecifiers = readLinkSpecifier(reader.ReadByte()) List.empty
 
         {
             RendezvousCookie = cookie
@@ -61,13 +61,13 @@ type RelayIntroduceInnerData =
             Extensions = extensions
         }
 
-    member self.ToBytes () =
+    member self.ToBytes() =
         Array.concat
             [
                 self.RendezvousCookie
                 self.Extensions.Length |> byte |> Array.singleton
                 self.Extensions
-                |> List.map (fun ext -> ext.ToBytes ())
+                |> List.map(fun ext -> ext.ToBytes())
                 |> Array.concat
                 Array.singleton 1uy
                 self.OnionKey.Length
@@ -76,7 +76,7 @@ type RelayIntroduceInnerData =
                 self.OnionKey
                 self.RendezvousLinkSpecifiers.Length |> byte |> Array.singleton
                 self.RendezvousLinkSpecifiers
-                |> List.map (fun link -> link.ToBytes ())
+                |> List.map(fun link -> link.ToBytes())
                 |> Array.concat
             ]
 
@@ -89,16 +89,16 @@ type RelayIntroduce =
         Mac: array<byte>
     }
 
-    static member FromBytes (reader: BinaryReader) =
+    static member FromBytes(reader: BinaryReader) =
         let legacyKeyId = reader.ReadBytes 20
 
-        if not (legacyKeyId |> Array.forall (fun byte -> byte = 0uy)) then
+        if not(legacyKeyId |> Array.forall(fun byte -> byte = 0uy)) then
             failwith "Legacy key id should be all zeroes"
 
         let authKey = RelayIntroAuthKey.FromBytes reader
 
         let extensions =
-            let extensionCount = reader.ReadByte ()
+            let extensionCount = reader.ReadByte()
 
             let rec readExtensionsList state n =
                 if n = 0uy then
@@ -106,7 +106,7 @@ type RelayIntroduce =
                 else
                     readExtensionsList
                         (state
-                         @ List.singleton (RelayIntroExtension.FromBytes reader))
+                         @ List.singleton(RelayIntroExtension.FromBytes reader))
                         (n - 1uy)
 
             readExtensionsList List.empty extensionCount
@@ -133,14 +133,14 @@ type RelayIntroduce =
             Mac = mac
         }
 
-    member self.ToBytes () =
+    member self.ToBytes() =
         Array.concat
             [
                 Array.zeroCreate 20
-                self.AuthKey.ToBytes ()
+                self.AuthKey.ToBytes()
                 self.Extensions.Length |> byte |> Array.singleton
                 self.Extensions
-                |> List.map (fun ext -> ext.ToBytes ())
+                |> List.map(fun ext -> ext.ToBytes())
                 |> Array.concat
                 self.ClientPublicKey
                 self.EncryptedData

@@ -44,7 +44,7 @@ module Command =
     [<Literal>]
     let Created2 = 11uy
 
-    let IsVariableLength (command: byte) : bool =
+    let IsVariableLength(command: byte) : bool =
         command = 7uy || command >= 128uy
 
     /// Serialize a cell, assuming its command has already been written.
@@ -68,10 +68,10 @@ module Command =
         | Destroy -> CellDestroy.Deserialize reader
         | Create2 -> CellCreate2.Deserialize reader
         | Created2 -> CellCreated2.Deserialize reader
-        | _ -> raise <| NotImplementedException ()
+        | _ -> raise <| NotImplementedException()
 
     // Is there any non generic way for this?
-    let GetCommandByCellType<'T when 'T :> ICell> () =
+    let GetCommandByCellType<'T when 'T :> ICell>() =
         match typeof<'T> with
         | t when t = typeof<CellCerts> -> Certs
         | t when t = typeof<CellAuthChallenge> -> AuthChallenge
@@ -84,4 +84,4 @@ module Command =
         | t when t = typeof<CellDestroy> -> Destroy
         | t when t = typeof<CellCreate2> -> Create2
         | t when t = typeof<CellCreated2> -> Created2
-        | _ -> raise <| NotImplementedException ()
+        | _ -> raise <| NotImplementedException()

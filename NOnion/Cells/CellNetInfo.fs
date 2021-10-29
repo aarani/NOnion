@@ -17,23 +17,23 @@ type CellNetInfo =
         OtherAddress: RouterAddress
     }
 
-    static member Deserialize (reader: BinaryReader) =
+    static member Deserialize(reader: BinaryReader) =
 
-        let readAddress () : RouterAddress =
+        let readAddress() : RouterAddress =
             {
-                RouterAddress.Type = reader.ReadByte ()
-                Value = reader.ReadByte () |> int |> reader.ReadBytes
+                RouterAddress.Type = reader.ReadByte()
+                Value = reader.ReadByte() |> int |> reader.ReadBytes
             }
 
         let rec readAddresses addresses n =
             if n = 0uy then
                 addresses
             else
-                readAddresses (addresses @ [ readAddress () ]) (n - 1uy)
+                readAddresses(addresses @ [ readAddress() ]) (n - 1uy)
 
         let time = ReadBigEndianUInt32 reader
-        let otherAddress = readAddress ()
-        let myAddressesCount = reader.ReadByte ()
+        let otherAddress = readAddress()
+        let myAddressesCount = reader.ReadByte()
         let myAddresses = readAddresses List.Empty myAddressesCount
 
         {
@@ -49,17 +49,17 @@ type CellNetInfo =
 
         member self.Serialize writer =
 
-            let writeAddress (addr: RouterAddress) =
+            let writeAddress(addr: RouterAddress) =
                 writer.Write addr.Type
                 addr.Value.Length |> byte |> writer.Write
                 writer.Write addr.Value
 
-            let rec writeAddresses (addresses: seq<RouterAddress>) =
+            let rec writeAddresses(addresses: seq<RouterAddress>) =
                 match Seq.tryHead addresses with
                 | None -> ()
                 | Some addr ->
                     writeAddress addr
-                    writeAddresses (Seq.tail addresses)
+                    writeAddresses(Seq.tail addresses)
 
             WriteUInt32BigEndian writer self.Time
             writeAddress self.OtherAddress

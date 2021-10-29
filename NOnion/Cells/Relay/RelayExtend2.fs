@@ -19,7 +19,7 @@ type LinkSpecifier =
         Data: array<byte>
     }
 
-    member self.ToEndPoint () =
+    member self.ToEndPoint() =
         match self.Type with
         | LinkSpecifierType.TLSOverTCPV4 ->
             self.Data |> Array.take 4 |> IPAddress,
@@ -38,11 +38,11 @@ type LinkSpecifier =
         | _ -> failwith "Non endpooint-type link specifier"
         |> IPEndPoint
 
-    static member CreateFromEndPoint (endPoint: IPEndPoint) =
-        let translateIPEndpoint (endpoint: IPEndPoint) =
+    static member CreateFromEndPoint(endPoint: IPEndPoint) =
+        let translateIPEndpoint(endpoint: IPEndPoint) =
             Array.concat
                 [
-                    endpoint.Address.GetAddressBytes ()
+                    endpoint.Address.GetAddressBytes()
                     endpoint.Port
                     |> uint16
                     |> IntegerSerialization.FromUInt16ToBigEndianByteArray
@@ -59,7 +59,7 @@ type LinkSpecifier =
             Data = translateIPEndpoint endPoint
         }
 
-    member self.ToBytes () =
+    member self.ToBytes() =
         Array.concat
             [
                 [|
@@ -69,12 +69,12 @@ type LinkSpecifier =
                 self.Data
             ]
 
-    static member Deserialize (reader: BinaryReader) =
+    static member Deserialize(reader: BinaryReader) =
         let linkType =
-            reader.ReadByte ()
+            reader.ReadByte()
             |> LanguagePrimitives.EnumOfValue<byte, LinkSpecifierType>
 
-        let data = reader.ReadByte () |> int |> reader.ReadBytes
+        let data = reader.ReadByte() |> int |> reader.ReadBytes
 
         {
             Type = linkType
@@ -89,13 +89,13 @@ type RelayExtend2 =
         HandshakeData: array<byte>
     }
 
-    member self.ToBytes () =
+    member self.ToBytes() =
         Array.concat
             [
                 self.LinkSpecifiers.Length |> byte |> Array.singleton
 
                 self.LinkSpecifiers
-                |> List.map (fun link -> link.ToBytes ())
+                |> List.map(fun link -> link.ToBytes())
                 |> Array.concat
 
                 self.HandshakeType

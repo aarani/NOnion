@@ -8,10 +8,10 @@ type RelayRendezvous =
         HandshakeData: array<byte>
     }
 
-    member self.ToBytes () =
+    member self.ToBytes() =
         Array.concat [ self.Cookie; self.HandshakeData ]
 
-    static member FromBytes (reader: BinaryReader) =
+    static member FromBytes(reader: BinaryReader) =
         {
             Cookie = Array.empty
             HandshakeData =
