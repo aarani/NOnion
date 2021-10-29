@@ -47,8 +47,7 @@ type TorHttpClient (stream: TorStream, host: string) =
 
             let! httpResponse =
                 receiveAll Array.empty
-                |> Async.StartAsTask
-                |> AsyncUtil.AwaitTaskWithTimeout Constants.HttpResponseTimeout
+                |> FSharpUtil.WithTimeout Constants.HttpResponseTimeout
 
             let header, body =
                 let delimiter =

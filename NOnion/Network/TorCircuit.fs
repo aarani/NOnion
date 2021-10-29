@@ -337,8 +337,8 @@ type TorCircuit
 
             return!
                 completionTask
-                |> AsyncUtil.AwaitTaskWithTimeout
-                    Constants.CircuitOperationTimeout
+                |> Async.AwaitTask
+                |> FSharpUtil.WithTimeout Constants.CircuitOperationTimeout
         }
 
     member self.Extend (nodeDetail: CircuitNodeDetail) =
@@ -412,8 +412,8 @@ type TorCircuit
 
             return!
                 completionTask
-                |> AsyncUtil.AwaitTaskWithTimeout
-                    Constants.CircuitOperationTimeout
+                |> Async.AwaitTask
+                |> FSharpUtil.WithTimeout Constants.CircuitOperationTimeout
 
         }
 
@@ -483,8 +483,8 @@ type TorCircuit
 
             return!
                 completionTask
-                |> AsyncUtil.AwaitTaskWithTimeout
-                    Constants.CircuitOperationTimeout
+                |> Async.AwaitTask
+                |> FSharpUtil.WithTimeout Constants.CircuitOperationTimeout
         }
 
     member self.RegisterAsRendezvousPoint (cookie: array<byte>) =
@@ -526,8 +526,8 @@ type TorCircuit
 
             return!
                 completionTask
-                |> AsyncUtil.AwaitTaskWithTimeout
-                    Constants.CircuitOperationTimeout
+                |> Async.AwaitTask
+                |> FSharpUtil.WithTimeout Constants.CircuitOperationTimeout
         }
 
     member self.ExtendAsync nodeDetail =
@@ -570,8 +570,8 @@ type TorCircuit
 
             return!
                 completionTask
-                |> AsyncUtil.AwaitTaskWithTimeout
-                    Constants.CircuitOperationTimeout
+                |> Async.AwaitTask
+                |> FSharpUtil.WithTimeout Constants.CircuitOperationTimeout
         }
 
     member self.WaitingForRendezvousJoin
@@ -609,7 +609,8 @@ type TorCircuit
 
             return!
                 completionTask
-                |> AsyncUtil.AwaitTaskWithTimeout (TimeSpan.FromMinutes 2.)
+                |> Async.AwaitTask
+                |> FSharpUtil.WithTimeout (TimeSpan.FromMinutes 2.)
         }
 
     member self.Rendezvous

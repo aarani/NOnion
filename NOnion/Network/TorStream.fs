@@ -140,8 +140,8 @@ type TorStream (circuit: TorCircuit) =
 
             return!
                 connectionProcessTcs
-                |> AsyncUtil.AwaitTaskWithTimeout
-                    Constants.StreamCreationTimeout
+                |> Async.AwaitTask
+                |> FSharpUtil.WithTimeout Constants.StreamCreationTimeout
         }
 
     member self.ConnectToDirectory () =
@@ -174,8 +174,8 @@ type TorStream (circuit: TorCircuit) =
 
             return!
                 connectionProcessTcs
-                |> AsyncUtil.AwaitTaskWithTimeout
-                    Constants.StreamCreationTimeout
+                |> Async.AwaitTask
+                |> FSharpUtil.WithTimeout Constants.StreamCreationTimeout
         }
 
     member self.ConnectToDirectoryAsync () =
