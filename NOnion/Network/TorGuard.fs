@@ -207,48 +207,37 @@ type TorGuard private (client: TcpClient, sslStream: SslStream) =
         }
 
     member private self.StartListening() =
-        let listeningJob() =
+        let rec readFromStream() =
             async {
-                let rec readFromStream() =
-                    async {
-                        let! maybeCell = self.ReceiveMessage()
+                let! maybeCell = self.ReceiveMessage()
 
-                        match maybeCell with
-                        | None -> ()
-                        | Some(cid, cell) ->
-                            if cid = 0us then
-                                //TODO: handle control message?
-                                ()
-                            else
-                                match circuitsMap.TryFind cid with
-                                | Some circuit ->
-                                    // Some circuit handlers send data, which by itself might try to use the stream
-                                    // after it's already disposed, so we need to be able to handle cancellation during cell handling as well
-                                    try
-                                        do! circuit.HandleIncomingCell cell
-                                    with
-                                    | ex ->
-                                        sprintf
-                                            "TorGuard: exception when trying to handle incomming cell type=%i, ex=%s"
-                                            cell.Command
-                                            (ex.ToString())
-                                        |> TorLogger.Log
-                                | None ->
-                                    failwith(
-                                        sprintf "Unknown circuit, Id = %i" cid
-                                    )
+                match maybeCell with
+                | None -> ()
+                | Some(cid, cell) ->
+                    if cid = 0us then
+                        //TODO: handle control message?
+                        ()
+                    else
+                        match circuitsMap.TryFind cid with
+                        | Some circuit ->
+                            // Some circuit handlers send data, which by itself might try to use the stream
+                            // after it's already disposed, so we need to be able to handle cancellation during cell handling as well
+                            try
+                                do! circuit.HandleIncomingCell cell
+                            with
+                            | ex ->
+                                sprintf
+                                    "TorGuard: exception when trying to handle incomming cell type=%i, ex=%s"
+                                    cell.Command
+                                    (ex.ToString())
+                                |> TorLogger.Log
+                        | None ->
+                            failwith(sprintf "Unknown circuit, Id = %i" cid)
 
-                            return! readFromStream()
-                    }
-
-
-                TorLogger.Log
-                    "TorGuard: started listening for incoming messages"
-
-                return! readFromStream()
+                    return! readFromStream()
             }
 
-        Async.Start(listeningJob(), shutdownToken.Token)
+        Async.Start(readFromStream(), shutdownToken.Token)
 
     member private self.Handshake() =
         async {
