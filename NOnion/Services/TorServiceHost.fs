@@ -112,10 +112,7 @@ type TorServiceHost
                             introEncPrivKey
                             introEncPubKey
                 with
-                | :? TimeoutException
-                | :? CircuitDestroyedException
-                | :? CircuitTruncatedException
-                | :? GuardConnectionFailedException
+                | :? NOnionException
                 | :? SocketException as ex ->
                     sprintf
                         "Exception happened when trying to connect to rendezvous point, ex=%s"

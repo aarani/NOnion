@@ -35,7 +35,7 @@ module FSharpUtil =
             | Some theResult ->
                 match theResult with
                 | SuccessfulValue r -> return r
-                | FailureResult _ -> return raise <| TimeoutErrorException
+                | FailureResult _ -> return raise <| TimeoutErrorException()
             | None ->
                 // none of the jobs passed to Async.Choice returns None
                 return failwith "unreachable"
