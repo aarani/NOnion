@@ -34,11 +34,13 @@ type TorGuard private (client: TcpClient, sslStream: SslStream) =
                     |> Async.AwaitTask
 
             with
-            | :? AggregateException as aggException ->
-                match aggException.InnerException with
-                | :? SocketException as ex ->
-                    return raise <| GuardConnectionFailedException ex
-                | _ -> return raise <| FSharpUtil.ReRaise aggException
+            | exn ->
+                let socketExOpt = FSharpUtil.FindException<SocketException> exn
+
+                match socketExOpt with
+                | None -> return raise <| FSharpUtil.ReRaise exn
+                | Some socketEx ->
+                    return raise <| GuardConnectionFailedException socketEx
 
             let sslStream =
                 new SslStream(

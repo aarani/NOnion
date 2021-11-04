@@ -10,6 +10,26 @@ module FSharpUtil =
         failwith "Should be unreachable"
         ex
 
+    let rec public FindException<'T when 'T :> Exception>
+        (ex: Exception)
+        : Option<'T> =
+        let rec findExInSeq(sq: seq<Exception>) =
+            match Seq.tryHead sq with
+            | Some head ->
+                match FindException head with
+                | Some ex -> Some ex
+                | None -> findExInSeq <| Seq.tail sq
+            | None -> None
+
+        if isNull ex then
+            None
+        else
+            match ex with
+            | :? 'T as specificEx -> Some specificEx
+            | :? AggregateException as aggEx ->
+                findExInSeq aggEx.InnerExceptions
+            | _ -> FindException<'T> ex.InnerException
+
     type private Either<'Val, 'Err when 'Err :> Exception> =
         | FailureResult of 'Err
         | SuccessfulValue of 'Val
