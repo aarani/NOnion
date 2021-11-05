@@ -60,3 +60,34 @@ module FSharpUtil =
                 // none of the jobs passed to Async.Choice returns None
                 return failwith "unreachable"
         }
+
+    let Retry<'E1, 'E2 when 'E1 :> Exception and 'E2 :> Exception>
+        (jobToRetry: Async<unit>)
+        (maxRetryCount: int)
+        =
+        let rec retryLoop(tryNumber: int) =
+            async {
+                try
+                    do! jobToRetry
+                with
+                | :? 'E1
+                | :? 'E2 as ex ->
+                    if tryNumber < maxRetryCount then
+                        return! retryLoop(tryNumber + 1)
+                    else
+                        sprintf
+                            "Maximum retry count reached, ex = %s"
+                            (ex.ToString())
+                        |> TorLogger.Log
+
+                        return raise <| ReRaise ex
+                | ex ->
+                    sprintf
+                        "Unexpected exception happened in the retry loop, ex = %s"
+                        (ex.ToString())
+                    |> TorLogger.Log
+
+                    return raise <| ReRaise ex
+            }
+
+        retryLoop 0

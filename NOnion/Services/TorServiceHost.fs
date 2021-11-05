@@ -72,8 +72,6 @@ type TorServiceHost
 
     member private self.RelayIntroduceCallback(introduce: RelayIntroduce) =
         let rec tryConnectingToRendezvous
-            tryNumber
-            maxRetryCount
             rendEndpoint
             rendFingerPrint
             onionKey
@@ -84,67 +82,32 @@ type TorServiceHost
             introEncPubKey
             =
             async {
-                try
-                    let! endPoint, randomNodeDetails = directory.GetRouter false
+                let! endPoint, randomNodeDetails = directory.GetRouter false
 
-                    let! guard = TorGuard.NewClient endPoint
+                let! guard = TorGuard.NewClient endPoint
 
-                    let rendCircuit =
-                        TorCircuit(guard, self.IncomingServiceStreamCallback)
+                let rendCircuit =
+                    TorCircuit(guard, self.IncomingServiceStreamCallback)
 
-                    do! rendCircuit.Create randomNodeDetails |> Async.Ignore
+                do! rendCircuit.Create randomNodeDetails |> Async.Ignore
 
-                    do!
-                        rendCircuit.Extend(
-                            CircuitNodeDetail.Create(
-                                rendEndpoint,
-                                onionKey,
-                                rendFingerPrint
-                            )
+                do!
+                    rendCircuit.Extend(
+                        CircuitNodeDetail.Create(
+                            rendEndpoint,
+                            onionKey,
+                            rendFingerPrint
                         )
-                        |> Async.Ignore
+                    )
+                    |> Async.Ignore
 
-                    do!
-                        rendCircuit.Rendezvous
-                            cookie
-                            (X25519PublicKeyParameters(clientPubKey, 0))
-                            introAuthPubKey
-                            introEncPrivKey
-                            introEncPubKey
-                with
-                | :? NOnionException
-                | :? SocketException as ex ->
-                    sprintf
-                        "Exception happened when trying to connect to rendezvous point, ex=%s"
-                        (ex.ToString())
-                    |> TorLogger.Log
-
-                    if tryNumber <= maxRetryCount then
-                        TorLogger.Log
-                            "Connecting to rendezvous point failed, retrying..."
-
-                        return!
-                            tryConnectingToRendezvous
-                                (tryNumber + 1)
-                                maxRetryCount
-                                rendEndpoint
-                                rendFingerPrint
-                                onionKey
-                                cookie
-                                clientPubKey
-                                introAuthPubKey
-                                introEncPrivKey
-                                introEncPubKey
-                    else
-                        TorLogger.Log
-                            "Connecting to rendezvous point failed, maximum retry count reached, ignoring..."
-                | ex ->
-                    sprintf
-                        "Exception happened when trying to connect to rendezvous point, ex=%s"
-                        (ex.ToString())
-                    |> TorLogger.Log
-
-                    return raise <| FSharpUtil.ReRaise ex
+                do!
+                    rendCircuit.Rendezvous
+                        cookie
+                        (X25519PublicKeyParameters(clientPubKey, 0))
+                        introAuthPubKey
+                        introEncPrivKey
+                        introEncPubKey
             }
 
         async {
@@ -210,10 +173,8 @@ type TorServiceHost
                  |> Seq.exactlyOne)
                     .Data
 
-            do!
+            let connectToRendezvousJob =
                 tryConnectingToRendezvous
-                    0
-                    maxRendezvousConnectRetryCount
                     rendEndpoint
                     rendFingerPrint
                     innerData.OnionKey
@@ -222,6 +183,11 @@ type TorServiceHost
                     introAuthPubKey
                     introEncPrivKey
                     introEncPubKey
+
+            do!
+                FSharpUtil.Retry<SocketException, NOnionException>
+                    connectToRendezvousJob
+                    maxRendezvousConnectRetryCount
 
             return ()
         }
