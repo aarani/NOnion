@@ -9,10 +9,10 @@ type CellDestroy =
         Reason: DestroyReason
     }
 
-    static member Deserialize (reader: BinaryReader) =
+    static member Deserialize(reader: BinaryReader) =
         {
             Reason =
-                reader.ReadByte ()
+                reader.ReadByte()
                 |> LanguagePrimitives.EnumOfValue<byte, DestroyReason>
         }
         :> ICell
@@ -22,4 +22,4 @@ type CellDestroy =
         member __.Command = 4uy
 
         member self.Serialize writer =
-            writer.Write (self.Reason |> byte)
+            writer.Write(self.Reason |> byte)

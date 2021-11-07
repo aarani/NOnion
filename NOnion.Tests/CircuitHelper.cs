@@ -79,7 +79,7 @@ namespace NOnion.Tests
                 }
                 catch (Exception ex)
                 {
-                    if (ex is CircuitDestroyedException || ex is GuardConnectionFailedException)
+                    if (ex is NOnionException)
                     {
                         if (retry < DirectoryAccessRetryLimit)
                         {

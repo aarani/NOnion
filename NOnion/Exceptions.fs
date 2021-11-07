@@ -2,13 +2,22 @@
 
 open System
 
-type GuardConnectionFailedException (innerException: Exception) =
-    inherit Exception ("Connecting to guard node failed", innerException)
+type NOnionException =
+    inherit Exception
 
-type CircuitTruncatedException (reason: DestroyReason) =
-    inherit Exception (sprintf "Circuit got truncated, reason %A" reason)
+    new(msg: string) = { inherit Exception(msg) }
 
-type CircuitDestroyedException (reason: DestroyReason) =
-    inherit Exception (sprintf "Circuit got destroyed, reason %A" reason)
+    new(msg: string, innerException: Exception) =
+        { inherit Exception(msg, innerException) }
 
-exception TimeoutErrorException
+type GuardConnectionFailedException(innerException: Exception) =
+    inherit NOnionException("Connecting to guard node failed", innerException)
+
+type CircuitTruncatedException(reason: DestroyReason) =
+    inherit NOnionException(sprintf "Circuit got truncated, reason %A" reason)
+
+type CircuitDestroyedException(reason: DestroyReason) =
+    inherit NOnionException(sprintf "Circuit got destroyed, reason %A" reason)
+
+type TimeoutErrorException() =
+    inherit NOnionException("Time limit exceeded for operation")

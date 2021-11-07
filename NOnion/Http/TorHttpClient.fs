@@ -8,12 +8,12 @@ open System.IO.Compression
 open NOnion
 open NOnion.Network
 
-type TorHttpClient (stream: TorStream, host: string) =
+type TorHttpClient(stream: TorStream, host: string) =
 
     // Receives all the data stream until it reaches EOF (until stream receive a RELAY_END)
-    let rec receiveAll (state: array<byte>) =
+    let rec receiveAll(state: array<byte>) =
         async {
-            let! maybeNextPartialResponse = stream.Receive ()
+            let! maybeNextPartialResponse = stream.Receive()
 
             match maybeNextPartialResponse with
             | None -> return state
@@ -37,7 +37,7 @@ type TorHttpClient (stream: TorStream, host: string) =
                     "Host", host
                     "Accept-Encoding", supportedCompressionAlgorithms
                 ]
-                |> List.map (fun (k, v) -> sprintf "%s: %s" k v)
+                |> List.map(fun (k, v) -> sprintf "%s: %s" k v)
                 |> String.concat "\r\n"
 
             do!
@@ -47,21 +47,19 @@ type TorHttpClient (stream: TorStream, host: string) =
 
             let! httpResponse =
                 receiveAll Array.empty
-                |> Async.StartAsTask
-                |> AsyncUtil.AwaitTaskWithTimeout Constants.HttpResponseTimeout
+                |> FSharpUtil.WithTimeout Constants.HttpResponseTimeout
 
             let header, body =
-                let delimiter =
-                    ReadOnlySpan (Encoding.ASCII.GetBytes "\r\n\r\n")
+                let delimiter = ReadOnlySpan(Encoding.ASCII.GetBytes "\r\n\r\n")
 
                 let headerEndIndex =
-                    MemoryExtensions.IndexOf (httpResponse.AsSpan (), delimiter)
+                    MemoryExtensions.IndexOf(httpResponse.AsSpan(), delimiter)
 
-                Encoding.UTF8.GetString (httpResponse, 0, headerEndIndex),
+                Encoding.UTF8.GetString(httpResponse, 0, headerEndIndex),
                 httpResponse.[headerEndIndex + delimiter.Length..]
 
             let headerLines =
-                header.Split (Array.singleton "\r\n", StringSplitOptions.None)
+                header.Split(Array.singleton "\r\n", StringSplitOptions.None)
 
             let _protocol, status =
                 let responseLine = headerLines.[0].Split ' '
@@ -69,13 +67,13 @@ type TorHttpClient (stream: TorStream, host: string) =
 
             if status <> "200" then
                 return
-                    failwith (
+                    failwith(
                         sprintf "Non-200 status code received, code: %s" status
                     )
 
-            let parseHeaderLine (header: string) =
+            let parseHeaderLine(header: string) =
                 let splittedHeader =
-                    header.Split (Array.singleton ": ", StringSplitOptions.None)
+                    header.Split(Array.singleton ": ", StringSplitOptions.None)
 
                 splittedHeader.[0], splittedHeader.[1]
 
@@ -91,11 +89,11 @@ type TorHttpClient (stream: TorStream, host: string) =
             | true, "deflate" ->
                 // DeflateStream needs the zlib header to be chopped off first
                 let body = Array.skip Constants.DeflateStreamHeaderLength body
-                use outMemStream = new MemoryStream ()
-                use inMemStream = new MemoryStream (body)
+                use outMemStream = new MemoryStream()
+                use inMemStream = new MemoryStream(body)
 
                 use compressedStream =
-                    new DeflateStream (
+                    new DeflateStream(
                         inMemStream,
                         CompressionMode.Decompress,
                         false
@@ -103,10 +101,10 @@ type TorHttpClient (stream: TorStream, host: string) =
 
                 do! compressedStream.CopyToAsync outMemStream |> Async.AwaitTask
 
-                return outMemStream.ToArray () |> Encoding.UTF8.GetString
+                return outMemStream.ToArray() |> Encoding.UTF8.GetString
             | true, compressionMethod ->
                 return
-                    failwith (
+                    failwith(
                         sprintf
                             "Unknown content-encoding value, %s"
                             compressionMethod

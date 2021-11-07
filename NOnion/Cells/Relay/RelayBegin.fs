@@ -14,12 +14,12 @@ type RelayBegin =
         Flags: uint
     }
 
-    static member FromBytes (reader: BinaryReader) =
-        let rec readAddress (state: string) =
-            let nextChar = reader.ReadChar ()
+    static member FromBytes(reader: BinaryReader) =
+        let rec readAddress(state: string) =
+            let nextChar = reader.ReadChar()
 
             if nextChar <> Char.MinValue then
-                readAddress (state + string (nextChar))
+                readAddress(state + string(nextChar))
             else
                 state
 
@@ -28,7 +28,7 @@ type RelayBegin =
             Flags = BinaryIO.ReadBigEndianUInt32 reader
         }
 
-    member self.ToBytes () =
+    member self.ToBytes() =
         Array.concat
             [
                 self.Address + string Char.MinValue |> Encoding.ASCII.GetBytes

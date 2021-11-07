@@ -10,4 +10,11 @@ type StreamState =
         streamId: uint16 *
         completionTask: TaskCompletionSource<uint16>
     | Connected of streamId: uint16
-    | Ended of reason: EndReason
+    | Ended of streamId: uint16 * reason: EndReason
+
+    member self.Id =
+        match self with
+        | Connecting(streamId, _)
+        | Connected streamId
+        | Ended(streamId, _) -> string streamId
+        | Initialized -> "TBD"

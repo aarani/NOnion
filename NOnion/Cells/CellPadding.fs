@@ -9,7 +9,7 @@ type CellPadding =
         Bytes: array<byte>
     }
 
-    static member Deserialize (reader: BinaryReader) =
+    static member Deserialize(reader: BinaryReader) =
         {
             Bytes = reader.ReadBytes Constants.FixedPayloadLength
         }

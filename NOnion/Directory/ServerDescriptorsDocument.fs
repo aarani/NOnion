@@ -88,283 +88,282 @@ type ServerDescriptorEntry =
             Proto = None
         }
 
-    static member Parse (lines: MutableQueue<string>) =
+    static member Parse(lines: MutableQueue<string>) =
         let rec innerParse state =
-            let rec readBlock (state: string) =
-                let line = lines.Dequeue ()
+            let rec readBlock(state: string) =
+                let line = lines.Dequeue()
 
                 if line.StartsWith "-----END" then
                     state + line
                 else
-                    readBlock (state + line)
+                    readBlock(state + line)
 
             if lines.Count = 0 then
                 state
             else
-                let nextLine = lines.Peek ()
+                let nextLine = lines.Peek()
 
                 let words = nextLine.Split ' ' |> MutableQueue<string>
 
-                let readDateTime () =
-                    String.concat " " [ words.Dequeue (); words.Dequeue () ]
+                let readDateTime() =
+                    String.concat " " [ words.Dequeue(); words.Dequeue() ]
                     |> DateTime.Parse
 
-                let readInt () =
-                    words.Dequeue () |> int
+                let readInt() =
+                    words.Dequeue() |> int
 
-                let readRestAsString () =
-                    words.ToArray () |> String.concat " "
+                let readRestAsString() =
+                    words.ToArray() |> String.concat " "
 
-                let readWord () =
-                    words.Dequeue ()
+                let readWord() =
+                    words.Dequeue()
 
-                match words.Dequeue () with
+                match words.Dequeue() with
                 | "router" when state.Nickname = None ->
-                    lines.Dequeue () |> ignore
+                    lines.Dequeue() |> ignore
 
                     innerParse
                         { state with
-                            Nickname = readWord () |> Some
-                            Address = readWord () |> Some
-                            OnionRouterPort = readInt () |> Some
-                            SocksPort = readInt () |> Some
-                            DirectoryPort = readInt () |> Some
+                            Nickname = readWord() |> Some
+                            Address = readWord() |> Some
+                            OnionRouterPort = readInt() |> Some
+                            SocksPort = readInt() |> Some
+                            DirectoryPort = readInt() |> Some
                         }
                 | "identity-ed25519" ->
-                    lines.Dequeue () |> ignore
+                    lines.Dequeue() |> ignore
 
                     innerParse
                         { state with
                             IdentityEd25519 = readBlock String.Empty |> Some
                         }
                 | "master-key-ed25519" ->
-                    lines.Dequeue () |> ignore
+                    lines.Dequeue() |> ignore
 
                     innerParse
                         { state with
-                            MasterKeyEd25519 = readRestAsString () |> Some
+                            MasterKeyEd25519 = readRestAsString() |> Some
                         }
                 | "bandwidth" ->
-                    lines.Dequeue () |> ignore
+                    lines.Dequeue() |> ignore
 
                     innerParse
                         { state with
-                            Bandwidth = readRestAsString () |> Some
+                            Bandwidth = readRestAsString() |> Some
                         }
                 | "platform" ->
-                    lines.Dequeue () |> ignore
+                    lines.Dequeue() |> ignore
 
                     innerParse
                         { state with
-                            Platform = readRestAsString () |> Some
+                            Platform = readRestAsString() |> Some
                         }
                 | "published" ->
-                    lines.Dequeue () |> ignore
+                    lines.Dequeue() |> ignore
 
                     innerParse
                         { state with
-                            Published = readDateTime () |> Some
+                            Published = readDateTime() |> Some
                         }
                 | "fingerprint" ->
-                    lines.Dequeue () |> ignore
+                    lines.Dequeue() |> ignore
 
                     innerParse
                         { state with
                             Fingerprint =
-                                (readRestAsString ())
-                                    .Replace (" ", String.Empty)
+                                (readRestAsString()).Replace(" ", String.Empty)
                                 |> Some
                         }
                 | "hibernating" ->
-                    lines.Dequeue () |> ignore
+                    lines.Dequeue() |> ignore
 
                     innerParse
                         { state with
-                            Hibernating = readInt () |> Convert.ToBoolean
+                            Hibernating = readInt() |> Convert.ToBoolean
                         }
                 | "uptime" ->
-                    lines.Dequeue () |> ignore
+                    lines.Dequeue() |> ignore
 
                     innerParse
                         { state with
-                            Uptime = readInt () |> Some
+                            Uptime = readInt() |> Some
                         }
                 | "onion-key" ->
-                    lines.Dequeue () |> ignore
+                    lines.Dequeue() |> ignore
 
                     innerParse
                         { state with
                             OnionKey = readBlock String.Empty |> Some
                         }
                 | "onion-key-crosscert" ->
-                    lines.Dequeue () |> ignore
+                    lines.Dequeue() |> ignore
 
                     innerParse
                         { state with
                             OnionKeyCrossCert = readBlock String.Empty |> Some
                         }
                 | "ntor-onion-key" ->
-                    lines.Dequeue () |> ignore
+                    lines.Dequeue() |> ignore
 
                     innerParse
                         { state with
-                            NTorOnionKey = readRestAsString () |> Some
+                            NTorOnionKey = readRestAsString() |> Some
                         }
                 | "ntor-onion-key-crosscert" ->
-                    lines.Dequeue () |> ignore
+                    lines.Dequeue() |> ignore
 
                     innerParse
                         { state with
                             NTorOnionKeyCrossCert =
-                                (readInt (), readBlock String.Empty) |> Some
+                                (readInt(), readBlock String.Empty) |> Some
                         }
                 | "signing-key" ->
-                    lines.Dequeue () |> ignore
+                    lines.Dequeue() |> ignore
 
                     innerParse
                         { state with
                             SigningKey = readBlock String.Empty |> Some
                         }
                 | "accept" ->
-                    lines.Dequeue () |> ignore
+                    lines.Dequeue() |> ignore
 
                     innerParse
                         { state with
-                            Accept = readRestAsString () |> Some
+                            Accept = readRestAsString() |> Some
                         }
                 | "reject" ->
-                    lines.Dequeue () |> ignore
+                    lines.Dequeue() |> ignore
 
                     innerParse
                         { state with
-                            Reject = readRestAsString () |> Some
+                            Reject = readRestAsString() |> Some
                         }
                 | "ipv6-policy" ->
-                    lines.Dequeue () |> ignore
+                    lines.Dequeue() |> ignore
 
                     innerParse
                         { state with
-                            Reject = readRestAsString () |> Some
+                            Reject = readRestAsString() |> Some
                         }
                 | "ipv6-policy" ->
-                    lines.Dequeue () |> ignore
+                    lines.Dequeue() |> ignore
 
                     innerParse
                         { state with
-                            IpV6Policy = readRestAsString () |> Some
+                            IpV6Policy = readRestAsString() |> Some
                         }
                 | "overload-general" ->
-                    lines.Dequeue () |> ignore
+                    lines.Dequeue() |> ignore
 
                     innerParse
                         { state with
-                            OverloadGeneral = readRestAsString () |> Some
+                            OverloadGeneral = readRestAsString() |> Some
                         }
                 | "router-sig-ed25519" ->
-                    lines.Dequeue () |> ignore
+                    lines.Dequeue() |> ignore
 
                     innerParse
                         { state with
-                            RouterSigEd25519 = readRestAsString () |> Some
+                            RouterSigEd25519 = readRestAsString() |> Some
                         }
                 | "router-signature" ->
-                    lines.Dequeue () |> ignore
+                    lines.Dequeue() |> ignore
 
                     innerParse
                         { state with
                             RouterSignature = readBlock String.Empty |> Some
                         }
                 | "contact" ->
-                    lines.Dequeue () |> ignore
+                    lines.Dequeue() |> ignore
 
                     innerParse
                         { state with
-                            Contact = readRestAsString () |> Some
+                            Contact = readRestAsString() |> Some
                         }
                 | "bridge-distribution-request" ->
-                    lines.Dequeue () |> ignore
+                    lines.Dequeue() |> ignore
 
                     innerParse
                         { state with
                             BridgeDistributionRequest =
-                                readRestAsString () |> Some
+                                readRestAsString() |> Some
                         }
                 | "family" ->
-                    lines.Dequeue () |> ignore
+                    lines.Dequeue() |> ignore
 
                     innerParse
                         { state with
-                            Family = readRestAsString () |> Some
+                            Family = readRestAsString() |> Some
                         }
                 | "read-history" ->
-                    lines.Dequeue () |> ignore
+                    lines.Dequeue() |> ignore
 
                     innerParse
                         { state with
-                            ReadHistory = readRestAsString () |> Some
+                            ReadHistory = readRestAsString() |> Some
                         }
                 | "write-history" ->
-                    lines.Dequeue () |> ignore
+                    lines.Dequeue() |> ignore
 
                     innerParse
                         { state with
-                            WriteHistory = readRestAsString () |> Some
+                            WriteHistory = readRestAsString() |> Some
                         }
                 | "eventdns" ->
-                    lines.Dequeue () |> ignore
+                    lines.Dequeue() |> ignore
 
                     innerParse
                         { state with
-                            EventDNS = readInt () |> Convert.ToBoolean |> Some
+                            EventDNS = readInt() |> Convert.ToBoolean |> Some
                         }
                 | "extra-info-digest" ->
-                    lines.Dequeue () |> ignore
+                    lines.Dequeue() |> ignore
 
                     innerParse
                         { state with
-                            ExtraInfoDigest = readRestAsString () |> Some
+                            ExtraInfoDigest = readRestAsString() |> Some
                         }
                 | "hidden-service-dir" ->
-                    lines.Dequeue () |> ignore
+                    lines.Dequeue() |> ignore
 
                     innerParse
                         { state with
                             HiddenServiceDir = true
                         }
                 | "protocols" ->
-                    lines.Dequeue () |> ignore
+                    lines.Dequeue() |> ignore
 
                     innerParse
                         { state with
-                            Protocols = readRestAsString () |> Some
+                            Protocols = readRestAsString() |> Some
                         }
                 | "allow-single-hop-exits" ->
-                    lines.Dequeue () |> ignore
+                    lines.Dequeue() |> ignore
 
                     innerParse
                         { state with
                             AllowSingleHopExits = true
                         }
                 | "or-address" ->
-                    lines.Dequeue () |> ignore
+                    lines.Dequeue() |> ignore
 
                     innerParse
                         { state with
-                            OnionRouterAddress = readRestAsString () |> Some
+                            OnionRouterAddress = readRestAsString() |> Some
                         }
                 | "tunnelled-dir-server" ->
-                    lines.Dequeue () |> ignore
+                    lines.Dequeue() |> ignore
 
                     innerParse
                         { state with
                             TunnelledDirServer = true
                         }
                 | "proto" ->
-                    lines.Dequeue () |> ignore
+                    lines.Dequeue() |> ignore
 
                     innerParse
                         { state with
-                            Proto = readRestAsString () |> Some
+                            Proto = readRestAsString() |> Some
                         }
                 | "router" when state.Nickname <> None -> state
                 | _ -> state
@@ -382,22 +381,22 @@ type ServerDescriptorsDocument =
             ServerDescriptorsDocument.Routers = List.empty
         }
 
-    static member Parse (stringToParse: string) =
+    static member Parse(stringToParse: string) =
         let lines = stringToParse.Split '\n' |> MutableQueue<string>
 
         let rec innerParse state =
             let words = lines.Peek().Split ' ' |> MutableQueue<string>
 
             let newState =
-                match words.Dequeue () with
+                match words.Dequeue() with
                 | "router" ->
                     { state with
                         Routers =
                             state.Routers
-                            @ List.singleton (ServerDescriptorEntry.Parse lines)
+                            @ List.singleton(ServerDescriptorEntry.Parse lines)
                     }
                 | _ ->
-                    lines.Dequeue () |> ignore
+                    lines.Dequeue() |> ignore
                     state
 
             if lines.Count > 0 then

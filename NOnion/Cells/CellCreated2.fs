@@ -11,7 +11,7 @@ type CellCreated2 =
             HandshakeData: array<byte>
         }
 
-    static member Deserialize (reader: BinaryReader) =
+    static member Deserialize(reader: BinaryReader) =
         {
             HandshakeData =
                 BinaryIO.ReadBigEndianUInt16 reader |> int |> reader.ReadBytes

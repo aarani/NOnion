@@ -21,10 +21,10 @@ module HiddenServicesCipher =
 
             Array.concat [ keyLenBytes; key; msg ]
 
-        let digestEngine = Sha3Digest ()
-        let output = Array.zeroCreate (digestEngine.GetDigestSize ())
-        digestEngine.BlockUpdate (data, 0, data.Length)
-        digestEngine.DoFinal (output, 0) |> ignore<int>
+        let digestEngine = Sha3Digest()
+        let output = Array.zeroCreate(digestEngine.GetDigestSize())
+        digestEngine.BlockUpdate(data, 0, data.Length)
+        digestEngine.DoFinal(output, 0) |> ignore<int>
 
         output
 
@@ -32,17 +32,17 @@ module HiddenServicesCipher =
         (privateKey: Ed25519PrivateKeyParameters)
         (data: array<byte>)
         =
-        let signer = Ed25519Signer ()
-        signer.Init (true, privateKey)
-        signer.BlockUpdate (data, 0, data.Length)
-        signer.GenerateSignature ()
+        let signer = Ed25519Signer()
+        signer.Init(true, privateKey)
+        signer.BlockUpdate(data, 0, data.Length)
+        signer.GenerateSignature()
 
     let CalculateShake256 (length: int) (data: array<byte>) =
         let digestEngine = ShakeDigest 256
         let output = Array.zeroCreate length
 
-        digestEngine.BlockUpdate (data, 0, data.Length)
-        digestEngine.DoFinal (output, 0) |> ignore<int>
+        digestEngine.BlockUpdate(data, 0, data.Length)
+        digestEngine.DoFinal(output, 0) |> ignore<int>
         output
 
     let CalculateBlindingFactor
@@ -60,25 +60,25 @@ module HiddenServicesCipher =
                     |> IntegerSerialization.FromUInt64ToBigEndianByteArray
                 ]
 
-        let digestEngine = Sha3Digest ()
-        let output = Array.zeroCreate (digestEngine.GetDigestSize ())
+        let digestEngine = Sha3Digest()
+        let output = Array.zeroCreate(digestEngine.GetDigestSize())
 
-        digestEngine.BlockUpdate (
+        digestEngine.BlockUpdate(
             Constants.HiddenServiceBlindString,
             0,
             Constants.HiddenServiceBlindString.Length
         )
 
-        digestEngine.BlockUpdate (publicKey, 0, publicKey.Length)
+        digestEngine.BlockUpdate(publicKey, 0, publicKey.Length)
 
-        digestEngine.BlockUpdate (
+        digestEngine.BlockUpdate(
             Constants.Ed25519BasePointString,
             0,
             Constants.Ed25519BasePointString.Length
         )
 
-        digestEngine.BlockUpdate (nonce, 0, nonce.Length)
-        digestEngine.DoFinal (output, 0) |> ignore<int>
+        digestEngine.BlockUpdate(nonce, 0, nonce.Length)
+        digestEngine.DoFinal(output, 0) |> ignore<int>
 
         //CLAMPING
         output.[0] <- output.[0] &&& 248uy
@@ -96,7 +96,7 @@ module HiddenServicesCipher =
         blindingFactor.[31] <- blindingFactor.[31] &&& 63uy
         blindingFactor.[31] <- blindingFactor.[31] ||| 64uy
 
-        match Ed25519.CalculateBlindedPublicKey (publicKey, blindingFactor) with
+        match Ed25519.CalculateBlindedPublicKey(publicKey, blindingFactor) with
         | true, output -> output
         | false, _ -> failwith "can't calculate blinded public key"
 
@@ -113,9 +113,9 @@ module HiddenServicesCipher =
         (periodInfo: uint64 * uint64)
         (publicKey: array<byte>)
         =
-        let digestEngine = Sha3Digest ()
+        let digestEngine = Sha3Digest()
 
-        let credential = digestEngine.GetByteLength () |> Array.zeroCreate
+        let credential = digestEngine.GetByteLength() |> Array.zeroCreate
 
         let credentialDigestInput =
             Array.concat
@@ -124,13 +124,13 @@ module HiddenServicesCipher =
                     publicKey
                 ]
 
-        digestEngine.BlockUpdate (
+        digestEngine.BlockUpdate(
             credentialDigestInput,
             0,
             credentialDigestInput.Length
         )
 
-        digestEngine.DoFinal (credential, 0) |> ignore<int>
+        digestEngine.DoFinal(credential, 0) |> ignore<int>
 
         let blindedKey = BuildBlindedPublicKey periodInfo publicKey
 
@@ -142,15 +142,15 @@ module HiddenServicesCipher =
                     blindedKey
                 ]
 
-        let subcredential = digestEngine.GetByteLength () |> Array.zeroCreate
+        let subcredential = digestEngine.GetByteLength() |> Array.zeroCreate
 
-        digestEngine.BlockUpdate (
+        digestEngine.BlockUpdate(
             subcredentialDigestInput,
             0,
             subcredentialDigestInput.Length
         )
 
-        digestEngine.DoFinal (subcredential, 0) |> ignore<int>
+        digestEngine.DoFinal(subcredential, 0) |> ignore<int>
 
         subcredential
 
@@ -163,12 +163,12 @@ module HiddenServicesCipher =
         (periodInfo: uint64 * uint64)
         (masterPubKey: array<byte>)
         =
-        let keyAgreement = X25519Agreement ()
+        let keyAgreement = X25519Agreement()
 
         keyAgreement.Init randomClientPrivateKey
 
         let sharedSecret = Array.zeroCreate keyAgreement.AgreementSize
-        keyAgreement.CalculateAgreement (introEncPublicKey, sharedSecret, 0)
+        keyAgreement.CalculateAgreement(introEncPublicKey, sharedSecret, 0)
 
         let subcredential = GetSubCredential periodInfo masterPubKey
 
@@ -176,9 +176,9 @@ module HiddenServicesCipher =
             Array.concat
                 [
                     sharedSecret
-                    introAuthPublicKey.GetEncoded ()
-                    randomClientPublicKey.GetEncoded ()
-                    introEncPublicKey.GetEncoded ()
+                    introAuthPublicKey.GetEncoded()
+                    randomClientPublicKey.GetEncoded()
+                    introEncPublicKey.GetEncoded()
                     Constants.HiddenServiceNTor.ProtoId
                 ]
 
@@ -202,7 +202,7 @@ module HiddenServicesCipher =
         let encKey = hsKeys |> Array.take 32
         let macKey = hsKeys |> Array.skip 32 |> Array.take 32
 
-        let cipher = TorStreamCipher (encKey, None)
+        let cipher = TorStreamCipher(encKey, None)
         let digest = data |> CalculateMacWithSHA3256 macKey
 
         let encryptedInnerData = data |> cipher.Encrypt
@@ -218,11 +218,11 @@ module HiddenServicesCipher =
         (periodInfo: uint64 * uint64)
         (masterPubKey: array<byte>)
         =
-        let keyAgreement = X25519Agreement ()
+        let keyAgreement = X25519Agreement()
         keyAgreement.Init introEncPrivateKey
 
         let sharedSecret = Array.zeroCreate keyAgreement.AgreementSize
-        keyAgreement.CalculateAgreement (clientRandomKey, sharedSecret, 0)
+        keyAgreement.CalculateAgreement(clientRandomKey, sharedSecret, 0)
 
         let subcredential = GetSubCredential periodInfo masterPubKey
 
@@ -230,9 +230,9 @@ module HiddenServicesCipher =
             Array.concat
                 [
                     sharedSecret
-                    introAuthPublicKey.GetEncoded ()
-                    clientRandomKey.GetEncoded ()
-                    introEncPublicKey.GetEncoded ()
+                    introAuthPublicKey.GetEncoded()
+                    clientRandomKey.GetEncoded()
+                    introEncPublicKey.GetEncoded()
                     Constants.HiddenServiceNTor.ProtoId
                 ]
 
@@ -260,7 +260,7 @@ module HiddenServicesCipher =
             |> Array.skip Constants.KeyS256Length
             |> Array.take Constants.Digest256Length
 
-        let cipher = TorStreamCipher (encKey, None)
+        let cipher = TorStreamCipher(encKey, None)
         let decryptedData = encryptedData |> cipher.Encrypt
 
         let digest = decryptedData |> CalculateMacWithSHA3256 macKey
@@ -275,8 +275,7 @@ module HiddenServicesCipher =
         (introEncPrivateKey: X25519PrivateKeyParameters)
         (introEncPublicKey: X25519PublicKeyParameters)
         =
-        let keyAgreementY, keyAgreementB =
-            X25519Agreement (), X25519Agreement ()
+        let keyAgreementY, keyAgreementB = X25519Agreement(), X25519Agreement()
 
         keyAgreementY.Init serverRandomPrivateKey
         keyAgreementB.Init introEncPrivateKey
@@ -285,18 +284,18 @@ module HiddenServicesCipher =
             Array.zeroCreate keyAgreementY.AgreementSize,
             Array.zeroCreate keyAgreementB.AgreementSize
 
-        keyAgreementY.CalculateAgreement (clientPublicKey, sharedSecretXy, 0)
-        keyAgreementB.CalculateAgreement (clientPublicKey, sharedSecretXb, 0)
+        keyAgreementY.CalculateAgreement(clientPublicKey, sharedSecretXy, 0)
+        keyAgreementB.CalculateAgreement(clientPublicKey, sharedSecretXb, 0)
 
         let rendSecretHsInput =
             Array.concat
                 [
                     sharedSecretXy
                     sharedSecretXb
-                    introAuthPublicKey.GetEncoded ()
-                    introEncPublicKey.GetEncoded ()
-                    clientPublicKey.GetEncoded ()
-                    serverRandomPublicKey.GetEncoded ()
+                    introAuthPublicKey.GetEncoded()
+                    introEncPublicKey.GetEncoded()
+                    clientPublicKey.GetEncoded()
+                    serverRandomPublicKey.GetEncoded()
                     Constants.HiddenServiceNTor.ProtoId
                 ]
 
@@ -314,10 +313,10 @@ module HiddenServicesCipher =
             Array.concat
                 [
                     verify
-                    introAuthPublicKey.GetEncoded ()
-                    introEncPublicKey.GetEncoded ()
-                    serverRandomPublicKey.GetEncoded ()
-                    clientPublicKey.GetEncoded ()
+                    introAuthPublicKey.GetEncoded()
+                    introEncPublicKey.GetEncoded()
+                    serverRandomPublicKey.GetEncoded()
+                    clientPublicKey.GetEncoded()
                     Constants.HiddenServiceNTor.AuthInputSuffix
                 ]
 
@@ -333,7 +332,7 @@ module HiddenServicesCipher =
         (introAuthPublicKey: Ed25519PublicKeyParameters)
         (introEncPublicKey: X25519PublicKeyParameters)
         =
-        let keyAgreement = X25519Agreement ()
+        let keyAgreement = X25519Agreement()
 
         keyAgreement.Init clientPrivateKey
 
@@ -341,18 +340,18 @@ module HiddenServicesCipher =
             Array.zeroCreate keyAgreement.AgreementSize,
             Array.zeroCreate keyAgreement.AgreementSize
 
-        keyAgreement.CalculateAgreement (serverPublicKey, sharedSecretXy, 0)
-        keyAgreement.CalculateAgreement (introEncPublicKey, sharedSecretXb, 0)
+        keyAgreement.CalculateAgreement(serverPublicKey, sharedSecretXy, 0)
+        keyAgreement.CalculateAgreement(introEncPublicKey, sharedSecretXb, 0)
 
         let rendSecretHsInput =
             Array.concat
                 [
                     sharedSecretXy
                     sharedSecretXb
-                    introAuthPublicKey.GetEncoded ()
-                    introEncPublicKey.GetEncoded ()
-                    clientPublicKey.GetEncoded ()
-                    serverPublicKey.GetEncoded ()
+                    introAuthPublicKey.GetEncoded()
+                    introEncPublicKey.GetEncoded()
+                    clientPublicKey.GetEncoded()
+                    serverPublicKey.GetEncoded()
                     Constants.HiddenServiceNTor.ProtoId
                 ]
 
@@ -370,10 +369,10 @@ module HiddenServicesCipher =
             Array.concat
                 [
                     verify
-                    introAuthPublicKey.GetEncoded ()
-                    introEncPublicKey.GetEncoded ()
-                    serverPublicKey.GetEncoded ()
-                    clientPublicKey.GetEncoded ()
+                    introAuthPublicKey.GetEncoded()
+                    introEncPublicKey.GetEncoded()
+                    serverPublicKey.GetEncoded()
+                    clientPublicKey.GetEncoded()
                     Constants.HiddenServiceNTor.AuthInputSuffix
                 ]
 

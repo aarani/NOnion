@@ -12,7 +12,7 @@ type RelayExtended2 =
         HandshakeData: array<byte>
     }
 
-    static member FromBytes (reader: BinaryReader) =
+    static member FromBytes(reader: BinaryReader) =
         {
             HandshakeData =
                 BinaryIO.ReadBigEndianUInt16 reader |> int |> reader.ReadBytes

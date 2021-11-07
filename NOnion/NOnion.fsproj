@@ -11,12 +11,12 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="TorLogger.fs" />
     <Compile Include="Constants.fs" />
     <Compile Include="DestroyReason.fs" />
     <Compile Include="Exceptions.fs" />
     <Compile Include="HandshakeType.fs" />
     <Compile Include="Utility\FSharpUtil.fs" />
-    <Compile Include="Utility\AsyncUtil.fs" />
     <Compile Include="Utility\StreamUtil.fs" />
     <Compile Include="Utility\SemaphoreLocker.fs" />
     <Compile Include="Utility\Base64Util.fs" />
@@ -75,8 +75,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="Fsharpx.Collections" Version="2.1.3" />
     <PackageReference Include="Portable.BouncyCastle" Version="1.8.10" />
     <PackageReference Include="System.Memory" Version="4.5.4" />
+    <PackageReference Include="System.Text.Json" Version="5.0.2" />
     <PackageReference Include="System.Threading.Tasks.DataFlow" Version="5.0.0" />
   </ItemGroup>
 

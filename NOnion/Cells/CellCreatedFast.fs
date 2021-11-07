@@ -11,7 +11,7 @@ type CellCreatedFast =
             DerivativeKeyData: array<byte>
         }
 
-    static member Deserialize (reader: BinaryReader) =
+    static member Deserialize(reader: BinaryReader) =
         let y = reader.ReadBytes Constants.HashLength
         let derivativeKeyData = reader.ReadBytes Constants.HashLength
 

@@ -13,11 +13,17 @@ namespace NOnion.Tests
 {
     public class TorDirectoryTests
     {
+        [SetUp]
+        public void Init()
+        {
+            TorLogger.Init(TestContext.Progress.WriteLine);
+        }
+
         /* It's possible that the router returned by GetRandomFallbackDirectory be inaccessable
          * so we need to continue retrying if an exceptions happened to make sure the issues are
          * not related to the router we randomly chose
          */
-        private const int TestRetryCount = 5;
+        private const int TestRetryCount = 10;
 
         private async Task BootstrapTorDirectory()
         {

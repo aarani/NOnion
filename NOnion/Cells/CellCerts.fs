@@ -15,7 +15,7 @@ type CellCerts =
         Certs: seq<Cert>
     }
 
-    static member Deserialize (reader: BinaryReader) =
+    static member Deserialize(reader: BinaryReader) =
 
         let rec readCertificates certificates n =
             if n = 0 then
@@ -23,16 +23,16 @@ type CellCerts =
             else
                 let certificate =
                     {
-                        Cert.Type = reader.ReadByte ()
+                        Cert.Type = reader.ReadByte()
                         Cert.Certificate =
                             ReadBigEndianUInt16 reader
                             |> int
                             |> reader.ReadBytes
                     }
 
-                readCertificates (certificates @ [ certificate ]) (n - 1)
+                readCertificates(certificates @ [ certificate ]) (n - 1)
 
-        let certificatesCount = reader.ReadByte () |> int
+        let certificatesCount = reader.ReadByte() |> int
         let certs = readCertificates List.empty certificatesCount
 
         {
@@ -46,7 +46,7 @@ type CellCerts =
 
         member self.Serialize writer =
 
-            let rec writeCertificates (certificates: seq<Cert>) =
+            let rec writeCertificates(certificates: seq<Cert>) =
                 match Seq.tryHead certificates with
                 | None -> ()
                 | Some certificate ->

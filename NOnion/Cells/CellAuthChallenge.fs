@@ -11,13 +11,13 @@ type CellAuthChallenge =
         Methods: seq<uint16>
     }
 
-    static member Deserialize (reader: BinaryReader) =
+    static member Deserialize(reader: BinaryReader) =
 
         let rec readMethod methods n =
             if n = 0 then
                 methods
             else
-                readMethod (methods @ [ ReadBigEndianUInt16 reader ]) (n - 1)
+                readMethod(methods @ [ ReadBigEndianUInt16 reader ]) (n - 1)
 
         let challenge = reader.ReadBytes Constants.ChallangeLength
         let methodsCount = ReadBigEndianUInt16 reader |> int
@@ -35,7 +35,7 @@ type CellAuthChallenge =
 
         member self.Serialize writer =
 
-            let rec writeMethods (methods: seq<uint16>) =
+            let rec writeMethods(methods: seq<uint16>) =
                 match Seq.tryHead methods with
                 | None -> ()
                 | Some method ->

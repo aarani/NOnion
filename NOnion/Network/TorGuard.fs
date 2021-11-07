@@ -14,46 +14,67 @@ open NOnion.Cells
 open NOnion.Utility
 
 type TorGuard private (client: TcpClient, sslStream: SslStream) =
-    let shutdownToken = new CancellationTokenSource ()
+    let shutdownToken = new CancellationTokenSource()
 
     let mutable circuitsMap: Map<uint16, ITorCircuit> = Map.empty
     // Prevents two circuit setup happening at once (to prevent race condition on writing to CircuitIds list)
-    let circuitSetupLock: obj = obj ()
+    let circuitSetupLock: obj = obj()
 
-    static member NewClient (ipEndpoint: IPEndPoint) =
+    static member NewClient(ipEndpoint: IPEndPoint) =
         async {
-            let tcpClient = new TcpClient ()
+            let tcpClient = new TcpClient()
 
             try
+                ipEndpoint.ToString()
+                |> sprintf "TorGuard: trying to connect to %s guard node"
+                |> TorLogger.Log
+
                 do!
-                    tcpClient.ConnectAsync (ipEndpoint.Address, ipEndpoint.Port)
+                    tcpClient.ConnectAsync(ipEndpoint.Address, ipEndpoint.Port)
                     |> Async.AwaitTask
+
             with
-            | :? AggregateException as aggException ->
-                match aggException.InnerException with
-                | :? SocketException as ex ->
-                    return raise <| GuardConnectionFailedException ex
-                | _ -> return raise <| FSharpUtil.ReRaise aggException
+            | exn ->
+                let socketExOpt = FSharpUtil.FindException<SocketException> exn
+
+                match socketExOpt with
+                | None -> return raise <| FSharpUtil.ReRaise exn
+                | Some socketEx ->
+                    return raise <| GuardConnectionFailedException socketEx
 
             let sslStream =
-                new SslStream (
-                    tcpClient.GetStream (),
+                new SslStream(
+                    tcpClient.GetStream(),
                     false,
                     fun _ _ _ _ -> true
                 )
 
+            ipEndpoint.ToString()
+            |> sprintf "TorGuard: creating ssl connection to %s guard node"
+            |> TorLogger.Log
+
             do!
-                sslStream.AuthenticateAsClientAsync (
+                sslStream.AuthenticateAsClientAsync(
                     String.Empty,
                     null,
                     SslProtocols.Tls12,
                     false
                 )
                 |> Async.AwaitTask
+                |> FSharpUtil.WithTimeout Constants.CircuitOperationTimeout
 
-            let guard = new TorGuard (tcpClient, sslStream)
-            do! guard.Handshake ()
-            guard.StartListening ()
+            ipEndpoint.ToString()
+            |> sprintf "TorGuard: ssl connection to %s guard node authenticated"
+            |> TorLogger.Log
+
+            let guard = new TorGuard(tcpClient, sslStream)
+            do! guard.Handshake()
+
+            ipEndpoint.ToString()
+            |> sprintf "TorGuard: connection with %s established"
+            |> TorLogger.Log
+
+            guard.StartListening()
 
             return guard
         }
@@ -63,8 +84,8 @@ type TorGuard private (client: TcpClient, sslStream: SslStream) =
 
     member __.Send (circuidId: uint16) (cellToSend: ICell) =
         async {
-            use memStream = new MemoryStream (Constants.FixedPayloadLength)
-            use writer = new BinaryWriter (memStream)
+            use memStream = new MemoryStream(Constants.FixedPayloadLength)
+            use writer = new BinaryWriter(memStream)
             cellToSend.Serialize writer
 
             // Write circuitId and command for the cell
@@ -86,18 +107,18 @@ type TorGuard private (client: TcpClient, sslStream: SslStream) =
                     |> IntegerSerialization.FromUInt16ToBigEndianByteArray
                     |> StreamUtil.Write sslStream
             else
-                Array.zeroCreate<byte> (
+                Array.zeroCreate<byte>(
                     Constants.FixedPayloadLength - int memStream.Position
                 )
                 |> writer.Write
 
-            do! memStream.ToArray () |> StreamUtil.Write sslStream
+            do! memStream.ToArray() |> StreamUtil.Write sslStream
         }
 
     member self.SendAsync (circuidId: uint16) (cellToSend: ICell) =
         self.Send circuidId cellToSend |> Async.StartAsTask
 
-    member private __.ReceiveInternal () =
+    member private __.ReceiveInternal() =
         async {
             (*
                 If at any time "ReadFixedSize" returns None, it means that either stream is closed/disposed or
@@ -145,86 +166,85 @@ type TorGuard private (client: TcpClient, sslStream: SslStream) =
                         StreamUtil.ReadFixedSize sslStream bodyLength
 
                     match maybeBody with
-                    | Some body -> return Some (circuitId, command, body)
+                    | Some body -> return Some(circuitId, command, body)
                     | None -> return None
                 | None -> return None
             | None -> return None
         }
 
-    member private self.ReceiveExpected<'T when 'T :> ICell> () : Async<'T> =
+    member private self.ReceiveExpected<'T when 'T :> ICell>() : Async<'T> =
         async {
-            let expectedCommandType = Command.GetCommandByCellType<'T> ()
+            let expectedCommandType = Command.GetCommandByCellType<'T>()
 
             //This is only used for handshake process so circuitId doesn't matter
-            let! maybeMessage = self.ReceiveInternal ()
+            let! maybeMessage = self.ReceiveInternal()
 
             match maybeMessage with
             | None ->
                 return
                     failwith
                         "Socket got closed before receiving an expected cell"
-            | Some (_circuitId, command, body) ->
+            | Some(_circuitId, command, body) ->
                 //FIXME: maybe continue instead of failing?
                 if command <> expectedCommandType then
-                    failwith (sprintf "Unexpected msg type %i" command)
+                    failwith(sprintf "Unexpected msg type %i" command)
 
-                use memStream = new MemoryStream (body)
-                use reader = new BinaryReader (memStream)
+                use memStream = new MemoryStream(body)
+                use reader = new BinaryReader(memStream)
                 return Command.DeserializeCell reader expectedCommandType :?> 'T
         }
 
-    member private self.ReceiveMessage () =
+    member private self.ReceiveMessage() =
         async {
-            let! maybeMessage = self.ReceiveInternal ()
+            let! maybeMessage = self.ReceiveInternal()
 
             match maybeMessage with
-            | Some (circuitId, command, body) ->
-                use memStream = new MemoryStream (body)
-                use reader = new BinaryReader (memStream)
+            | Some(circuitId, command, body) ->
+                use memStream = new MemoryStream(body)
+                use reader = new BinaryReader(memStream)
 
                 return
                     (circuitId, Command.DeserializeCell reader command) |> Some
             | None -> return None
         }
 
-    member private self.StartListening () =
-        let listeningJob () =
+    member private self.StartListening() =
+        let rec readFromStream() =
             async {
-                let rec readFromStream () =
-                    async {
-                        let! maybeCell = self.ReceiveMessage ()
+                let! maybeCell = self.ReceiveMessage()
 
-                        match maybeCell with
-                        | None -> ()
-                        | Some (cid, cell) ->
-                            if cid = 0us then
-                                //TODO: handle control message?
-                                ()
-                            else
-                                match circuitsMap.TryFind cid with
-                                | Some circuit ->
-                                    // Some circuit handlers send data, which by itself might try to use the stream
-                                    // after it's already disposed, so we need to be able to handle cancellation during cell handling as well
-                                    try
-                                        do! circuit.HandleIncomingCell cell
-                                    with
-                                    | :? ObjectDisposedException
-                                    | :? OperationCanceledException -> ()
-                                | None ->
-                                    failwith (
-                                        sprintf "Unknown circuit, Id = %i" cid
-                                    )
+                match maybeCell with
+                | None -> ()
+                | Some(cid, cell) ->
+                    if cid = 0us then
+                        //TODO: handle control message?
+                        ()
+                    else
+                        match circuitsMap.TryFind cid with
+                        | Some circuit ->
+                            // Some circuit handlers send data, which by itself might try to use the stream
+                            // after it's already disposed, so we need to be able to handle cancellation during cell handling as well
+                            try
+                                do! circuit.HandleIncomingCell cell
+                            with
+                            | ex ->
+                                sprintf
+                                    "TorGuard: exception when trying to handle incomming cell type=%i, ex=%s"
+                                    cell.Command
+                                    (ex.ToString())
+                                |> TorLogger.Log
+                        | None ->
+                            failwith(sprintf "Unknown circuit, Id = %i" cid)
 
-                            return! readFromStream ()
-                    }
-
-                return! readFromStream ()
+                    return! readFromStream()
             }
 
-        Async.Start (listeningJob (), shutdownToken.Token)
+        Async.Start(readFromStream(), shutdownToken.Token)
 
-    member private self.Handshake () =
+    member private self.Handshake() =
         async {
+            TorLogger.Log "TorGuard: started handshake process"
+
             do!
                 self.Send
                     Constants.DefaultCircuitId
@@ -233,11 +253,11 @@ type TorGuard private (client: TcpClient, sslStream: SslStream) =
                             Constants.SupportedProtocolVersion
                     }
 
-            let! _version = self.ReceiveExpected<CellVersions> ()
-            let! _certs = self.ReceiveExpected<CellCerts> ()
+            let! _version = self.ReceiveExpected<CellVersions>()
+            let! _certs = self.ReceiveExpected<CellCerts>()
             //TODO: Client authentication isn't implemented yet!
-            do! self.ReceiveExpected<CellAuthChallenge> () |> Async.Ignore
-            let! netInfo = self.ReceiveExpected<CellNetInfo> ()
+            do! self.ReceiveExpected<CellAuthChallenge>() |> Async.Ignore
+            let! netInfo = self.ReceiveExpected<CellNetInfo>()
 
             do!
                 self.Send
@@ -249,16 +269,18 @@ type TorGuard private (client: TcpClient, sslStream: SslStream) =
                         MyAddresses = List.singleton netInfo.OtherAddress
                     }
 
+            TorLogger.Log "TorGuard: finished handshake process"
         //TODO: do security checks on handshake data
         }
+        |> FSharpUtil.WithTimeout Constants.CircuitOperationTimeout
 
-    member internal __.RegisterCircuit (circuit: ITorCircuit) : uint16 =
-        let rec createCircuitId (retry: int) =
-            let registerId (cid: uint16) =
+    member internal __.RegisterCircuit(circuit: ITorCircuit) : uint16 =
+        let rec createCircuitId(retry: int) =
+            let registerId(cid: uint16) =
                 if Map.containsKey cid circuitsMap then
                     false
                 else
-                    circuitsMap <- circuitsMap.Add (cid, circuit)
+                    circuitsMap <- circuitsMap.Add(cid, circuit)
                     true
 
             if retry >= Constants.MaxCircuitIdGenerationRetry then
@@ -276,13 +298,13 @@ type TorGuard private (client: TcpClient, sslStream: SslStream) =
             if registerId cid then
                 cid
             else
-                createCircuitId (retry + 1)
+                createCircuitId(retry + 1)
 
         lock circuitSetupLock (fun () -> createCircuitId 0)
 
     interface IDisposable with
-        member __.Dispose () =
-            shutdownToken.Cancel ()
-            sslStream.Dispose ()
-            client.Close ()
-            client.Dispose ()
+        member __.Dispose() =
+            shutdownToken.Cancel()
+            sslStream.Dispose()
+            client.Close()
+            client.Dispose()

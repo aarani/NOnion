@@ -2,22 +2,22 @@
 
 open System.Threading
 
-type SemaphoreLocker () =
+type SemaphoreLocker() =
     //FIXME: Semaphores are not disposed correctly
     let semaphore = new SemaphoreSlim 1
 
-    member __.RunAsyncWithSemaphore (func: unit -> Async<'T>) : Async<'T> =
+    member __.RunAsyncWithSemaphore(func: unit -> Async<'T>) : Async<'T> =
         async {
             try
-                do! semaphore.WaitAsync () |> Async.AwaitTask
-                return! func ()
+                do! semaphore.WaitAsync() |> Async.AwaitTask
+                return! func()
             finally
-                semaphore.Release () |> ignore<int>
+                semaphore.Release() |> ignore<int>
         }
 
-    member __.RunSyncWithSemaphore (func: unit -> 'T) : 'T =
+    member __.RunSyncWithSemaphore(func: unit -> 'T) : 'T =
         try
-            semaphore.Wait ()
-            func ()
+            semaphore.Wait()
+            func()
         finally
-            semaphore.Release () |> ignore<int>
+            semaphore.Release() |> ignore<int>

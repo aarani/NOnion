@@ -9,7 +9,7 @@ type CellVersions =
         Versions: seq<uint16>
     }
 
-    static member Deserialize (reader: BinaryReader) =
+    static member Deserialize(reader: BinaryReader) =
 
         let rec readVersions versions =
             if (reader.BaseStream.Length - reader.BaseStream.Position) % 2L
@@ -20,7 +20,7 @@ type CellVersions =
             if reader.BaseStream.Length = reader.BaseStream.Position then
                 versions
             else
-                readVersions (versions @ [ ReadBigEndianUInt16 reader ])
+                readVersions(versions @ [ ReadBigEndianUInt16 reader ])
 
         let versions = readVersions List.empty
 
@@ -35,11 +35,11 @@ type CellVersions =
 
         member self.Serialize writer =
 
-            let rec writeVersions (versions: seq<uint16>) =
+            let rec writeVersions(versions: seq<uint16>) =
                 match Seq.tryHead versions with
                 | None -> ()
                 | Some version ->
                     WriteUInt16BigEndian writer version
-                    writeVersions (Seq.tail versions)
+                    writeVersions(Seq.tail versions)
 
             writeVersions self.Versions
