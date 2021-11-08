@@ -2,6 +2,8 @@
 
 open System.IO
 
+open FSharpx.Collections
+
 open NOnion.Utility.BinaryIO
 
 type Cert =
@@ -47,9 +49,9 @@ type CellCerts =
         member self.Serialize writer =
 
             let rec writeCertificates(certificates: seq<Cert>) =
-                match Seq.tryHead certificates with
+                match Seq.tryHeadTail certificates with
                 | None -> ()
-                | Some certificate ->
+                | Some(certificate, nextCertificates) ->
                     writer.Write certificate.Type
 
                     certificate.Certificate.Length
@@ -57,7 +59,7 @@ type CellCerts =
                     |> WriteUInt16BigEndian writer
 
                     writer.Write certificate.Certificate
-                    certificates |> Seq.tail |> writeCertificates
+                    nextCertificates |> writeCertificates
 
             self.Certs |> Seq.length |> uint8 |> writer.Write
             writeCertificates self.Certs

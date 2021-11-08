@@ -22,12 +22,17 @@ type TorDirectory =
         && self.NetworkStatus.GetValidUntil() > now
 
     member private self.GetRandomDirectorySource() =
-        self.NetworkStatus.Routers
-        |> Seq.filter(fun elem ->
-            elem.DirectoryPort.IsSome && elem.DirectoryPort.Value <> 0
-        )
-        |> SeqUtils.TakeRandom 1
-        |> Seq.head
+        let directorySourceOpt =
+            self.NetworkStatus.Routers
+            |> Seq.filter(fun elem ->
+                elem.DirectoryPort.IsSome && elem.DirectoryPort.Value <> 0
+            )
+            |> SeqUtils.TakeRandom 1
+            |> Seq.tryHead
+
+        match directorySourceOpt with
+        | Some directorySource -> directorySource
+        | None -> failwith "Couldn't find suitable directory source."
 
     member private self.ConvertToCircuitNodeDetail
         (entry: ServerDescriptorEntry)
@@ -50,17 +55,22 @@ type TorDirectory =
             let rec getRandomRouter() =
                 async {
                     let! descriptor =
-                        if shouldBeDirectory then
-                            self.NetworkStatus.Routers
-                            |> Seq.filter(fun router ->
-                                router.DirectoryPort.IsSome
-                                && router.DirectoryPort.Value > 0
-                            )
-                        else
-                            self.NetworkStatus.Routers |> Seq.ofList
-                        |> SeqUtils.TakeRandom 1
-                        |> Seq.head
-                        |> self.GetServerDescriptor
+                        let randomServerOpt =
+                            if shouldBeDirectory then
+                                self.NetworkStatus.Routers
+                                |> Seq.filter(fun router ->
+                                    router.DirectoryPort.IsSome
+                                    && router.DirectoryPort.Value > 0
+                                )
+                            else
+                                self.NetworkStatus.Routers |> Seq.ofList
+                            |> SeqUtils.TakeRandom 1
+                            |> Seq.tryHead
+
+                        match randomServerOpt with
+                        | Some randomServer ->
+                            self.GetServerDescriptor randomServer
+                        | None -> failwith "Couldn't find suitable router"
 
                     if descriptor.Hibernating
                        || descriptor.NTorOnionKey.IsNone

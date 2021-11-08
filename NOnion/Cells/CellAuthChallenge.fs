@@ -2,6 +2,8 @@
 
 open System.IO
 
+open FSharpx.Collections
+
 open NOnion
 open NOnion.Utility.BinaryIO
 
@@ -36,11 +38,11 @@ type CellAuthChallenge =
         member self.Serialize writer =
 
             let rec writeMethods(methods: seq<uint16>) =
-                match Seq.tryHead methods with
+                match Seq.tryHeadTail methods with
                 | None -> ()
-                | Some method ->
+                | Some(method, nextMethods) ->
                     WriteUInt16BigEndian writer method
-                    methods |> Seq.tail |> writeMethods
+                    nextMethods |> writeMethods
 
             writer.Write self.Challenge
             self.Methods |> Seq.length |> uint16 |> WriteUInt16BigEndian writer

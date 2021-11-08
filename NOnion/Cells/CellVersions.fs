@@ -2,6 +2,8 @@
 
 open System.IO
 
+open FSharpx.Collections
+
 open NOnion.Utility.BinaryIO
 
 type CellVersions =
@@ -36,10 +38,10 @@ type CellVersions =
         member self.Serialize writer =
 
             let rec writeVersions(versions: seq<uint16>) =
-                match Seq.tryHead versions with
+                match Seq.tryHeadTail versions with
                 | None -> ()
-                | Some version ->
+                | Some(version, nextVersions) ->
                     WriteUInt16BigEndian writer version
-                    writeVersions(Seq.tail versions)
+                    writeVersions nextVersions
 
             writeVersions self.Versions

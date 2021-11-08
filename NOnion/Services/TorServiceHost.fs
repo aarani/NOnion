@@ -158,20 +158,28 @@ type TorServiceHost
                 failwith "Invalid mac"
 
             let rendEndpoint =
-                (innerData.RendezvousLinkSpecifiers
-                 |> Seq.filter(fun linkS ->
-                     linkS.Type = LinkSpecifierType.TLSOverTCPV4
-                 )
-                 |> Seq.exactlyOne)
-                    .ToEndPoint()
+                let linkSpecifierOpt =
+                    innerData.RendezvousLinkSpecifiers
+                    |> Seq.filter(fun linkS ->
+                        linkS.Type = LinkSpecifierType.TLSOverTCPV4
+                    )
+                    |> Seq.tryExactlyOne
+
+                match linkSpecifierOpt with
+                | Some linkSpecifier -> linkSpecifier.ToEndPoint()
+                | None -> failwith "No rendezvous endpoint found!"
 
             let rendFingerPrint =
-                (innerData.RendezvousLinkSpecifiers
-                 |> Seq.filter(fun linkS ->
-                     linkS.Type = LinkSpecifierType.LegacyIdentity
-                 )
-                 |> Seq.exactlyOne)
-                    .Data
+                let linkSpecifierOpt =
+                    innerData.RendezvousLinkSpecifiers
+                    |> Seq.filter(fun linkS ->
+                        linkS.Type = LinkSpecifierType.LegacyIdentity
+                    )
+                    |> Seq.tryExactlyOne
+
+                match linkSpecifierOpt with
+                | Some linkSpecifier -> linkSpecifier.Data
+                | None -> failwith "No rendezvous fingerprint found!"
 
             let connectToRendezvousJob =
                 tryConnectingToRendezvous
