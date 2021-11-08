@@ -43,5 +43,5 @@ jobs:
           git clone https://github.com/nblockchain/fsx
           cd fsx
           sudo ./scripts/CI/install_mono_from_microsoft_deb_packages.sh
-          cd ..
-          fsx/Tools/nugetPush.fsx $BASE_VERSION ${{secrets.NUGET_API_KEY}}
+          cd ../NOnion
+          ../fsx/Tools/nugetPush.fsx $BASE_VERSION ${{secrets.NUGET_API_KEY}}
