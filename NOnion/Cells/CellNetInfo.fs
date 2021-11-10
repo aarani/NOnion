@@ -2,6 +2,8 @@
 
 open System.IO
 
+open FSharpx.Collections
+
 open NOnion.Utility.BinaryIO
 
 type RouterAddress =
@@ -55,11 +57,11 @@ type CellNetInfo =
                 writer.Write addr.Value
 
             let rec writeAddresses(addresses: seq<RouterAddress>) =
-                match Seq.tryHead addresses with
+                match Seq.tryHeadTail addresses with
                 | None -> ()
-                | Some addr ->
+                | Some(addr, nextAddresses) ->
                     writeAddress addr
-                    writeAddresses(Seq.tail addresses)
+                    writeAddresses nextAddresses
 
             WriteUInt32BigEndian writer self.Time
             writeAddress self.OtherAddress

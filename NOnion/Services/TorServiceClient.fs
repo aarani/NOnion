@@ -37,27 +37,33 @@ type TorServiceClient =
 
     static member Connect (directory: TorDirectory) (exportedData: string) =
         async {
-
             let authKey, encKey, nodeDetail, masterPubKey =
-                let info =
+                let connectionDetailOpt =
                     exportedData
                     |> JsonSerializer.Deserialize<seq<IntroductionPointPublicInfo>>
-                    |> Seq.head
+                    |> Seq.tryHead
 
-                Ed25519PublicKeyParameters(
-                    info.AuthKey |> Convert.FromBase64String,
-                    0
-                ),
-                X25519PublicKeyParameters(
-                    info.EncryptionKey |> Convert.FromBase64String,
-                    0
-                ),
-                CircuitNodeDetail.Create(
-                    IPEndPoint(IPAddress.Parse(info.Address), info.Port),
-                    info.OnionKey |> Convert.FromBase64String,
-                    info.Fingerprint |> Convert.FromBase64String
-                ),
-                info.MasterPublicKey |> Convert.FromBase64String
+                match connectionDetailOpt with
+                | Some connectionDetail ->
+                    Ed25519PublicKeyParameters(
+                        connectionDetail.AuthKey |> Convert.FromBase64String,
+                        0
+                    ),
+                    X25519PublicKeyParameters(
+                        connectionDetail.EncryptionKey
+                        |> Convert.FromBase64String,
+                        0
+                    ),
+                    CircuitNodeDetail.Create(
+                        IPEndPoint(
+                            IPAddress.Parse(connectionDetail.Address),
+                            connectionDetail.Port
+                        ),
+                        connectionDetail.OnionKey |> Convert.FromBase64String,
+                        connectionDetail.Fingerprint |> Convert.FromBase64String
+                    ),
+                    connectionDetail.MasterPublicKey |> Convert.FromBase64String
+                | None -> failwith "Parsing connection info failed!"
 
             let randomGeneratedCookie =
                 Array.zeroCreate Constants.RendezvousCookieLength

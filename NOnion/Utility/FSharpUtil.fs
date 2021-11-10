@@ -3,6 +3,8 @@
 open System
 open System.Runtime.ExceptionServices
 
+open FSharpx.Collections
+
 module FSharpUtil =
     //Implementation copied from https://github.com/nblockchain/geewallet/blob/master/src/GWallet.Backend/FSharpUtil.fs
     let ReRaise(ex: Exception) : Exception =
@@ -14,11 +16,11 @@ module FSharpUtil =
         (ex: Exception)
         : Option<'T> =
         let rec findExInSeq(sq: seq<Exception>) =
-            match Seq.tryHead sq with
-            | Some head ->
+            match Seq.tryHeadTail sq with
+            | Some(head, tail) ->
                 match FindException head with
                 | Some ex -> Some ex
-                | None -> findExInSeq <| Seq.tail sq
+                | None -> findExInSeq <| tail
             | None -> None
 
         if isNull ex then

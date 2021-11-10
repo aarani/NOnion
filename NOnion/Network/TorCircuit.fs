@@ -9,6 +9,7 @@ open Org.BouncyCastle.Crypto
 open Org.BouncyCastle.Crypto.Parameters
 open Org.BouncyCastle.Crypto.Generators
 open Org.BouncyCastle.Security
+open FSharpx.Collections
 
 open NOnion
 open NOnion.Cells
@@ -73,7 +74,12 @@ type TorCircuit
 
     member __.LastNode =
         match circuitState with
-        | Ready(_, nodesStates) -> nodesStates |> List.rev |> List.head
+        | Ready(_, nodesStates) ->
+            let lastNodeOpt = nodesStates |> List.rev |> List.tryHead
+
+            match lastNodeOpt with
+            | None -> failwith "BUG: circuit has no nodes"
+            | Some lastNode -> lastNode
         | _ -> failwith ""
 
     member private self.UnsafeSendRelayCell
@@ -92,14 +98,20 @@ type TorCircuit
                 let onionList, destination =
                     match customDestinationOpt with
                     | None ->
-                        let reversedNodesList = nodesStates |> List.rev
-                        reversedNodesList, reversedNodesList |> List.head
+                        let reversedNodesList = nodesStates |> Seq.rev
 
+                        let destinationNodeOpt =
+                            reversedNodesList |> Seq.tryHead
+
+                        match destinationNodeOpt with
+                        | None -> failwith "BUG: circuit has no nodes"
+                        | Some destinationNode ->
+                            reversedNodesList, destinationNode
                     | Some destination ->
                         nodesStates
-                        |> List.takeWhile(fun node -> node <> destination)
-                        |> List.append(List.singleton destination)
-                        |> List.rev,
+                        |> Seq.takeWhile(fun node -> node <> destination)
+                        |> Seq.append(Seq.singleton destination)
+                        |> Seq.rev,
                         destination
 
                 let plainRelayCell =
@@ -125,13 +137,13 @@ type TorCircuit
                     }
 
                 let rec encryptMessage
-                    (nodes: List<TorCircuitNode>)
+                    (nodes: seq<TorCircuitNode>)
                     (message: array<byte>)
                     =
-                    match List.tryHead nodes with
-                    | Some node ->
+                    match Seq.tryHeadTail nodes with
+                    | Some(node, nextNodes) ->
                         encryptMessage
-                            (List.tail nodes)
+                            nextNodes
                             (node.CryptoState.ForwardCipher.Encrypt message)
                     | None -> message
 

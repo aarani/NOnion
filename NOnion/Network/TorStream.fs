@@ -4,6 +4,8 @@ open System
 open System.Threading.Tasks
 open System.Threading.Tasks.Dataflow
 
+open FSharpx.Collections
+
 open NOnion
 open NOnion.Cells.Relay
 open NOnion.Utility
@@ -77,9 +79,9 @@ type TorStream(circuit: TorCircuit) =
 
                         let rec sendChunks dataChunks =
                             async {
-                                match Seq.tryHead dataChunks with
+                                match Seq.tryHeadTail dataChunks with
                                 | None -> ()
-                                | Some head ->
+                                | Some(head, nextDataChunks) ->
                                     circuit.LastNode.Window.PackageDecrease()
 
                                     do!
@@ -91,7 +93,7 @@ type TorStream(circuit: TorCircuit) =
                                             None
 
                                     window.PackageDecrease()
-                                    do! Seq.tail dataChunks |> sendChunks
+                                    do! nextDataChunks |> sendChunks
                             }
 
                         do! sendChunks dataChunks
