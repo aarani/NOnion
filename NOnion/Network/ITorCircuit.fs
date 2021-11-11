@@ -3,4 +3,4 @@
 open NOnion.Cells
 
 type ITorCircuit =
-    abstract HandleIncomingCell : ICell -> Async<unit>
+    abstract HandleIncomingCell: ICell -> Async<unit>

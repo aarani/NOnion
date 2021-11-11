@@ -808,12 +808,15 @@ type TorCircuit
                     | RelayData.RelayEstablishedIntro _ ->
                         let handleEstablished() =
                             match circuitState with
-                            | RegisteringAsIntorductionPoint(circuitId,
-                                                             nodes,
-                                                             _privateKey,
-                                                             _publicKey,
-                                                             tcs,
-                                                             _callback) ->
+                            | RegisteringAsIntorductionPoint
+                                (
+                                    circuitId,
+                                    nodes,
+                                    _privateKey,
+                                    _publicKey,
+                                    tcs,
+                                    _callback
+                                ) ->
                                 circuitState <-
                                     ReadyAsIntroductionPoint(
                                         circuitId,
@@ -832,7 +835,10 @@ type TorCircuit
                     | RelayData.RelayEstablishedRendezvous ->
                         let handleEstablished() =
                             match circuitState with
-                            | RegisteringAsRendezvousPoint(circuitId, nodes, tcs) ->
+                            | RegisteringAsRendezvousPoint
+                                (
+                                    circuitId, nodes, tcs
+                                ) ->
                                 circuitState <-
                                     ReadyAsRendezvousPoint(circuitId, nodes)
 
@@ -874,19 +880,14 @@ type TorCircuit
                                     CircuitTruncatedException reason
                                 )
                             | RegisteringAsRendezvousPoint(circuitId, _, tcs)
-                            | RegisteringAsIntorductionPoint(circuitId,
-                                                             _,
-                                                             _,
-                                                             _,
-                                                             tcs,
-                                                             _)
-                            | WaitingForRendezvousRequest(circuitId,
-                                                          _,
-                                                          _,
-                                                          _,
-                                                          _,
-                                                          _,
-                                                          tcs) ->
+                            | RegisteringAsIntorductionPoint
+                                (
+                                    circuitId, _, _, _, tcs, _
+                                )
+                            | WaitingForRendezvousRequest
+                                (
+                                    circuitId, _, _, _, _, _, tcs
+                                ) ->
                                 circuitState <- Truncated(circuitId, reason)
 
                                 tcs.SetException(
@@ -903,9 +904,10 @@ type TorCircuit
                     | RelayData.RelayIntroduceAck ackMsg ->
                         let handleIntroduceAck() =
                             match circuitState with
-                            | WaitingForIntroduceAcknowledge(circuitId,
-                                                             nodes,
-                                                             tcs) ->
+                            | WaitingForIntroduceAcknowledge
+                                (
+                                    circuitId, nodes, tcs
+                                ) ->
                                 circuitState <- Ready(circuitId, nodes)
 
                                 tcs.SetResult(ackMsg)
@@ -917,13 +919,16 @@ type TorCircuit
                     | RelayData.RelayRendezvous2 rendMsg ->
                         let handleRendezvous() =
                             match circuitState with
-                            | WaitingForRendezvousRequest(circuitId,
-                                                          nodes,
-                                                          clientRandomPrivateKey,
-                                                          clientRandomPublicKey,
-                                                          introAuthPublicKey,
-                                                          introEncPublicKey,
-                                                          tcs) ->
+                            | WaitingForRendezvousRequest
+                                (
+                                    circuitId,
+                                    nodes,
+                                    clientRandomPrivateKey,
+                                    clientRandomPublicKey,
+                                    introAuthPublicKey,
+                                    introEncPublicKey,
+                                    tcs
+                                ) ->
 
                                 let serverPublicKey =
                                     rendMsg.HandshakeData |> Array.take 32
@@ -993,19 +998,14 @@ type TorCircuit
                                 CircuitDestroyedException destroyCell.Reason
                             )
                         | RegisteringAsRendezvousPoint(circuitId, _, tcs)
-                        | RegisteringAsIntorductionPoint(circuitId,
-                                                         _,
-                                                         _,
-                                                         _,
-                                                         tcs,
-                                                         _)
-                        | WaitingForRendezvousRequest(circuitId,
-                                                      _,
-                                                      _,
-                                                      _,
-                                                      _,
-                                                      _,
-                                                      tcs) ->
+                        | RegisteringAsIntorductionPoint
+                            (
+                                circuitId, _, _, _, tcs, _
+                            )
+                        | WaitingForRendezvousRequest
+                            (
+                                circuitId, _, _, _, _, _, tcs
+                            ) ->
 
                             circuitState <-
                                 Destroyed(circuitId, destroyCell.Reason)
