@@ -1,9 +1,10 @@
-﻿namespace NOnion.Network
+﻿namespace NOnion.Services
 
 open System
 open System.Net
 open System.Security.Cryptography
 open System.Text
+open System.Text.Json
 
 open Org.BouncyCastle.Crypto.Agreement
 open Org.BouncyCastle.Crypto.Digests
@@ -16,7 +17,7 @@ open NOnion.Cells.Relay
 open NOnion.Crypto
 open NOnion.Utility
 open NOnion.Directory
-open System.Text.Json
+open NOnion.Network
 
 type TorServiceClient =
     private

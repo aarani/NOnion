@@ -1,4 +1,4 @@
-﻿namespace NOnion.Network
+﻿namespace NOnion.Services
 
 open System
 open System.IO
@@ -18,6 +18,7 @@ open NOnion.Cells.Relay
 open NOnion.Crypto
 open NOnion.Directory
 open NOnion.Utility
+open NOnion.Network
 
 type IntroductionPointInfo =
     {
