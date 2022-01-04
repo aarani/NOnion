@@ -61,7 +61,7 @@ type TorCircuit
         match circuitState with
         | Creating(circuitId, _, _)
         | Extending(circuitId, _, _, _)
-        | RegisteringAsIntorductionPoint(circuitId, _, _, _, _, _)
+        | RegisteringAsIntroductionPoint(circuitId, _, _, _, _, _)
         | RegisteringAsRendezvousPoint(circuitId, _, _)
         | WaitingForIntroduceAcknowledge(circuitId, _, _)
         | WaitingForRendezvousRequest(circuitId, _, _, _, _, _, _)
@@ -92,7 +92,7 @@ type TorCircuit
             match circuitState with
             | Ready(circuitId, nodesStates)
             | Extending(circuitId, _, nodesStates, _)
-            | RegisteringAsIntorductionPoint(circuitId, nodesStates, _, _, _, _)
+            | RegisteringAsIntroductionPoint(circuitId, nodesStates, _, _, _, _)
             | WaitingForIntroduceAcknowledge(circuitId, nodesStates, _)
             | RegisteringAsRendezvousPoint(circuitId, nodesStates, _) ->
                 let onionList, destination =
@@ -210,7 +210,7 @@ type TorCircuit
             | Ready(_circuitId, nodes)
             | ReadyAsIntroductionPoint(_circuitId, nodes, _, _, _)
             | ReadyAsRendezvousPoint(_circuitId, nodes)
-            | RegisteringAsIntorductionPoint(_circuitId, nodes, _, _, _, _)
+            | RegisteringAsIntroductionPoint(_circuitId, nodes, _, _, _, _)
             | RegisteringAsRendezvousPoint(_circuitId, nodes, _)
             | WaitingForIntroduceAcknowledge(_circuitId, nodes, _)
             | WaitingForRendezvousRequest(_circuitId, nodes, _, _, _, _, _)
@@ -465,7 +465,7 @@ type TorCircuit
                     let connectionCompletionSource = TaskCompletionSource()
 
                     circuitState <-
-                        CircuitState.RegisteringAsIntorductionPoint(
+                        CircuitState.RegisteringAsIntroductionPoint(
                             circuitId,
                             nodes,
                             authPrivateKey,
@@ -808,7 +808,7 @@ type TorCircuit
                     | RelayData.RelayEstablishedIntro _ ->
                         let handleEstablished() =
                             match circuitState with
-                            | RegisteringAsIntorductionPoint
+                            | RegisteringAsIntroductionPoint
                                 (
                                     circuitId,
                                     nodes,
@@ -880,7 +880,7 @@ type TorCircuit
                                     CircuitTruncatedException reason
                                 )
                             | RegisteringAsRendezvousPoint(circuitId, _, tcs)
-                            | RegisteringAsIntorductionPoint
+                            | RegisteringAsIntroductionPoint
                                 (
                                     circuitId, _, _, _, tcs, _
                                 )
@@ -998,7 +998,7 @@ type TorCircuit
                                 CircuitDestroyedException destroyCell.Reason
                             )
                         | RegisteringAsRendezvousPoint(circuitId, _, tcs)
-                        | RegisteringAsIntorductionPoint
+                        | RegisteringAsIntroductionPoint
                             (
                                 circuitId, _, _, _, tcs, _
                             )

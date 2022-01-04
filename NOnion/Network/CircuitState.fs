@@ -28,7 +28,7 @@ type CircuitState =
         handshakeState: IHandshake *
         currentCircuitNodes: List<TorCircuitNode> *
         completionTask: TaskCompletionSource<uint16>
-    | RegisteringAsIntorductionPoint of
+    | RegisteringAsIntroductionPoint of
         circuitId: uint16 *
         circuitNodes: List<TorCircuitNode> *
         privateKey: Ed25519PrivateKeyParameters *
@@ -70,7 +70,7 @@ type CircuitState =
         | Initialized -> "Initialized"
         | Creating _ -> "Creating"
         | Extending _ -> "Extending"
-        | RegisteringAsIntorductionPoint _ -> "RegisteringAsIntorductionPoint"
+        | RegisteringAsIntroductionPoint _ -> "RegisteringAsIntroductionPoint"
         | RegisteringAsRendezvousPoint _ -> "RegisteringAsRendezvousPoint"
         | WaitingForIntroduceAcknowledge _ -> "WaitingForIntroduceAcknowledge"
         | WaitingForRendezvousRequest _ -> "WaitingForRendezvousRequest"
