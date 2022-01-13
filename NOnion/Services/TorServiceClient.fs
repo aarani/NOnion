@@ -1,9 +1,10 @@
-﻿namespace NOnion.Network
+﻿namespace NOnion.Services
 
 open System
 open System.Net
 open System.Security.Cryptography
 open System.Text
+open System.Text.Json
 
 open Org.BouncyCastle.Crypto.Agreement
 open Org.BouncyCastle.Crypto.Digests
@@ -16,7 +17,7 @@ open NOnion.Cells.Relay
 open NOnion.Crypto
 open NOnion.Utility
 open NOnion.Directory
-open System.Text.Json
+open NOnion.Network
 
 type TorServiceClient =
     private
@@ -31,39 +32,34 @@ type TorServiceClient =
 
     static member ConnectAsync
         (directory: TorDirectory)
-        (exportedData: string)
+        (connectionDetail: IntroductionPointPublicInfo)
         =
-        TorServiceClient.Connect directory exportedData |> Async.StartAsTask
+        TorServiceClient.Connect directory connectionDetail |> Async.StartAsTask
 
-    static member Connect (directory: TorDirectory) (exportedData: string) =
+    static member Connect
+        (directory: TorDirectory)
+        (connectionDetail: IntroductionPointPublicInfo)
+        =
         async {
             let authKey, encKey, nodeDetail, masterPubKey =
-                let connectionDetailOpt =
-                    exportedData
-                    |> JsonSerializer.Deserialize<seq<IntroductionPointPublicInfo>>
-                    |> Seq.tryHead
 
-                match connectionDetailOpt with
-                | Some connectionDetail ->
-                    Ed25519PublicKeyParameters(
-                        connectionDetail.AuthKey |> Convert.FromBase64String,
-                        0
+                Ed25519PublicKeyParameters(
+                    connectionDetail.AuthKey |> Convert.FromBase64String,
+                    0
+                ),
+                X25519PublicKeyParameters(
+                    connectionDetail.EncryptionKey |> Convert.FromBase64String,
+                    0
+                ),
+                CircuitNodeDetail.Create(
+                    IPEndPoint(
+                        IPAddress.Parse(connectionDetail.Address),
+                        connectionDetail.Port
                     ),
-                    X25519PublicKeyParameters(
-                        connectionDetail.EncryptionKey
-                        |> Convert.FromBase64String,
-                        0
-                    ),
-                    CircuitNodeDetail.Create(
-                        IPEndPoint(
-                            IPAddress.Parse(connectionDetail.Address),
-                            connectionDetail.Port
-                        ),
-                        connectionDetail.OnionKey |> Convert.FromBase64String,
-                        connectionDetail.Fingerprint |> Convert.FromBase64String
-                    ),
-                    connectionDetail.MasterPublicKey |> Convert.FromBase64String
-                | None -> failwith "Parsing connection info failed!"
+                    connectionDetail.OnionKey |> Convert.FromBase64String,
+                    connectionDetail.Fingerprint |> Convert.FromBase64String
+                ),
+                connectionDetail.MasterPublicKey |> Convert.FromBase64String
 
             let randomGeneratedCookie =
                 Array.zeroCreate Constants.RendezvousCookieLength

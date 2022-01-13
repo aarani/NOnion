@@ -1,4 +1,4 @@
-﻿namespace NOnion.Network
+﻿namespace NOnion.Services
 
 open System
 open System.IO
@@ -18,6 +18,7 @@ open NOnion.Cells.Relay
 open NOnion.Crypto
 open NOnion.Directory
 open NOnion.Utility
+open NOnion.Network
 
 type IntroductionPointInfo =
     {
@@ -303,7 +304,7 @@ type TorServiceHost
             cancellationToken = cancellationToken
         )
 
-    member self.Export() =
+    member self.Export() : IntroductionPointPublicInfo =
         let exportIntroductionPoint(_key, info: IntroductionPointInfo) =
             {
                 IntroductionPointPublicInfo.Address =
@@ -322,7 +323,12 @@ type TorServiceHost
                 MasterPublicKey = info.MasterPublicKey |> Convert.ToBase64String
             }
 
-        introductionPointKeys
-        |> Map.toList
-        |> List.map exportIntroductionPoint
-        |> JsonSerializer.Serialize
+        let maybeIntroductionPointPublicInfo =
+            introductionPointKeys
+            |> Map.toList
+            |> List.map exportIntroductionPoint
+            |> List.tryExactlyOne
+
+        match maybeIntroductionPointPublicInfo with
+        | Some introductionPointPublicInfo -> introductionPointPublicInfo
+        | None -> failwith "No introduction point found!"

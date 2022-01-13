@@ -15,6 +15,7 @@ using NOnion.Http;
 using NOnion.Cells.Relay;
 using NOnion.Directory;
 using NOnion.Tests.Utility;
+using NOnion.Services;
 
 namespace NOnion.Tests
 {
