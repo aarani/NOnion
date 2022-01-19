@@ -10,13 +10,19 @@ open NOnion
 open NOnion.Cells.Relay
 open NOnion.Utility
 
-
 type TorStream(circuit: TorCircuit) =
 
     let mutable streamState: StreamState = StreamState.Initialized
     let controlLock: SemaphoreLocker = SemaphoreLocker()
 
     let window: TorWindow = TorWindow Constants.DefaultStreamLevelWindowParams
+
+    let mutable currentBuffer: array<byte> =
+        Array.zeroCreate Constants.MaximumRelayPayloadLength
+
+    let mutable bufferOffset: int = 0
+    let mutable bufferLength: int = 0
+    let mutable isEOF: bool = false
 
     let incomingCells: BufferBlock<RelayData> = BufferBlock<RelayData>()
     let receiveLock: SemaphoreLocker = SemaphoreLocker()
@@ -190,23 +196,75 @@ type TorStream(circuit: TorCircuit) =
 
         controlLock.RunSyncWithSemaphore registerProcess
 
-    member self.Receive() =
+    member self.Receive (buffer: array<byte>) (offset: int) (length: int) =
         async {
-            let safeReceive() =
-                async {
-                    let! cell = incomingCells.ReceiveAsync() |> Async.AwaitTask
+            let currentBufferHasRemainingBytes() =
+                bufferLength > bufferOffset
 
-                    match cell with
-                    | RelayData data -> return data |> Some
+            let currentBufferRemainingBytes() =
+                bufferLength - bufferOffset
+
+            let readFromCurrentBuffer
+                (buffer: array<byte>)
+                (offset: int)
+                (len: int)
+                =
+                let readLength = min len (currentBufferRemainingBytes())
+                Array.blit currentBuffer bufferOffset buffer offset readLength
+                bufferOffset <- bufferOffset + readLength
+
+                readLength
+
+            let processIncomingCell() =
+                async {
+                    let! nextCell =
+                        incomingCells.ReceiveAsync() |> Async.AwaitTask
+
+                    match nextCell with
+                    | RelayData data ->
+                        Array.blit data 0 currentBuffer 0 data.Length
+                        bufferOffset <- 0
+                        bufferLength <- data.Length
+
+                        window.DeliverDecrease()
+
+                        if window.NeedSendme() then
+                            let sendSendMe() =
+                                async {
+                                    match streamState with
+                                    | Connected streamId ->
+                                        return!
+                                            circuit.SendRelayCell
+                                                streamId
+                                                RelayData.RelaySendMe
+                                                None
+                                    | _ ->
+                                        failwith
+                                            "Unexpected state when sending stream-level sendme"
+                                }
+
+                            do! controlLock.RunAsyncWithSemaphore sendSendMe
+
                     | RelayEnd reason when reason = EndReason.Done ->
                         TorLogger.Log(
                             sprintf
-                                "TorStream[%s,%d]: pushed EOF to consumer"
+                                "TorStream[%s,%i]: pushed EOF to consumer"
                                 streamState.Id
                                 circuit.Id
                         )
 
-                        return None
+                        currentBuffer <- Array.empty
+                        bufferOffset <- 0
+                        bufferLength <- 0
+                        isEOF <- true
+
+                        let markStreamAsEnded() =
+                            match streamState with
+                            | Connected streamId ->
+                                streamState <- Ended(streamId, reason)
+                            | _ -> ()
+
+                        controlLock.RunSyncWithSemaphore markStreamAsEnded
                     | RelayEnd reason ->
                         return
                             failwith(
@@ -217,14 +275,73 @@ type TorStream(circuit: TorCircuit) =
                     | _ ->
                         return
                             failwith
-                                "IncomingCells should not keep non-related cells"
+                                "IncomingCells should not keep unrelated cells"
+                }
+
+            let rec fillBuffer() =
+                async {
+                    do! processIncomingCell()
+
+                    if isEOF || currentBufferHasRemainingBytes() then
+                        return ()
+                    else
+                        return! fillBuffer()
+                }
+
+            let refillBufferIfNeeded() =
+                async {
+                    if not isEOF then
+                        if currentBufferHasRemainingBytes() then
+                            return ()
+                        else
+                            return! fillBuffer()
+                }
+
+
+            let safeReceive() =
+                async {
+                    if length = 0 then
+                        return 0
+                    else
+                        do! refillBufferIfNeeded()
+
+                        if isEOF then
+                            return -1
+                        else
+                            let rec tryRead bytesRead bytesRemaining =
+                                async {
+                                    if bytesRemaining > 0 && not isEOF then
+                                        do! refillBufferIfNeeded()
+
+                                        let newBytesRead =
+                                            bytesRead
+                                            + (readFromCurrentBuffer
+                                                buffer
+                                                (offset + bytesRead)
+                                                (length - bytesRead))
+
+                                        let newBytesRemaining =
+                                            length - newBytesRead
+
+                                        if incomingCells.Count = 0 then
+                                            return newBytesRead
+                                        else
+                                            return!
+                                                tryRead
+                                                    newBytesRead
+                                                    newBytesRemaining
+                                    else
+                                        return bytesRead
+                                }
+
+                            return! tryRead 0 length
                 }
 
             return! receiveLock.RunAsyncWithSemaphore safeReceive
         }
 
-    member self.ReceiveAsync() =
-        self.Receive() |> Async.StartAsTask
+    member self.ReceiveAsync(buffer: array<byte>, offset: int, length: int) =
+        self.Receive buffer offset length |> Async.StartAsTask
 
     interface ITorStream with
         member __.HandleIncomingData(message: RelayData) =
@@ -248,27 +365,7 @@ type TorStream(circuit: TorCircuit) =
 
 
                     controlLock.RunSyncWithSemaphore handleRelayConnected
-                | RelayData _ ->
-                    window.DeliverDecrease()
-
-                    if window.NeedSendme() then
-                        let sendSendMe() =
-                            async {
-                                match streamState with
-                                | Connected streamId ->
-                                    return!
-                                        circuit.SendRelayCell
-                                            streamId
-                                            RelayData.RelaySendMe
-                                            None
-                                | _ ->
-                                    failwith
-                                        "Unexpected state when sending stream-level sendme"
-                            }
-
-                        do! controlLock.RunAsyncWithSemaphore sendSendMe
-
-                    incomingCells.Post message |> ignore<bool>
+                | RelayData _ -> incomingCells.Post message |> ignore<bool>
                 | RelaySendMe _ -> window.PackageIncrease()
                 | RelayEnd reason ->
                     let handleRelayEnd() =
@@ -296,7 +393,6 @@ type TorStream(circuit: TorCircuit) =
                             |> TorLogger.Log
 
                             incomingCells.Post message |> ignore<bool>
-                            streamState <- Ended(streamId, reason)
                         | _ ->
                             failwith
                                 "Unexpected state when receiving RelayEnd cell"

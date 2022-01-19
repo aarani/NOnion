@@ -11,16 +11,17 @@ open NOnion.Network
 type TorHttpClient(stream: TorStream, host: string) =
 
     // Receives all the data stream until it reaches EOF (until stream receive a RELAY_END)
-    let rec receiveAll(state: array<byte>) =
+    let rec ReceiveAll(memStream: MemoryStream) =
         async {
-            let! maybeNextPartialResponse = stream.Receive()
+            let buffer = Array.zeroCreate Constants.HttpClientBufferSize
 
-            match maybeNextPartialResponse with
-            | None -> return state
-            | Some nextPartialResponse ->
+            // Try to fill the buffer
+            let! bytesRead =
+                stream.Receive buffer 0 Constants.HttpClientBufferSize
 
-                return!
-                    Array.concat [ state; nextPartialResponse ] |> receiveAll
+            if bytesRead > 0 then
+                memStream.Write(buffer, 0, bytesRead)
+                return! ReceiveAll memStream
         }
 
     member __.GetAsString (path: string) (forceUncompressed: bool) =
@@ -45,9 +46,13 @@ type TorHttpClient(stream: TorStream, host: string) =
                 |> Encoding.UTF8.GetBytes
                 |> stream.SendData
 
-            let! httpResponse =
-                receiveAll Array.empty
+            use memStream = new MemoryStream()
+
+            do!
+                ReceiveAll memStream
                 |> FSharpUtil.WithTimeout Constants.HttpResponseTimeout
+
+            let httpResponse = memStream.ToArray()
 
             let header, body =
                 let delimiter = ReadOnlySpan(Encoding.ASCII.GetBytes "\r\n\r\n")

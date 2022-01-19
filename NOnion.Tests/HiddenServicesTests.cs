@@ -80,6 +80,18 @@ namespace NOnion.Tests
             Assert.DoesNotThrowAsync(CreateRendezvousCircuit);
         }
 
+        private async Task<int> ReadExact(TorStream stream, byte[] buffer, int off, int len)
+        {
+            if (len - off <= 0) return 0;
+
+            var bytesRead = await stream.ReceiveAsync(buffer, off, len - off);
+
+            if (bytesRead == 0 || bytesRead == -1)
+                throw new Exception("Not enough data");
+
+            return bytesRead + await ReadExact(stream, buffer, off + bytesRead, len);
+        }
+
         public async Task EstablishAndCommunicateOverHSConnection()
         {
             TorDirectory directory = await TorDirectory.BootstrapAsync(FallbackDirectorySelector.GetRandomFallbackDirectory());
@@ -87,10 +99,13 @@ namespace NOnion.Tests
             var host = new TorServiceHost(directory, TestsRetryCount);
             await host.StartAsync();
 
+            var dataToSendAndReceive = new byte[] { 1, 2, 3, 4 };
+
             var serverSide =
                 Task.Run(async () => {
                     var stream = await host.AcceptClientAsync();
-                    await stream.SendDataAsync(Encoding.ASCII.GetBytes("Hi from hidden service!"));
+                    var bytesToSendWithLength = BitConverter.GetBytes(dataToSendAndReceive.Length).Concat(dataToSendAndReceive).ToArray();
+                    await stream.SendDataAsync(bytesToSendWithLength);
                     await stream.EndAsync();
                 });
 
@@ -98,12 +113,13 @@ namespace NOnion.Tests
                 Task.Run(async () => {
                     var client = await TorServiceClient.ConnectAsync(directory, host.Export());
                     var stream = client.GetStream();
-                    FSharpOption<byte[]> data;
-                    using var memStream = new MemoryStream();
-                    while (!FSharpOption<byte[]>.get_IsNone(data = await stream.ReceiveAsync()))
-                        memStream.Write(data.Value, 0, data.Value.Length);
+                    var lengthBytes = new byte[sizeof(int)];
+                    await ReadExact(stream, lengthBytes, 0, lengthBytes.Length);
+                    var length = BitConverter.ToInt32(lengthBytes);
+                    var buffer = new byte[length];
+                    await ReadExact(stream, buffer, 0, buffer.Length);
 
-                    CollectionAssert.AreEqual(memStream.ToArray(), Encoding.ASCII.GetBytes("Hi from hidden service!"));
+                    CollectionAssert.AreEqual(buffer, dataToSendAndReceive);
                 });
 
 

@@ -85,6 +85,8 @@ module Constants =
     // Time limit used for receving data in stream
     let internal StreamReceiveTimeout = TimeSpan.FromSeconds 1.
 
+    let internal HttpClientBufferSize = 1024
+
     // NTor Handshake Constants
     let private nTorProtoIdStr = "ntor-curve25519-sha256-1"
     let internal NTorProtoId = nTorProtoIdStr |> Encoding.ASCII.GetBytes
