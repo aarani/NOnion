@@ -65,7 +65,7 @@ namespace NOnion.Tests
             Assert.DoesNotThrowAsync(CreateDirectoryStreamOverMonohopCircuit);
         }
 
-        private async Task ReceiveConsensusOverMonohopCircuit(bool acceptCompressed)
+        private async Task ReceiveConsensusOverMonohopCircuit(bool forceUncompressed)
         {
             var fallbackDirectory = FallbackDirectorySelector.GetRandomFallbackDirectory();
             using TorGuard guard = await TorGuard.NewClientAsync(fallbackDirectory);
@@ -76,7 +76,7 @@ namespace NOnion.Tests
             await stream.ConnectToDirectoryAsync();
 
             var httpClient = new TorHttpClient(stream, fallbackDirectory.Address.ToString());
-            var response = await httpClient.GetAsStringAsync("/tor/status-vote/current/consensus", acceptCompressed);
+            var response = await httpClient.GetAsStringAsync("/tor/status-vote/current/consensus", forceUncompressed);
 
             Assert.That(response.Contains("network-status-version"));
         }
@@ -85,14 +85,14 @@ namespace NOnion.Tests
         [Retry(TestsRetryCount)]
         public void CanReceiveConsensusOverMonohopCircuit()
         {
-            Assert.DoesNotThrowAsync(async () => await ReceiveConsensusOverMonohopCircuit(false));
+            Assert.DoesNotThrowAsync(async () => await ReceiveConsensusOverMonohopCircuit(true));
         }
 
         [Test]
         [Retry(TestsRetryCount)]
         public void CanReceiveCompressedConsensusOverMonohopCircuit()
         {
-            Assert.DoesNotThrowAsync(async () => await ReceiveConsensusOverMonohopCircuit(true));
+            Assert.DoesNotThrowAsync(async () => await ReceiveConsensusOverMonohopCircuit(false));
         }
 
         private async Task ReceiveCompressedConsensusOverNonFastMonohopCircuit()
