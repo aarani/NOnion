@@ -83,7 +83,8 @@ type TorServiceHost
             introEncPubKey
             =
             async {
-                let! endPoint, randomNodeDetails = directory.GetRouter false
+                let! endPoint, randomNodeDetails =
+                    directory.GetRouter RouterType.Guard
 
                 let! guard = TorGuard.NewClient endPoint
 
@@ -207,7 +208,7 @@ type TorServiceHost
     member self.Start() =
         let safeCreateIntroductionPoint() =
             async {
-                let! _, introNodeDetail = directory.GetRouter false
+                let! _, introNodeDetail = directory.GetRouter RouterType.Normal
 
                 match introNodeDetail with
                 | FastCreate -> return failwith "should not happen"

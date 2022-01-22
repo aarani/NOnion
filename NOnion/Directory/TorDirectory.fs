@@ -8,6 +8,11 @@ open NOnion.Network
 open NOnion.Http
 open NOnion.Utility
 
+type RouterType =
+    | Normal
+    | Guard
+    | Directory
+
 type TorDirectory =
     private
         {
@@ -48,7 +53,7 @@ type TorDirectory =
 
         CircuitNodeDetail.Create(endpoint, nTorOnionKeyBytes, fingerprintBytes)
 
-    member self.GetRouter(shouldBeDirectory: bool) =
+    member self.GetRouter(filter: RouterType) =
         async {
             do! self.UpdateConsensusIfNotLive()
 
@@ -56,14 +61,18 @@ type TorDirectory =
                 async {
                     let! descriptor =
                         let randomServerOpt =
-                            if shouldBeDirectory then
-                                self.NetworkStatus.Routers
-                                |> Seq.filter(fun router ->
-                                    router.DirectoryPort.IsSome
-                                    && router.DirectoryPort.Value > 0
-                                )
-                            else
-                                self.NetworkStatus.Routers |> Seq.ofList
+                            self.NetworkStatus.Routers
+                            |> match filter with
+                               | Normal -> Seq.ofList
+                               | Directory ->
+                                   Seq.filter(fun router ->
+                                       router.DirectoryPort.IsSome
+                                       && router.DirectoryPort.Value > 0
+                                   )
+                               | Guard ->
+                                   Seq.filter(fun router ->
+                                       Seq.contains "Guard" router.Flags
+                                   )
                             |> SeqUtils.TakeRandom 1
                             |> Seq.tryHead
 
@@ -91,8 +100,8 @@ type TorDirectory =
             return (endpoint, self.ConvertToCircuitNodeDetail randomDescriptor)
         }
 
-    member self.GetRouterAsync(shouldBeDirectory: bool) =
-        self.GetRouter shouldBeDirectory |> Async.StartAsTask
+    member self.GetRouterAsync(filter: RouterType) =
+        self.GetRouter filter |> Async.StartAsTask
 
     member private self.GetServerDescriptor
         (routerEntry: RouterStatusEntry)
