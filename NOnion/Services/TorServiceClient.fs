@@ -68,8 +68,8 @@ type TorServiceClient =
                 .Create()
                 .GetNonZeroBytes randomGeneratedCookie
 
-            let! endpoint, guardnode = directory.GetRouter false
-            let! _, rendNode = directory.GetRouter false
+            let! endpoint, guardnode = directory.GetRouter RouterType.Guard
+            let! _, rendNode = directory.GetRouter RouterType.Normal
 
             let! rendGuard = TorGuard.NewClient endpoint
             let rendCircuit = TorCircuit rendGuard

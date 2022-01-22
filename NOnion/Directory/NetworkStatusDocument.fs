@@ -88,11 +88,12 @@ type RouterStatusEntry =
         OnionRouterPort: Option<int>
         DirectoryPort: Option<int>
         Address: Option<string>
-        Flags: Option<string>
         Version: Option<string>
         Protocols: Option<string>
         Bandwidth: Option<string>
         PortPolicy: Option<string>
+
+        Flags: seq<string>
     }
 
     static member Empty =
@@ -105,11 +106,12 @@ type RouterStatusEntry =
             DirectoryPort = None
             OnionRouterPort = None
             Address = None
-            Flags = None
             Version = None
             Protocols = None
             Bandwidth = None
             PortPolicy = None
+
+            Flags = Seq.empty
         }
 
     static member Parse(lines: MutableQueue<string>) =
@@ -159,7 +161,12 @@ type RouterStatusEntry =
 
                     innerParse
                         { state with
-                            Flags = readRestAsString() |> Some
+                            Flags =
+                                readRestAsString()
+                                    .Split(
+                                        [| " " |],
+                                        StringSplitOptions.RemoveEmptyEntries
+                                    )
                         }
                 | "v" ->
                     lines.Dequeue() |> ignore
