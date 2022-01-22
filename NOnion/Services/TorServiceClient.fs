@@ -4,7 +4,6 @@ open System
 open System.Net
 open System.Security.Cryptography
 open System.Text
-open System.Text.Json
 
 open Org.BouncyCastle.Crypto.Agreement
 open Org.BouncyCastle.Crypto.Digests
