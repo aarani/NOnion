@@ -208,13 +208,16 @@ type TorServiceHost
     member self.Start() =
         let safeCreateIntroductionPoint() =
             async {
+                let! guardEndPoint, guardNodeDetail =
+                    directory.GetRouter RouterType.Guard
+
                 let! _, introNodeDetail = directory.GetRouter RouterType.Normal
 
                 match introNodeDetail with
                 | FastCreate -> return failwith "should not happen"
                 | Create(address, onionKey, fingerprint) ->
 
-                    let! guard = TorGuard.NewClient address
+                    let! guard = TorGuard.NewClient guardEndPoint
                     let circuit = TorCircuit guard
 
                     let encKeyPair, authKeyPair, randomMasterPubKey =
@@ -252,7 +255,8 @@ type TorServiceHost
                             introductionPointInfo
                             introductionPointKeys
 
-                    do! circuit.Create introNodeDetail |> Async.Ignore
+                    do! circuit.Create guardNodeDetail |> Async.Ignore
+                    do! circuit.Extend introNodeDetail |> Async.Ignore
 
                     do!
                         circuit.RegisterAsIntroductionPoint
