@@ -5,7 +5,6 @@ open System.IO
 open System.Net
 open System.Net.Sockets
 open System.Threading
-open System.Text.Json
 open FSharpx.Collections
 
 open Org.BouncyCastle.Crypto
