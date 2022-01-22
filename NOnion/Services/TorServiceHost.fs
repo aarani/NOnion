@@ -41,16 +41,14 @@ type IntroductionPointPublicInfo =
     }
 
 type TorServiceHost
+    private
     (
+        guard: TorGuard,
         directory: TorDirectory,
+        introductionPointDetails: IntroductionPointInfo,
         maxRendezvousConnectRetryCount: int
     ) =
 
-    let mutable introductionPointKeys: Map<string, IntroductionPointInfo> =
-        Map.empty
-
-    let mutable guardNode: Option<TorGuard> = None
-    let introductionPointSemaphore: SemaphoreLocker = SemaphoreLocker()
     let newClientSemaphore = new SemaphoreSlim(0)
 
     let mutable pendingConnectionQueue: Queue<uint16 * TorCircuit> = Queue.empty
@@ -112,16 +110,6 @@ type TorServiceHost
             }
 
         async {
-            let introductionPointDetails =
-                match introduce.AuthKey with
-                | RelayIntroAuthKey.ED25519SHA3256 bytes ->
-                    match
-                        introductionPointKeys.TryGetValue
-                            (Convert.ToBase64String bytes)
-                        with
-                    | false, _ -> failwith "Unknown introduction point"
-                    | true, details -> details
-                | _ -> failwith "Unknown introduction point"
 
             let introAuthPubKey =
                 introductionPointDetails.AuthKey.Public
@@ -201,39 +189,47 @@ type TorServiceHost
             return ()
         }
 
-    member self.StartAsync() =
-        self.Start() |> Async.StartAsTask
+    static member StartAsync
+        (
+            directory: TorDirectory,
+            maxRendezvousConnectRetryCount: int
+        ) =
+        TorServiceHost.Start directory maxRendezvousConnectRetryCount
+        |> Async.StartAsTask
 
-    member self.Start() =
-        let safeCreateIntroductionPoint() =
-            async {
-                let! guardEndPoint, guardNodeDetail =
-                    directory.GetRouter RouterType.Guard
+    static member Start
+        (directory: TorDirectory)
+        (maxRendezvousConnectRetryCount: int)
+        =
+        async {
+            let! guardEndPoint, guardNodeDetail =
+                directory.GetRouter RouterType.Guard
 
-                let! _, introNodeDetail = directory.GetRouter RouterType.Normal
+            let! _, introNodeDetail = directory.GetRouter RouterType.Normal
 
-                match introNodeDetail with
-                | FastCreate -> return failwith "should not happen"
-                | Create(address, onionKey, fingerprint) ->
+            match introNodeDetail with
+            | FastCreate -> return failwith "should not happen"
+            | Create(address, onionKey, fingerprint) ->
 
-                    let! guard = TorGuard.NewClient guardEndPoint
-                    let circuit = TorCircuit guard
+                let! guard = TorGuard.NewClient guardEndPoint
+                let circuit = TorCircuit guard
 
-                    let encKeyPair, authKeyPair, randomMasterPubKey =
-                        let kpGen = Ed25519KeyPairGenerator()
-                        let kpGenX = X25519KeyPairGenerator()
+                let encKeyPair, authKeyPair, randomMasterPubKey =
+                    let kpGen = Ed25519KeyPairGenerator()
+                    let kpGenX = X25519KeyPairGenerator()
 
-                        let random = SecureRandom()
+                    let random = SecureRandom()
 
-                        kpGen.Init(Ed25519KeyGenerationParameters random)
-                        kpGenX.Init(X25519KeyGenerationParameters random)
+                    kpGen.Init(Ed25519KeyGenerationParameters random)
+                    kpGenX.Init(X25519KeyGenerationParameters random)
 
-                        kpGenX.GenerateKeyPair(),
-                        kpGen.GenerateKeyPair(),
-                        (kpGen.GenerateKeyPair().Public
-                        :?> Ed25519PublicKeyParameters)
-                            .GetEncoded()
+                    kpGenX.GenerateKeyPair(),
+                    kpGen.GenerateKeyPair(),
+                    (kpGen.GenerateKeyPair().Public
+                    :?> Ed25519PublicKeyParameters)
+                        .GetEncoded()
 
+                let host =
                     let introductionPointInfo =
                         {
                             IntroductionPointInfo.Address = address
@@ -244,27 +240,23 @@ type TorServiceHost
                             MasterPublicKey = randomMasterPubKey
                         }
 
-                    guardNode <- Some guard
+                    new TorServiceHost(
+                        guard,
+                        directory,
+                        introductionPointInfo,
+                        maxRendezvousConnectRetryCount
+                    )
 
-                    introductionPointKeys <-
-                        Map.add
-                            ((authKeyPair.Public :?> Ed25519PublicKeyParameters)
-                                .GetEncoded()
-                             |> Convert.ToBase64String)
-                            introductionPointInfo
-                            introductionPointKeys
+                do! circuit.Create guardNodeDetail |> Async.Ignore
+                do! circuit.Extend introNodeDetail |> Async.Ignore
 
-                    do! circuit.Create guardNodeDetail |> Async.Ignore
-                    do! circuit.Extend introNodeDetail |> Async.Ignore
+                do!
+                    circuit.RegisterAsIntroductionPoint
+                        (Some authKeyPair)
+                        host.RelayIntroduceCallback
 
-                    do!
-                        circuit.RegisterAsIntroductionPoint
-                            (Some authKeyPair)
-                            self.RelayIntroduceCallback
-            }
-
-        introductionPointSemaphore.RunAsyncWithSemaphore
-            safeCreateIntroductionPoint
+                return host
+        }
 
     member __.AcceptClient() =
         async {
@@ -309,7 +301,7 @@ type TorServiceHost
         )
 
     member self.Export() : IntroductionPointPublicInfo =
-        let exportIntroductionPoint(_key, info: IntroductionPointInfo) =
+        let exportIntroductionPoint(info: IntroductionPointInfo) =
             {
                 IntroductionPointPublicInfo.Address =
                     info.Address.Address.ToString()
@@ -327,12 +319,8 @@ type TorServiceHost
                 MasterPublicKey = info.MasterPublicKey |> Convert.ToBase64String
             }
 
-        let maybeIntroductionPointPublicInfo =
-            introductionPointKeys
-            |> Map.toList
-            |> List.map exportIntroductionPoint
-            |> List.tryExactlyOne
+        exportIntroductionPoint introductionPointDetails
 
-        match maybeIntroductionPointPublicInfo with
-        | Some introductionPointPublicInfo -> introductionPointPublicInfo
-        | None -> failwith "No introduction point found!"
+    interface IDisposable with
+        member self.Dispose() =
+            (guard :> IDisposable).Dispose()

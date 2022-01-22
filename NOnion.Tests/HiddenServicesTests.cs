@@ -96,8 +96,7 @@ namespace NOnion.Tests
         {
             TorDirectory directory = await TorDirectory.BootstrapAsync(FallbackDirectorySelector.GetRandomFallbackDirectory());
 
-            var host = new TorServiceHost(directory, TestsRetryCount);
-            await host.StartAsync();
+            using var host = await TorServiceHost.StartAsync(directory, TestsRetryCount);
 
             var dataToSendAndReceive = new byte[] { 1, 2, 3, 4 };
 
