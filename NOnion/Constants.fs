@@ -85,6 +85,10 @@ module Constants =
     // Time limit used for receving data in stream
     let internal StreamReceiveTimeout = TimeSpan.FromSeconds 1.
 
+    // Time interval used for sending heartbeat over tls connections
+    let internal HeartBeatInterval =
+        int (TimeSpan.FromMinutes 2.).TotalMilliseconds
+
     let internal HttpClientBufferSize = 1024
 
     // NTor Handshake Constants

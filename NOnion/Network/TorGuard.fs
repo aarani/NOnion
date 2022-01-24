@@ -77,6 +77,7 @@ type TorGuard private (client: TcpClient, sslStream: SslStream) =
             |> TorLogger.Log
 
             guard.StartListening()
+            guard.StartHeartBeat()
 
             return guard
         }
@@ -250,6 +251,26 @@ type TorGuard private (client: TcpClient, sslStream: SslStream) =
             }
 
         Async.Start(readFromStream(), shutdownToken.Token)
+
+    member private self.StartHeartBeat() =
+        let rec sendHeartBeat() =
+            async {
+                do! Async.Sleep Constants.HeartBeatInterval
+
+                do!
+                    self.Send
+                        0us
+                        {
+                            CellPadding.Bytes =
+                                Array.zeroCreate Constants.FixedPayloadLength
+                        }
+
+                TorLogger.Log "TorGuard: heartbeat sent"
+                return! sendHeartBeat()
+            }
+
+        Async.Start(sendHeartBeat(), shutdownToken.Token)
+
 
     member private self.Handshake() =
         async {
