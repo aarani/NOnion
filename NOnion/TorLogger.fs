@@ -9,6 +9,8 @@ module TorLogger =
         LoggerOpt <- Some loggingFunc
 
     let Log(msg: string) =
+        let msgWithDateTime = sprintf "[%s] %s" (DateTime.Now.ToString()) msg
+
         match LoggerOpt with
         | None -> ()
-        | Some logger -> logger.Invoke(msg)
+        | Some logger -> logger.Invoke(msgWithDateTime)
