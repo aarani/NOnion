@@ -217,7 +217,8 @@ type TorGuard private (client: TcpClient, sslStream: SslStream) =
                 let! maybeCell = self.ReceiveMessage()
 
                 match maybeCell with
-                | None -> ()
+                | None ->
+                    TorLogger.Log "TorGuard: guard receiving thread stopped"
                 | Some(cid, cell) ->
                     if cid = 0us then
                         //TODO: handle control message?
