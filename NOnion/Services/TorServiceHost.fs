@@ -72,8 +72,8 @@ type TorServiceHost
 
     member private self.RelayIntroduceCallback(introduce: RelayIntroduce) =
         let rec tryConnectingToRendezvous
-            rendEndpoint
-            rendFingerPrint
+            rendezvousEndpoint
+            rendezvousFingerPrint
             onionKey
             cookie
             clientPubKey
@@ -87,23 +87,23 @@ type TorServiceHost
 
                 let! guard = TorGuard.NewClient endPoint
 
-                let rendCircuit =
+                let rendezvousCircuit =
                     TorCircuit(guard, self.IncomingServiceStreamCallback)
 
-                do! rendCircuit.Create randomNodeDetails |> Async.Ignore
+                do! rendezvousCircuit.Create randomNodeDetails |> Async.Ignore
 
                 do!
-                    rendCircuit.Extend(
+                    rendezvousCircuit.Extend(
                         CircuitNodeDetail.Create(
-                            rendEndpoint,
+                            rendezvousEndpoint,
                             onionKey,
-                            rendFingerPrint
+                            rendezvousFingerPrint
                         )
                     )
                     |> Async.Ignore
 
                 do!
-                    rendCircuit.Rendezvous
+                    rendezvousCircuit.Rendezvous
                         cookie
                         (X25519PublicKeyParameters(clientPubKey, 0))
                         introAuthPubKey
@@ -158,7 +158,7 @@ type TorServiceHost
             if digest <> introduce.Mac then
                 failwith "Invalid mac"
 
-            let rendEndpoint =
+            let rendezvousEndpoint =
                 let linkSpecifierOpt =
                     innerData.RendezvousLinkSpecifiers
                     |> Seq.filter(fun linkS ->
@@ -170,7 +170,7 @@ type TorServiceHost
                 | Some linkSpecifier -> linkSpecifier.ToEndPoint()
                 | None -> failwith "No rendezvous endpoint found!"
 
-            let rendFingerPrint =
+            let rendezvousFingerPrint =
                 let linkSpecifierOpt =
                     innerData.RendezvousLinkSpecifiers
                     |> Seq.filter(fun linkS ->
@@ -184,8 +184,8 @@ type TorServiceHost
 
             let connectToRendezvousJob =
                 tryConnectingToRendezvous
-                    rendEndpoint
-                    rendFingerPrint
+                    rendezvousEndpoint
+                    rendezvousFingerPrint
                     innerData.OnionKey
                     innerData.RendezvousCookie
                     introduce.ClientPublicKey
