@@ -4,7 +4,6 @@ open System
 open System.Net
 open System.Security.Cryptography
 open System.Text
-open System.Text.Json
 
 open Org.BouncyCastle.Crypto.Agreement
 open Org.BouncyCastle.Crypto.Digests
@@ -68,15 +67,18 @@ type TorServiceClient =
                 .Create()
                 .GetNonZeroBytes randomGeneratedCookie
 
-            let! endpoint, guardnode = directory.GetRouter false
-            let! _, rendNode = directory.GetRouter false
+            let! endpoint, guardnode = directory.GetRouter RouterType.Guard
+            let! _, rendezvousNode = directory.GetRouter RouterType.Normal
 
-            let! rendGuard = TorGuard.NewClient endpoint
-            let rendCircuit = TorCircuit rendGuard
+            let! rendezvousGuard = TorGuard.NewClient endpoint
+            let rendezvousCircuit = TorCircuit rendezvousGuard
 
-            do! rendCircuit.Create guardnode |> Async.Ignore
-            do! rendCircuit.Extend rendNode |> Async.Ignore
-            do! rendCircuit.RegisterAsRendezvousPoint randomGeneratedCookie
+            do! rendezvousCircuit.Create guardnode |> Async.Ignore
+            do! rendezvousCircuit.Extend rendezvousNode |> Async.Ignore
+
+            do!
+                rendezvousCircuit.RegisterAsRendezvousPoint
+                    randomGeneratedCookie
 
             let privateKey, publicKey =
                 let kpGen = X25519KeyPairGenerator()
@@ -87,7 +89,7 @@ type TorServiceClient =
                 keyPair.Private :?> X25519PrivateKeyParameters,
                 keyPair.Public :?> X25519PublicKeyParameters
 
-            match rendNode with
+            match rendezvousNode with
             | Create(address, onionKey, identityKey) ->
                 let introduceInnerData =
                     {
@@ -130,13 +132,13 @@ type TorServiceClient =
                         EncryptedData = data
                     }
 
-                let introCircuit = TorCircuit rendGuard
+                let introCircuit = TorCircuit rendezvousGuard
 
                 do! introCircuit.Create guardnode |> Async.Ignore
                 do! introCircuit.Extend nodeDetail |> Async.Ignore
 
-                let rendJoin =
-                    rendCircuit.WaitingForRendezvousJoin
+                let rendezvousJoin =
+                    rendezvousCircuit.WaitingForRendezvousJoin
                         privateKey
                         publicKey
                         authKey
@@ -155,15 +157,17 @@ type TorServiceClient =
                                 )
                     }
 
-                do! Async.Parallel [ introduceJob; rendJoin ] |> Async.Ignore
+                do!
+                    Async.Parallel [ introduceJob; rendezvousJoin ]
+                    |> Async.Ignore
 
-                let serviceStream = TorStream rendCircuit
+                let serviceStream = TorStream rendezvousCircuit
                 do! serviceStream.ConnectToService() |> Async.Ignore
 
                 return
                     {
-                        RendezvousGuard = rendGuard
-                        RendezvousCircuit = rendCircuit
+                        RendezvousGuard = rendezvousGuard
+                        RendezvousCircuit = rendezvousCircuit
                         Stream = serviceStream
                     }
             | _ -> return failwith "wat?"

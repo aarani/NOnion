@@ -20,6 +20,8 @@ type TorGuard private (client: TcpClient, sslStream: SslStream) =
     // Prevents two circuit setup happening at once (to prevent race condition on writing to CircuitIds list)
     let circuitSetupLock: obj = obj()
 
+    let sendLock = SemaphoreLocker()
+
     static member NewClient(ipEndpoint: IPEndPoint) =
         async {
             let tcpClient = new TcpClient()
@@ -83,37 +85,42 @@ type TorGuard private (client: TcpClient, sslStream: SslStream) =
         TorGuard.NewClient ipEndpoint |> Async.StartAsTask
 
     member __.Send (circuidId: uint16) (cellToSend: ICell) =
-        async {
-            use memStream = new MemoryStream(Constants.FixedPayloadLength)
-            use writer = new BinaryWriter(memStream)
-            cellToSend.Serialize writer
+        let safeSend() =
+            async {
+                use memStream = new MemoryStream(Constants.FixedPayloadLength)
+                use writer = new BinaryWriter(memStream)
+                cellToSend.Serialize writer
 
-            // Write circuitId and command for the cell
-            // (We assume every cell that is being sent here uses 0 as circuitId
-            // because we haven't completed the handshake yet to have a circuit
-            // up.)
+                // Write circuitId and command for the cell
+                // (We assume every cell that is being sent here uses 0 as circuitId
+                // because we haven't completed the handshake yet to have a circuit
+                // up.)
 
-            do!
-                circuidId
-                |> IntegerSerialization.FromUInt16ToBigEndianByteArray
-                |> StreamUtil.Write sslStream
-
-            do! Array.singleton cellToSend.Command |> StreamUtil.Write sslStream
-
-            if Command.IsVariableLength cellToSend.Command then
                 do!
-                    memStream.Length
-                    |> uint16
+                    circuidId
                     |> IntegerSerialization.FromUInt16ToBigEndianByteArray
                     |> StreamUtil.Write sslStream
-            else
-                Array.zeroCreate<byte>(
-                    Constants.FixedPayloadLength - int memStream.Position
-                )
-                |> writer.Write
 
-            do! memStream.ToArray() |> StreamUtil.Write sslStream
-        }
+                do!
+                    Array.singleton cellToSend.Command
+                    |> StreamUtil.Write sslStream
+
+                if Command.IsVariableLength cellToSend.Command then
+                    do!
+                        memStream.Length
+                        |> uint16
+                        |> IntegerSerialization.FromUInt16ToBigEndianByteArray
+                        |> StreamUtil.Write sslStream
+                else
+                    Array.zeroCreate<byte>(
+                        Constants.FixedPayloadLength - int memStream.Position
+                    )
+                    |> writer.Write
+
+                do! memStream.ToArray() |> StreamUtil.Write sslStream
+            }
+
+        sendLock.RunAsyncWithSemaphore safeSend
 
     member self.SendAsync (circuidId: uint16) (cellToSend: ICell) =
         self.Send circuidId cellToSend |> Async.StartAsTask

@@ -5,7 +5,6 @@ open System.IO
 open System.Net
 open System.Net.Sockets
 open System.Threading
-open System.Text.Json
 open FSharpx.Collections
 
 open Org.BouncyCastle.Crypto
@@ -73,8 +72,8 @@ type TorServiceHost
 
     member private self.RelayIntroduceCallback(introduce: RelayIntroduce) =
         let rec tryConnectingToRendezvous
-            rendEndpoint
-            rendFingerPrint
+            rendezvousEndpoint
+            rendezvousFingerPrint
             onionKey
             cookie
             clientPubKey
@@ -83,27 +82,28 @@ type TorServiceHost
             introEncPubKey
             =
             async {
-                let! endPoint, randomNodeDetails = directory.GetRouter false
+                let! endPoint, randomNodeDetails =
+                    directory.GetRouter RouterType.Guard
 
                 let! guard = TorGuard.NewClient endPoint
 
-                let rendCircuit =
+                let rendezvousCircuit =
                     TorCircuit(guard, self.IncomingServiceStreamCallback)
 
-                do! rendCircuit.Create randomNodeDetails |> Async.Ignore
+                do! rendezvousCircuit.Create randomNodeDetails |> Async.Ignore
 
                 do!
-                    rendCircuit.Extend(
+                    rendezvousCircuit.Extend(
                         CircuitNodeDetail.Create(
-                            rendEndpoint,
+                            rendezvousEndpoint,
                             onionKey,
-                            rendFingerPrint
+                            rendezvousFingerPrint
                         )
                     )
                     |> Async.Ignore
 
                 do!
-                    rendCircuit.Rendezvous
+                    rendezvousCircuit.Rendezvous
                         cookie
                         (X25519PublicKeyParameters(clientPubKey, 0))
                         introAuthPubKey
@@ -158,7 +158,7 @@ type TorServiceHost
             if digest <> introduce.Mac then
                 failwith "Invalid mac"
 
-            let rendEndpoint =
+            let rendezvousEndpoint =
                 let linkSpecifierOpt =
                     innerData.RendezvousLinkSpecifiers
                     |> Seq.filter(fun linkS ->
@@ -170,7 +170,7 @@ type TorServiceHost
                 | Some linkSpecifier -> linkSpecifier.ToEndPoint()
                 | None -> failwith "No rendezvous endpoint found!"
 
-            let rendFingerPrint =
+            let rendezvousFingerPrint =
                 let linkSpecifierOpt =
                     innerData.RendezvousLinkSpecifiers
                     |> Seq.filter(fun linkS ->
@@ -184,8 +184,8 @@ type TorServiceHost
 
             let connectToRendezvousJob =
                 tryConnectingToRendezvous
-                    rendEndpoint
-                    rendFingerPrint
+                    rendezvousEndpoint
+                    rendezvousFingerPrint
                     innerData.OnionKey
                     innerData.RendezvousCookie
                     introduce.ClientPublicKey
@@ -207,13 +207,16 @@ type TorServiceHost
     member self.Start() =
         let safeCreateIntroductionPoint() =
             async {
-                let! _, introNodeDetail = directory.GetRouter false
+                let! guardEndPoint, guardNodeDetail =
+                    directory.GetRouter RouterType.Guard
+
+                let! _, introNodeDetail = directory.GetRouter RouterType.Normal
 
                 match introNodeDetail with
                 | FastCreate -> return failwith "should not happen"
                 | Create(address, onionKey, fingerprint) ->
 
-                    let! guard = TorGuard.NewClient address
+                    let! guard = TorGuard.NewClient guardEndPoint
                     let circuit = TorCircuit guard
 
                     let encKeyPair, authKeyPair, randomMasterPubKey =
@@ -251,7 +254,8 @@ type TorServiceHost
                             introductionPointInfo
                             introductionPointKeys
 
-                    do! circuit.Create introNodeDetail |> Async.Ignore
+                    do! circuit.Create guardNodeDetail |> Async.Ignore
+                    do! circuit.Extend introNodeDetail |> Async.Ignore
 
                     do!
                         circuit.RegisterAsIntroductionPoint

@@ -866,6 +866,9 @@ type TorCircuit
                     | RelayTruncated reason ->
                         let handleTruncated() =
                             match circuitState with
+                            | CircuitState.Initialized ->
+                                // Circuit isn't created yet!
+                                ()
                             | Creating(circuitId, _, tcs)
                             | Extending(circuitId, _, _, tcs) ->
                                 circuitState <- Truncated(circuitId, reason)
@@ -893,12 +896,14 @@ type TorCircuit
                                 tcs.SetException(
                                     CircuitTruncatedException reason
                                 )
-                            | Ready(circuitId, _) ->
-                                //FIXME: how can we tell the user that circuit is destroyed? if we throw here the listening thread with throw and user never finds out why
+                            //FIXME: how can we tell the user that circuit is destroyed? if we throw here the listening thread with throw and user never finds out why
+                            | Ready(circuitId, _)
+                            | ReadyAsIntroductionPoint(circuitId, _, _, _, _)
+                            | ReadyAsRendezvousPoint(circuitId, _)
+                            // The circuit was already dead in our eyes, so we don't care about it being destroyed, just update the state to new destroyed state
+                            | Destroyed(circuitId, _)
+                            | Truncated(circuitId, _) ->
                                 circuitState <- Truncated(circuitId, reason)
-                            | _ ->
-                                //FIXME: can this even happen?
-                                ()
 
                         controlLock.RunSyncWithSemaphore handleTruncated
                     | RelayData.RelayIntroduceAck ackMsg ->
@@ -988,6 +993,9 @@ type TorCircuit
                     let handleDestroyed() =
 
                         match circuitState with
+                        | CircuitState.Initialized ->
+                            // Circuit isn't created yet!
+                            ()
                         | Creating(circuitId, _, tcs)
                         | Extending(circuitId, _, _, tcs) ->
 
@@ -1020,13 +1028,15 @@ type TorCircuit
                             tcs.SetException(
                                 CircuitDestroyedException destroyCell.Reason
                             )
-                        | Ready(circuitId, _) ->
-                            //FIXME: how can we tell the user that circuit is destroyed? if we throw here the listening thread with throw and user never finds out why
+                        //FIXME: how can we tell the user that circuit is destroyed? if we throw here the listening thread will throw and user never finds out why
+                        | Ready(circuitId, _)
+                        | ReadyAsIntroductionPoint(circuitId, _, _, _, _)
+                        | ReadyAsRendezvousPoint(circuitId, _)
+                        // The circuit was already dead in our eyes, so we don't care about it being destroyed, just update the state to new destroyed state
+                        | Destroyed(circuitId, _)
+                        | Truncated(circuitId, _) ->
                             circuitState <-
                                 Destroyed(circuitId, destroyCell.Reason)
-                        | _ ->
-                            //FIXME: can this even happen?
-                            ()
 
                     controlLock.RunSyncWithSemaphore handleDestroyed
                 | _ -> ()
