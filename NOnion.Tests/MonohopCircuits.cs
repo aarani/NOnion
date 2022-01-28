@@ -7,10 +7,11 @@ using System.Threading.Tasks;
 
 using NUnit.Framework;
 
-using NOnion.Network;
-using NOnion.Http;
-using NOnion.Directory;
-using NOnion.Utility;
+using NOnion.Core;
+using NOnion.Core.Network;
+using NOnion.Core.Http;
+using NOnion.Core.Directory;
+using NOnion.Core.Utility;
 
 namespace NOnion.Tests
 {

@@ -1,6 +1,6 @@
 using NUnit.Framework;
-using NOnion.Crypto;
-using NOnion.Utility;
+using NOnion.Core.Crypto;
+using NOnion.Core.Utility;
 
 namespace NOnion.Tests
 {

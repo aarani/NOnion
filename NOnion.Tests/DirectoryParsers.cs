@@ -3,7 +3,7 @@
 using NUnit.Framework;
 using Newtonsoft.Json;
 
-using NOnion.Directory;
+using NOnion.Core.Directory;
 
 
 

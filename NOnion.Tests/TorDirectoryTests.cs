@@ -5,9 +5,9 @@ using System.Text;
 using System.Threading.Tasks;
 using NUnit.Framework;
 
-using NOnion;
-using NOnion.Directory;
-using NOnion.Network;
+using NOnion.Core;
+using NOnion.Core.Directory;
+using NOnion.Core.Network;
 
 namespace NOnion.Tests
 {

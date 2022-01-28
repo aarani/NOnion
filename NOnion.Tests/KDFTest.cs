@@ -1,6 +1,6 @@
-﻿using NOnion;
-using NOnion.Utility;
-using NOnion.Crypto.Kdf;
+﻿using NOnion.Core;
+using NOnion.Core.Utility;
+using NOnion.Core.Crypto.Kdf;
 using NUnit.Framework;
 
 namespace NOnion.Tests

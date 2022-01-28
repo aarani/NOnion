@@ -4,8 +4,9 @@ using System.Threading.Tasks;
 
 using NUnit.Framework;
 
-using NOnion.Network;
-using NOnion.Http;
+using NOnion.Core;
+using NOnion.Core.Network;
+using NOnion.Core.Http;
 
 namespace NOnion.Tests
 {

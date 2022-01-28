@@ -5,9 +5,9 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using NOnion;
-using NOnion.Utility;
-using NOnion.Cells;
+using NOnion.Core;
+using NOnion.Core.Utility;
+using NOnion.Core.Cells;
 using NUnit.Framework;
 
 namespace NOnion.Tests

@@ -10,12 +10,13 @@ using System.IO;
 using NUnit.Framework;
 using Org.BouncyCastle.Crypto;
 
-using NOnion.Network;
-using NOnion.Http;
-using NOnion.Cells.Relay;
-using NOnion.Directory;
+using NOnion.Core;
+using NOnion.Core.Network;
+using NOnion.Core.Http;
+using NOnion.Core.Cells.Relay;
+using NOnion.Core.Directory;
 using NOnion.Tests.Utility;
-using NOnion.Services;
+using NOnion.Core.Services;
 
 namespace NOnion.Tests
 {

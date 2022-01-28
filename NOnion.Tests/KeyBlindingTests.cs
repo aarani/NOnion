@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using NOnion.Crypto;
+using NOnion.Core.Crypto;
 using NUnit.Framework;
 
 namespace NOnion.Tests

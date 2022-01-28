@@ -8,11 +8,11 @@ using Microsoft.FSharp.Core;
 
 using NUnit.Framework;
 
-using NOnion;
-using NOnion.Directory;
-using NOnion.Http;
-using NOnion.Network;
-using NOnion.Utility;
+using NOnion.Core;
+using NOnion.Core.Directory;
+using NOnion.Core.Http;
+using NOnion.Core.Network;
+using NOnion.Core.Utility;
 
 namespace NOnion.Tests
 {

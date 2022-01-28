@@ -5,7 +5,7 @@ VisualStudioVersion = 16.0.31205.134
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "NOnion.Tests", "NOnion.Tests\NOnion.Tests.csproj", "{CC516495-9231-43D0-B555-6DD65302A669}"
 EndProject
-Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "NOnion", "NOnion\NOnion.fsproj", "{AC5695A4-E36E-423E-8E7C-C11906FEDD71}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "NOnion.Core", "NOnion.Core\NOnion.Core.fsproj", "{AC5695A4-E36E-423E-8E7C-C11906FEDD71}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Chaos.NaCl-Portable", "Chaos.NaCl\Chaos.NaCl\Chaos.NaCl-Portable.csproj", "{E11D558C-0653-4D68-9C88-8AEF7970DA65}"
 EndProject
