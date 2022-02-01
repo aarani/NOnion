@@ -1,0 +1,33 @@
+
+# Fix typo Intorduction -> Introduction
+556e3cbe2fcfa447c1b407296fd197b80792785a
+
+# Services: use unabbreviated version of "rendezvous"
+1bb6c46dcf6346d2ebe552ddf973479613453731
+
+# Finish renaming solution and projects
+01a34f4973ab0942efb396690348a9a05284352e
+
+
+##### fantomless/fantomas related: ###############
+
+# fantomless: update to v4.5.7.2
+3a02a4029e6e2bc8126961b65506a1be2d5b882a
+
+# fantomless: change style preferences
+8364aef6e18cdd748cb50f653c7e93b01b83ed5b
+
+# fantomless: change indent on try setting
+e79c4a97b8e50f821af512bf03ba9eac4f1431ca
+
+# fantomless: upgrade from 4.5.3 to 4.5.3.1
+7f240ca5e4a0081a191c7e4d4fb9ab02bb03d1ae
+
+# fantomas: turn off elmish syntax setting
+e1ed718b1cdeac7870442b28dcd3431a5b5305a2
+
+# CI: Update fantomas to version 4.5.0
+7c892fe1c05a23447f0f03d0f61f8790b26d0c51
+
+# CI: add fantomas step
+2c7ba0880073b4726f3342d6c08928a4b4525dcd
