@@ -268,7 +268,7 @@
     "favourTypedIgnore": { "enabled": true },
     "favourReRaise": { "enabled": true },
     "favourConsistentThis": {
-        "enabled": true,
+        "enabled": false,
         "config": {
             "symbol": "self"
         }
