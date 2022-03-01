@@ -30,6 +30,12 @@
             "depth": 8
         }
     },
+    "cyclomaticComplexity": {
+        "enabled": false,
+        "config": {
+            "maxComplexity": 40
+        }
+    },
     "reimplementsFunction": { "enabled": true },
     "canBeReplacedWithComposition": { "enabled": true },
     "failwithWithSingleArgument": { "enabled": true },
@@ -38,6 +44,7 @@
     "invalidOpWithSingleArgument": { "enabled": true },
     "invalidArgWithTwoArguments": { "enabled": true },
     "failwithfWithArgumentsMatchingFormatString": { "enabled": true },
+    "failwithBadUsage": { "enabled": true },
     "maxLinesInLambdaFunction": {
         "enabled": false,
         "config": {
@@ -202,14 +209,14 @@
             "underscores": "None"
         }
     },
-    "publicValuesNames": {
+    "genericTypesNames": {
         "enabled": true,
         "config": {
             "naming": "PascalCase",
             "underscores": "None"
         }
     },
-    "internalValuesNames": {
+    "publicValuesNames": {
         "enabled": true,
         "config": {
             "naming": "PascalCase",
@@ -220,6 +227,13 @@
         "enabled": false,
         "config": {
             "naming": "CamelCase",
+            "underscores": "None"
+        }
+    },
+    "internalValuesNames": {
+        "enabled": true,
+        "config": {
+            "naming": "PascalCase",
             "underscores": "None"
         }
     },
@@ -251,6 +265,15 @@
     "wildcardNamedWithAsPattern": { "enabled": true },
     "uselessBinding": { "enabled": true },
     "tupleOfWildcards": { "enabled": true },
+    "favourTypedIgnore": { "enabled": true },
+    "favourReRaise": { "enabled": true },
+    "favourConsistentThis": {
+        "enabled": true,
+        "config": {
+            "symbol": "self"
+        }
+    },
+    "avoidTooShortNames": { "enabled": true },
     "indentation": {
         "enabled": false
     },
