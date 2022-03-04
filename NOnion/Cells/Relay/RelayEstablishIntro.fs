@@ -147,12 +147,10 @@ type RelayEstablishIntro =
             if sigLength = authKey.SignatureLength then
                 sigLength |> reader.ReadBytes
             else
-                failwith(
-                    sprintf
-                        "EstablishIntro deserialization failed, invalid signature size (expected %d, got %d)"
-                        authKey.SignatureLength
-                        sigLength
-                )
+                failwithf
+                    "EstablishIntro deserialization failed, invalid signature size (expected %i, got %i)"
+                    authKey.SignatureLength
+                    sigLength
 
         {
             AuthKey = authKey
@@ -164,20 +162,16 @@ type RelayEstablishIntro =
     member self.ToBytes (serializeMac: bool) (serializeSignature: bool) =
         if serializeSignature
            && self.AuthKey.SignatureLength <> self.Signature.Length then
-            failwith(
-                sprintf
-                    "EstablishIntro serialization failed, signature should be %d bytes (was %d)"
-                    self.AuthKey.SignatureLength
-                    self.Signature.Length
-            )
+            failwithf
+                "EstablishIntro serialization failed, signature should be %i bytes (was %i)"
+                self.AuthKey.SignatureLength
+                self.Signature.Length
 
         if serializeMac && self.AuthKey.MacLength <> self.HandshakeAuth.Length then
-            failwith(
-                sprintf
-                    "EstablishIntro serialization failed, digest should be %d bytes (was %d)"
-                    self.AuthKey.MacLength
-                    self.HandshakeAuth.Length
-            )
+            failwithf
+                "EstablishIntro serialization failed, digest should be %i bytes (was %i)"
+                self.AuthKey.MacLength
+                self.HandshakeAuth.Length
 
         let digestAndSignature =
             match serializeMac, serializeSignature with

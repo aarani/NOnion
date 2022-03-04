@@ -71,10 +71,7 @@ type TorHttpClient(stream: TorStream, host: string) =
                 responseLine.[0], responseLine.[1]
 
             if status <> "200" then
-                return
-                    failwith(
-                        sprintf "Non-200 status code received, code: %s" status
-                    )
+                return failwithf "Non-200 status code received, code: %s" status
 
             let parseHeaderLine(header: string) =
                 let splittedHeader =
@@ -109,11 +106,9 @@ type TorHttpClient(stream: TorStream, host: string) =
                 return outMemStream.ToArray() |> Encoding.UTF8.GetString
             | true, compressionMethod ->
                 return
-                    failwith(
-                        sprintf
-                            "Unknown content-encoding value, %s"
-                            compressionMethod
-                    )
+                    failwithf
+                        "Unknown content-encoding value, %s"
+                        compressionMethod
         }
 
     member self.GetAsStringAsync path forceUncompressed =

@@ -35,7 +35,7 @@ type TorStream(circuit: TorCircuit) =
             do! circuit.SendRelayCell streamId (RelayConnected Array.empty) None
 
             sprintf
-                "TorStream[%d,%d]: incoming stream accepted"
+                "TorStream[%i,%i]: incoming stream accepted"
                 streamId
                 circuit.Id
             |> TorLogger.Log
@@ -56,7 +56,7 @@ type TorStream(circuit: TorCircuit) =
                                 None
 
                         sprintf
-                            "TorStream[%d,%d]: sending stream end packet"
+                            "TorStream[%i,%i]: sending stream end packet"
                             streamId
                             circuit.Id
                         |> TorLogger.Log
@@ -124,7 +124,7 @@ type TorStream(circuit: TorCircuit) =
                 streamState <- Connecting(streamId, tcs)
 
                 sprintf
-                    "TorStream[%d,%d]: creating a hidden service stream"
+                    "TorStream[%i,%i]: creating a hidden service stream"
                     streamId
                     circuit.Id
                 |> TorLogger.Log
@@ -163,7 +163,7 @@ type TorStream(circuit: TorCircuit) =
                     streamState <- Connecting(streamId, tcs)
 
                     sprintf
-                        "TorStream[%d,%d]: creating a directory stream"
+                        "TorStream[%i,%i]: creating a directory stream"
                         streamId
                         circuit.Id
                     |> TorLogger.Log
@@ -267,11 +267,9 @@ type TorStream(circuit: TorCircuit) =
                         controlLock.RunSyncWithSemaphore markStreamAsEnded
                     | RelayEnd reason ->
                         return
-                            failwith(
-                                sprintf
-                                    "Stream closed unexpectedly, reason = %s"
-                                    (reason.ToString())
-                            )
+                            failwithf
+                                "Stream closed unexpectedly, reason = %s"
+                                (reason.ToString())
                     | _ ->
                         return
                             failwith
@@ -355,7 +353,7 @@ type TorStream(circuit: TorCircuit) =
                             tcs.SetResult streamId
 
                             sprintf
-                                "TorStream[%d,%d]: connected!"
+                                "TorStream[%i,%i]: connected!"
                                 streamId
                                 circuit.Id
                             |> TorLogger.Log
@@ -372,7 +370,7 @@ type TorStream(circuit: TorCircuit) =
                         match streamState with
                         | Connecting(streamId, tcs) ->
                             sprintf
-                                "TorStream[%d,%d]: received end packet while connecting"
+                                "TorStream[%i,%i]: received end packet while connecting"
                                 streamId
                                 circuit.Id
                             |> TorLogger.Log
@@ -387,7 +385,7 @@ type TorStream(circuit: TorCircuit) =
                             |> tcs.SetException
                         | Connected streamId ->
                             sprintf
-                                "TorStream[%d,%d]: received end packet while connected"
+                                "TorStream[%i,%i]: received end packet while connected"
                                 streamId
                                 circuit.Id
                             |> TorLogger.Log

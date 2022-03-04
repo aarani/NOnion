@@ -173,11 +173,9 @@ type TorCircuit
                             relayData
                     )
             | _ ->
-                failwith(
-                    sprintf
-                        "Can't relay cell over circuit, %s state"
-                        (circuitState.ToString())
-                )
+                failwithf
+                    "Can't relay cell over circuit, %s state"
+                    (circuitState.ToString())
         }
 
     member self.SendRelayCell
@@ -197,11 +195,9 @@ type TorCircuit
                                 customDestinationOpt
                                 false
                     | _ ->
-                        failwith(
-                            sprintf
-                                "Can't relay cell over circuit, %s state"
-                                (circuitState.ToString())
-                        )
+                        failwithf
+                            "Can't relay cell over circuit, %s state"
+                            (circuitState.ToString())
                 }
 
             return! controlLock.RunAsyncWithSemaphore safeSend
