@@ -7,6 +7,8 @@ open NOnion
 type CellCreatedFast =
     private
         {
+            // TODO: FSharpLint's AvoidTooShortNames rule not catching
+            //       the below's "Y", report the bug
             Y: array<byte>
             DerivativeKeyData: array<byte>
         }

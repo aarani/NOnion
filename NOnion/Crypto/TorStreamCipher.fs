@@ -28,6 +28,8 @@ type TorStreamCipher(keyBytes: array<byte>, ivOpt: Option<array<byte>>) =
                     Padding = PaddingMode.None
                 )
 
+            // TODO: FSharpLint's AvoidTooShortNames rule not catching
+            //       the below's "x", report the bug
             let rec innerEncrypt (x: int) (state: array<byte>) =
                 if x >= data.Length then
                     state
