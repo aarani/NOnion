@@ -28,6 +28,8 @@ type TorStreamCipher(keyBytes: array<byte>, ivOpt: Option<array<byte>>) =
                     Padding = PaddingMode.None
                 )
 
+            // TODO: FSharpLint's AvoidTooShortNames rule not catching
+            //       the below's "x", report the bug
             let rec innerEncrypt (x: int) (state: array<byte>) =
                 if x >= data.Length then
                     state
@@ -51,27 +53,28 @@ type TorStreamCipher(keyBytes: array<byte>, ivOpt: Option<array<byte>>) =
                                     0
                                     BlockSize
 
-                            let increamentCounter() : unit =
-                                let rec innerIncreament i (carry: int) =
-                                    if i < 0 then
+                            let incrementCounter() : unit =
+                                let rec innerIncrement pos (carry: int) =
+                                    if pos < 0 then
                                         ()
                                     else
-                                        let x =
-                                            (int(counter.[i]) &&& 0xff) + carry
+                                        let incrementedByte =
+                                            (int(counter.[pos]) &&& 0xff)
+                                            + carry
 
                                         let carry: int =
-                                            if x > 0xff then
+                                            if incrementedByte > 0xff then
                                                 1
                                             else
                                                 0
 
-                                        counter.[i] <- byte x
-                                        innerIncreament(i - 1) carry
+                                        counter.[pos] <- byte incrementedByte
+                                        innerIncrement(pos - 1) carry
 
-                                innerIncreament(counter.Length - 1) 1
+                                innerIncrement(counter.Length - 1) 1
 
                             encryptCounter()
-                            increamentCounter()
+                            incrementCounter()
 
                             0
 

@@ -7,17 +7,16 @@ open NOnion
 type CellCreatedFast =
     private
         {
+            // TODO: FSharpLint's AvoidTooShortNames rule not catching
+            //       the below's "Y", report the bug
             Y: array<byte>
             DerivativeKeyData: array<byte>
         }
 
     static member Deserialize(reader: BinaryReader) =
-        let y = reader.ReadBytes Constants.HashLength
-        let derivativeKeyData = reader.ReadBytes Constants.HashLength
-
         {
-            Y = y
-            DerivativeKeyData = derivativeKeyData
+            Y = reader.ReadBytes Constants.HashLength
+            DerivativeKeyData = reader.ReadBytes Constants.HashLength
         }
         :> ICell
 
