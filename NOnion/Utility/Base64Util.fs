@@ -15,7 +15,7 @@ module Base64Util =
 
         if missingPadding > 0 then
             input
-            + (String.replicate(modulus - missingPadding) paddingCharacter)
+            + (String.replicate (modulus - missingPadding) paddingCharacter)
         else
             input
 

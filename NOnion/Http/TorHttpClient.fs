@@ -61,7 +61,7 @@ type TorHttpClient(stream: TorStream, host: string) =
                     MemoryExtensions.IndexOf(httpResponse.AsSpan(), delimiter)
 
                 Encoding.UTF8.GetString(httpResponse, 0, headerEndIndex),
-                httpResponse.[headerEndIndex + delimiter.Length..]
+                httpResponse.[headerEndIndex + delimiter.Length ..]
 
             let headerLines =
                 header.Split(Array.singleton "\r\n", StringSplitOptions.None)

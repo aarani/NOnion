@@ -52,7 +52,7 @@ type RelayIntroduceInnerData =
                 |> List.append state
                 |> readLinkSpecifier(n - 1uy)
 
-        let linkSpecifiers = readLinkSpecifier(reader.ReadByte()) List.empty
+        let linkSpecifiers = readLinkSpecifier (reader.ReadByte()) List.empty
 
         {
             RendezvousCookie = cookie

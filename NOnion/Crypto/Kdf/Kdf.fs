@@ -21,7 +21,7 @@ module Kdf =
             else
                 let hashResult = sha1Engine.ComputeHash(Array.append k0 [| i |])
 
-                innerCompute(i + 1uy) (Array.append state hashResult)
+                innerCompute (i + 1uy) (Array.append state hashResult)
 
         let kdfBytes = innerCompute 0uy Array.empty
 
@@ -35,17 +35,17 @@ module Kdf =
 
         // Offset = 2 * HashLength, Length = HashLength
         let backwardDigest =
-            Array.skip(2 * Constants.HashLength) kdfBytes
+            Array.skip (2 * Constants.HashLength) kdfBytes
             |> Array.take Constants.HashLength
 
         // Offset = 3 * HashLength, Length = KeyLength
         let forwardKey =
-            Array.skip(3 * Constants.HashLength) kdfBytes
+            Array.skip (3 * Constants.HashLength) kdfBytes
             |> Array.take Constants.KeyLength
 
         // Offset = 3 * HashLength + KeyLength, Length = KeyLength
         let backwardKey =
-            Array.skip(3 * Constants.HashLength + Constants.KeyLength) kdfBytes
+            Array.skip (3 * Constants.HashLength + Constants.KeyLength) kdfBytes
             |> Array.take Constants.KeyLength
 
         {
@@ -79,12 +79,12 @@ module Kdf =
 
         // Offset = 2 * HashLength, Length = KeyLength
         let forwardKey =
-            Array.skip(2 * Constants.HashLength) kdfBytes
+            Array.skip (2 * Constants.HashLength) kdfBytes
             |> Array.take Constants.KeyLength
 
         // Offset = 2 * HashLength + KeyLength, Length = KeyLength
         let backwardKey =
-            Array.skip(2 * Constants.HashLength + Constants.KeyLength) kdfBytes
+            Array.skip (2 * Constants.HashLength + Constants.KeyLength) kdfBytes
             |> Array.take Constants.KeyLength
 
         // Offset = 2 * HashLength + 2 * KeyLength, Length = HashLength
@@ -124,7 +124,7 @@ module Kdf =
 
         // Offset = 2 * HashLength, Length = KeyS256Length
         let forwardKey =
-            Array.skip(2 * Constants.HashLength) kdfBytes
+            Array.skip (2 * Constants.HashLength) kdfBytes
             |> Array.take Constants.KeyS256Length
 
         // Offset = 2 * HashLength + KeyS256Length, Length = KeyS256Length

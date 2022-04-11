@@ -69,9 +69,9 @@ type TorStreamCipher(keyBytes: array<byte>, ivOpt: Option<array<byte>>) =
                                                 0
 
                                         counter.[pos] <- byte incrementedByte
-                                        innerIncrement(pos - 1) carry
+                                        innerIncrement (pos - 1) carry
 
-                                innerIncrement(counter.Length - 1) 1
+                                innerIncrement (counter.Length - 1) 1
 
                             encryptCounter()
                             incrementCounter()
@@ -91,7 +91,7 @@ type TorStreamCipher(keyBytes: array<byte>, ivOpt: Option<array<byte>>) =
                         counterOut.[keyStreamPointer]
 
                     let nextByte = (data.[x] ^^^ nextKeyStreamByte())
-                    innerEncrypt(x + 1) (Array.append state [| nextByte |])
+                    innerEncrypt (x + 1) (Array.append state [| nextByte |])
 
             innerEncrypt 0 Array.empty
 
