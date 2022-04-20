@@ -37,7 +37,7 @@ jobs:
         run: dotnet build --configuration Release --no-restore
       - name: fsharpLint
         run: |
-          dotnet tool install --global dotnet-fsharplint --version 0.21.1
+          dotnet tool install --global dotnet-fsharplint --version 0.21.2
 
           # path taken from https://stackoverflow.com/a/65367006/544947
           $HOME/.dotnet/tools/dotnet-fsharplint lint NOnion.sln
@@ -46,7 +46,7 @@ jobs:
       #        visual warning icon (instead of green tick) on GitHubActionsCI
       - name: fantomless
         run: |
-          dotnet tool install --global fantomless-tool --version 4.5.12.4
+          dotnet tool update --global fantomless-tool --version 4.7.997-prerelease
 
           # path taken from https://stackoverflow.com/a/65367006/544947
           $HOME/.dotnet/tools/fantomless --recurse .
