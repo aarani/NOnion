@@ -90,8 +90,11 @@ type TorStreamCipher(keyBytes: array<byte>, ivOpt: Option<array<byte>>) =
                         keyStreamPointerOpt <- Some(keyStreamPointer + 1)
                         counterOut.[keyStreamPointer]
 
-                    let nextByte = (data.[x] ^^^ nextKeyStreamByte())
-                    innerEncrypt (x + 1) (Array.append state [| nextByte |])
+                    let nextByte = data.[x] ^^^ nextKeyStreamByte()
+
+                    innerEncrypt
+                        (x + 1)
+                        (Array.append state (Array.singleton nextByte))
 
             innerEncrypt 0 Array.empty
 
