@@ -42,7 +42,7 @@ module HiddenServicesCipher =
         let output = Array.zeroCreate length
 
         digestEngine.BlockUpdate(data, 0, data.Length)
-        digestEngine.DoFinal(output, 0) |> ignore<int>
+        digestEngine.DoFinal(output, 0, length) |> ignore<int>
         output
 
     let CalculateBlindingFactor
