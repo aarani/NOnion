@@ -19,8 +19,8 @@ type TorCryptoState =
         : TorCryptoState =
         let fCipher = TorStreamCipher(kdfResult.ForwardKey, None)
         let bCipher = TorStreamCipher(kdfResult.BackwardKey, None)
-        let fDigest = TorMessageDigest()
-        let bDigest = TorMessageDigest()
+        let fDigest = TorMessageDigest(kdfResult.IsHSV3)
+        let bDigest = TorMessageDigest(kdfResult.IsHSV3)
 
         fDigest.Update kdfResult.ForwardDigest 0 kdfResult.ForwardDigest.Length
 
