@@ -936,7 +936,8 @@ type TorCircuit
                                 ) ->
 
                                 let serverPublicKey =
-                                    rendMsg.HandshakeData |> Array.take 32
+                                    rendMsg.HandshakeData
+                                    |> Array.take Constants.KeyS256Length
 
                                 let ntorKeySeed, mac =
                                     HiddenServicesCipher.CalculateClientRendezvousKeys
@@ -950,7 +951,9 @@ type TorCircuit
                                         introEncPublicKey
 
                                 if mac
-                                   <> (rendMsg.HandshakeData |> Array.skip 32) then
+                                   <> (rendMsg.HandshakeData
+                                       |> Array.skip Constants.KeyS256Length
+                                       |> Array.take Constants.Digest256Length) then
                                     failwith "Invalid handshake data"
 
 
