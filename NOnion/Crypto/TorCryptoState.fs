@@ -17,31 +17,34 @@ type TorCryptoState =
         (kdfResult: KdfResult)
         (reverse: bool)
         : TorCryptoState =
-        let fCipher = TorStreamCipher(kdfResult.ForwardKey, None)
-        let bCipher = TorStreamCipher(kdfResult.BackwardKey, None)
-        let fDigest = TorMessageDigest()
-        let bDigest = TorMessageDigest()
+        let forwardCipher = TorStreamCipher(kdfResult.ForwardKey, None)
+        let backwardCipher = TorStreamCipher(kdfResult.BackwardKey, None)
+        let forwardDigest = TorMessageDigest kdfResult.IsHSV3
+        let backwardDigest = TorMessageDigest kdfResult.IsHSV3
 
-        fDigest.Update kdfResult.ForwardDigest 0 kdfResult.ForwardDigest.Length
+        forwardDigest.Update
+            kdfResult.ForwardDigest
+            0
+            kdfResult.ForwardDigest.Length
 
-        bDigest.Update
+        backwardDigest.Update
             kdfResult.BackwardDigest
             0
             kdfResult.BackwardDigest.Length
 
         if reverse then
             {
-                ForwardCipher = bCipher
-                BackwardCipher = fCipher
-                ForwardDigest = bDigest
-                BackwardDigest = fDigest
+                ForwardCipher = backwardCipher
+                BackwardCipher = forwardCipher
+                ForwardDigest = backwardDigest
+                BackwardDigest = forwardDigest
                 KeyHandshake = kdfResult.KeyHandshake
             }
         else
             {
-                ForwardCipher = fCipher
-                BackwardCipher = bCipher
-                ForwardDigest = fDigest
-                BackwardDigest = bDigest
+                ForwardCipher = forwardCipher
+                BackwardCipher = backwardCipher
+                ForwardDigest = forwardDigest
+                BackwardDigest = backwardDigest
                 KeyHandshake = kdfResult.KeyHandshake
             }
