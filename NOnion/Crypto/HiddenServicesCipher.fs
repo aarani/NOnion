@@ -170,11 +170,10 @@ module HiddenServicesCipher =
         let macKey = hsKeys |> Array.skip 32 |> Array.take 32
 
         let cipher = TorStreamCipher(encKey, None)
-        let digest = data |> CalculateMacWithSHA3256 macKey
 
         let encryptedInnerData = data |> cipher.Encrypt
 
-        (encryptedInnerData, digest)
+        encryptedInnerData, macKey
 
     let DecryptIntroductionData
         (encryptedData: array<byte>)
@@ -230,9 +229,7 @@ module HiddenServicesCipher =
         let cipher = TorStreamCipher(encKey, None)
         let decryptedData = encryptedData |> cipher.Encrypt
 
-        let digest = decryptedData |> CalculateMacWithSHA3256 macKey
-
-        (decryptedData, digest)
+        (decryptedData, macKey)
 
     let CalculateServerRendezvousKeys
         (clientPublicKey: X25519PublicKeyParameters)
