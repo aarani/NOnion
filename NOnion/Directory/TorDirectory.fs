@@ -26,6 +26,10 @@ type TorDirectory =
         self.NetworkStatus.GetValidAfter() < now
         && self.NetworkStatus.GetValidUntil() > now
 
+    member self.GetTimePeriod () =
+        self.NetworkStatus.GetValidAfter()
+        |> HSUtility.getTimePeriod
+
     member private self.GetRandomDirectorySource() =
         let directorySourceOpt =
             self.NetworkStatus.Routers
@@ -59,7 +63,7 @@ type TorDirectory =
 
             let rec getRandomRouter() =
                 async {
-                    let! descriptor =
+                    let descriptor =
                         let randomServerOpt =
                             self.NetworkStatus.Routers
                             |> match filter with
@@ -78,7 +82,7 @@ type TorDirectory =
 
                         match randomServerOpt with
                         | Some randomServer ->
-                            self.GetServerDescriptor randomServer
+                            self.GetDescriptorByIdentity (randomServer.GetIdentity())
                         | None -> failwith "Couldn't find suitable router"
 
                     if descriptor.Hibernating
@@ -103,59 +107,10 @@ type TorDirectory =
     member self.GetRouterAsync(filter: RouterType) =
         self.GetRouter filter |> Async.StartAsTask
 
-    member private self.GetServerDescriptor
-        (routerEntry: RouterStatusEntry)
-        : Async<ServerDescriptorEntry> =
-        async {
-            let fingerprint = routerEntry.GetIdentity()
+    member self.GetCircuitNodeDetailByIdentity (identity: string) =
+        self.GetDescriptorByIdentity identity
+        |> self.ConvertToCircuitNodeDetail
 
-            sprintf
-                "TorDirectory: receiving descriptor for router %s"
-                fingerprint
-            |> TorLogger.Log
-
-            match self.ServerDescriptors.TryFind fingerprint with
-            | Some descriptor -> return descriptor
-            | None ->
-                let directoryRouter = self.GetRandomDirectorySource()
-
-                use! guard =
-                    TorGuard.NewClient(
-                        IPEndPoint(
-                            IPAddress.Parse(directoryRouter.IP.Value),
-                            directoryRouter.OnionRouterPort.Value
-                        )
-                    )
-
-                let circuit = TorCircuit(guard)
-                let stream = TorStream(circuit)
-
-                do! circuit.Create(CircuitNodeDetail.FastCreate) |> Async.Ignore
-
-                do! stream.ConnectToDirectory() |> Async.Ignore
-
-                let httpClient = TorHttpClient(stream, directoryRouter.IP.Value)
-
-                let! response =
-                    httpClient.GetAsString
-                        (sprintf
-                            "/tor/server/fp/%s"
-                            (fingerprint
-                             |> Convert.FromBase64String
-                             |> Hex.FromByteArray))
-                        false
-
-                let serverDescriptor =
-                    (ServerDescriptorsDocument.Parse response)
-                        .Routers
-                        .Head
-
-                self.ServerDescriptors <-
-                    self.ServerDescriptors
-                    |> Map.add fingerprint serverDescriptor
-
-                return serverDescriptor
-        }
 
     member private self.UpdateConsensusIfNotLive() =
         async {
@@ -190,7 +145,7 @@ type TorDirectory =
 
                 do! stream.ConnectToDirectory() |> Async.Ignore
 
-                let httpClient = TorHttpClient(stream, directoryRouter.IP.Value)
+                let httpClient = TorHttpClient(stream, "127.0.0.1")
 
                 let! response =
                     httpClient.GetAsString
@@ -210,18 +165,40 @@ type TorDirectory =
             do! consensusStream.ConnectToDirectory() |> Async.Ignore
 
             let consensusHttpClient =
-                TorHttpClient(consensusStream, nodeEndPoint.Address.ToString())
+                TorHttpClient(consensusStream, "127.0.0.1")
 
             let! consensusStr =
                 consensusHttpClient.GetAsString
                     "/tor/status-vote/current/consensus"
                     false
 
+            let descriptorsStream = TorStream(circuit)
+            do! descriptorsStream.ConnectToDirectory() |> Async.Ignore
+
+            let descriptorsHttpClient =
+                TorHttpClient(descriptorsStream, "127.0.0.1")
+
+            let! descriptorsStr =
+                descriptorsHttpClient.GetAsString
+                    "/tor/server/all"
+                    false
+            
+            let routers =
+                (ServerDescriptorsDocument.Parse descriptorsStr)
+                    .Routers
+
+            let serverDescriptors =
+                    routers
+                    |> Seq.map (fun router -> 
+                        (router.Fingerprint.Value |> Hex.ToByteArray |> Convert.ToBase64String, router)
+                    )
+                    |> Map.ofSeq
+
             return
                 {
                     TorDirectory.NetworkStatus =
                         NetworkStatusDocument.Parse consensusStr
-                    ServerDescriptors = Map.empty
+                    ServerDescriptors = serverDescriptors
                 }
         }
 
@@ -231,6 +208,9 @@ type TorDirectory =
             do! self.UpdateConsensusIfNotLive()
             return self.NetworkStatus
         }
+
+    member self.GetDescriptorByIdentity(b64Identity: string) =
+        self.ServerDescriptors.[b64Identity]
 
     static member BootstrapAsync(nodeEndPoint: IPEndPoint) =
         TorDirectory.Bootstrap nodeEndPoint |> Async.StartAsTask

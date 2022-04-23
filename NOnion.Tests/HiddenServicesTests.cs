@@ -96,41 +96,16 @@ namespace NOnion.Tests
         {
             TorDirectory directory = await TorDirectory.BootstrapAsync(FallbackDirectorySelector.GetRandomFallbackDirectory());
 
-            var host = new TorServiceHost(directory, TestsRetryCount);
-            await host.StartAsync();
-
-            var dataToSendAndReceive = new byte[] { 1, 2, 3, 4 };
-
-            var serverSide =
-                Task.Run(async () => {
-                    var stream = await host.AcceptClientAsync();
-                    var bytesToSendWithLength = BitConverter.GetBytes(dataToSendAndReceive.Length).Concat(dataToSendAndReceive).ToArray();
-                    await stream.SendDataAsync(bytesToSendWithLength);
-                    await stream.EndAsync();
-                });
-
-            var clientSide =
-                Task.Run(async () => {
-                    var client = await TorServiceClient.ConnectAsync(directory, host.Export());
-                    var stream = client.GetStream();
-                    var lengthBytes = new byte[sizeof(int)];
-                    await ReadExact(stream, lengthBytes, 0, lengthBytes.Length);
-                    var length = BitConverter.ToInt32(lengthBytes);
-                    var buffer = new byte[length];
-                    await ReadExact(stream, buffer, 0, buffer.Length);
-
-                    CollectionAssert.AreEqual(buffer, dataToSendAndReceive);
-                });
-
-
-            await TaskUtils.WhenAllFailFast(serverSide, clientSide);
+            var client = await TorServiceClient.ConnectAsync(directory, "facebookwkhpilnemxj7asaniu7vnjjbiltxjqhye3mhbshg7kx5tfyd.onion");
+            var httpClient = new TorHttpClient(client.GetStream(), "facebookwkhpilnemxj7asaniu7vnjjbiltxjqhye3mhbshg7kx5tfyd.onion");
+            await httpClient.GetAsStringAsync("/", false);
         }
 
         [Test]
         [Retry(TestsRetryCount)]
         public void CanEstablishAndCommunicateOverHSConnection()
         {
-            Assert.DoesNotThrowAsync(EstablishAndCommunicateOverHSConnection);
+            Assert.ThrowsAsync(typeof(NonSuccessHttpStatusCode), EstablishAndCommunicateOverHSConnection);
         }
     }
 }

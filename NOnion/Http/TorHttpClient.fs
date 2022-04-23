@@ -8,6 +8,8 @@ open System.IO.Compression
 open NOnion
 open NOnion.Network
 
+exception NonSuccessHttpStatusCode
+
 type TorHttpClient(stream: TorStream, host: string) =
 
     // Receives all the data stream until it reaches EOF (until stream receive a RELAY_END)
@@ -71,7 +73,7 @@ type TorHttpClient(stream: TorStream, host: string) =
                 responseLine.[0], responseLine.[1]
 
             if status <> "200" then
-                return failwithf "Non-200 status code received, code: %s" status
+                raise NonSuccessHttpStatusCode
 
             let parseHeaderLine(header: string) =
                 let splittedHeader =

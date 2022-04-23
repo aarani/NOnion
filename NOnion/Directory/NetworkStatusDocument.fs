@@ -433,13 +433,13 @@ type NetworkStatusDocument =
                     lines.Dequeue() |> ignore<string>
 
                     { state with
-                        SharedRandomPreviousValue = readRestAsString() |> Some
+                        SharedRandomPreviousValue = readRestAsString().Split(' ').[1] |> Some
                     }
                 | "shared-rand-current-value" ->
                     lines.Dequeue() |> ignore<string>
 
                     { state with
-                        SharedRandomCurrentValue = readRestAsString() |> Some
+                        SharedRandomCurrentValue = readRestAsString().Split(' ').[1] |> Some
                     }
                 | "bandwidth-weights" ->
                     lines.Dequeue() |> ignore<string>
@@ -493,19 +493,32 @@ type NetworkStatusDocument =
             failwith "BUG: valid-until field does not exist in the consensus"
         | Some validUntil -> validUntil
 
+    member self.GetFreshUntil() =
+        match self.FreshUntil with
+        | None ->
+            failwith "BUG: fresh-until field does not exist in the consensus"
+        | Some freshUntil -> freshUntil
+
+    member self.GetVotingInterval() =
+        self.GetFreshUntil() - self.GetValidAfter()
 
     member self.GetTimePeriod() =
-        let validAfterInMinutes =
-            let validAfterSinceEpoch =
-                self.GetValidAfter() |> DateTimeUtils.GetTimeSpanSinceEpoch
-
-            validAfterSinceEpoch
-                .Subtract(
-                    Constants.RotationTimeOffset
-                )
-                .TotalMinutes
-
         let hsDirInterval = self.GetHiddenServicesDirectoryInterval()
 
-        validAfterInMinutes / (hsDirInterval |> float) |> Math.Floor |> uint64,
+        HSUtility.getTimePeriod (self.GetValidAfter()) hsDirInterval |> uint64,
         hsDirInterval |> uint64
+    
+    member self.GetCurrentSRV() =
+        let isInBetweenTpAndSRV =
+            HSUtility.inPeriodBetweenTPAndSRV
+                (self.GetValidAfter())
+                (self.GetVotingInterval())
+                (self.GetHiddenServicesDirectoryInterval())
+        if isInBetweenTpAndSRV then
+            self.SharedRandomCurrentValue.Value
+        else
+            self.SharedRandomPreviousValue.Value
+
+    member self.GetHSDirectories () =
+        self.Routers
+        |> List.filter (fun router -> router.Flags |> Seq.contains "HSDir" && (router.Protocols.Value.Contains("HSDir=1-2") || router.Protocols.Value.Contains("HSDir=2")))
