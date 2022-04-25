@@ -54,6 +54,7 @@ module Kdf =
             ForwardDigest = forwardDigest
             ForwardKey = forwardKey
             KeyHandshake = keyHandshake
+            IsHSV3 = false
         }
 
     let ComputeRfc5869Kdf(ikm: array<byte>) : KdfResult =
@@ -100,6 +101,7 @@ module Kdf =
             ForwardDigest = forwardDigest
             ForwardKey = forwardKey
             KeyHandshake = keyHandshake
+            IsHSV3 = false
         }
 
     let ComputeHSKdf(ntorKeySeed: array<byte>) : KdfResult =
@@ -110,27 +112,27 @@ module Kdf =
                     Constants.HiddenServiceNTor.MExpand
                 ]
             |> HiddenServicesCipher.CalculateShake256(
-                2 * Constants.HashLength + 2 * Constants.KeyS256Length
+                2 * Constants.Digest256Length + 2 * Constants.KeyS256Length
             )
 
-        // Offset = 0, Length = HashLength
+        // Offset = 0, Length = Digest256Length
         let forwardDigest =
-            Array.skip 0 kdfBytes |> Array.take Constants.HashLength
+            Array.skip 0 kdfBytes |> Array.take Constants.Digest256Length
 
-        // Offset = HashLength, Length = HashLength
+        // Offset = Digest256Length, Length = Digest256Length
         let backwardDigest =
-            Array.skip Constants.HashLength kdfBytes
-            |> Array.take Constants.HashLength
+            Array.skip Constants.Digest256Length kdfBytes
+            |> Array.take Constants.Digest256Length
 
-        // Offset = 2 * HashLength, Length = KeyS256Length
+        // Offset = 2 * Digest256Length, Length = KeyS256Length
         let forwardKey =
-            Array.skip (2 * Constants.HashLength) kdfBytes
+            Array.skip (2 * Constants.Digest256Length) kdfBytes
             |> Array.take Constants.KeyS256Length
 
-        // Offset = 2 * HashLength + KeyS256Length, Length = KeyS256Length
+        // Offset = 2 * Digest256Length + KeyS256Length, Length = KeyS256Length
         let backwardKey =
             Array.skip
-                (2 * Constants.HashLength + Constants.KeyS256Length)
+                (2 * Constants.Digest256Length + Constants.KeyS256Length)
                 kdfBytes
             |> Array.take Constants.KeyS256Length
 
@@ -140,4 +142,5 @@ module Kdf =
             ForwardDigest = forwardDigest
             ForwardKey = forwardKey
             KeyHandshake = Array.empty
+            IsHSV3 = true
         }

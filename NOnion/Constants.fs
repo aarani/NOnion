@@ -114,13 +114,12 @@ module Constants =
     let internal RotationTimeOffset = TimeSpan.FromHours 12.0
 
     let internal Ed25519BasePointString =
-        "(15112221349535400772501151409588531511454012693041857206046113283949847762202,46316835694926478169428394003475163141307993866256225615783033603165251855960)"
+        "(15112221349535400772501151409588531511454012693041857206046113283949847762202, 46316835694926478169428394003475163141307993866256225615783033603165251855960)"
         |> Encoding.ASCII.GetBytes
 
     let internal HiddenServiceBlindString =
-        "Derive temporary signing key"
+        sprintf "Derive temporary signing key%c" Char.MinValue
         |> Encoding.ASCII.GetBytes
-        |> Array.append(Array.singleton 0uy)
 
     let RendezvousCookieLength = 20
 

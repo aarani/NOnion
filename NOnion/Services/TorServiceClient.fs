@@ -110,7 +110,7 @@ type TorServiceClient =
                 let! networkStatus = directory.GetLiveNetworkStatus()
                 let periodInfo = networkStatus.GetTimePeriod()
 
-                let data, mac =
+                let data, macKey =
                     HiddenServicesCipher.EncryptIntroductionData
                         (introduceInnerData.ToBytes())
                         privateKey
@@ -121,15 +121,23 @@ type TorServiceClient =
                         masterPubKey
 
                 let introduce1Packet =
-                    {
-                        RelayIntroduce.AuthKey =
-                            RelayIntroAuthKey.ED25519SHA3256(
-                                authKey.GetEncoded()
-                            )
-                        Extensions = List.empty
-                        ClientPublicKey = publicKey.GetEncoded()
-                        Mac = mac
-                        EncryptedData = data
+                    let introduce1PacketForMac =
+                        {
+                            RelayIntroduce.AuthKey =
+                                RelayIntroAuthKey.ED25519SHA3256(
+                                    authKey.GetEncoded()
+                                )
+                            Extensions = List.empty
+                            ClientPublicKey = publicKey.GetEncoded()
+                            Mac = Array.empty
+                            EncryptedData = data
+                        }
+
+                    { introduce1PacketForMac with
+                        Mac =
+                            introduce1PacketForMac.ToBytes()
+                            |> HiddenServicesCipher.CalculateMacWithSHA3256
+                                macKey
                     }
 
                 let introCircuit = TorCircuit rendezvousGuard

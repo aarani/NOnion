@@ -12,6 +12,16 @@ open NOnion
 open NOnion.Utility
 
 module HiddenServicesCipher =
+    let SHA3256(bytes: array<byte>) =
+        let digestEngine = Sha3Digest()
+
+        let output = Array.zeroCreate(digestEngine.GetDigestSize())
+
+        digestEngine.BlockUpdate(bytes, 0, bytes.Length)
+        digestEngine.DoFinal(output, 0) |> ignore<int>
+
+        output
+
     let CalculateMacWithSHA3256 (key: array<byte>) (msg: array<byte>) =
         let data =
             let keyLenBytes =
@@ -21,12 +31,7 @@ module HiddenServicesCipher =
 
             Array.concat [ keyLenBytes; key; msg ]
 
-        let digestEngine = Sha3Digest()
-        let output = Array.zeroCreate(digestEngine.GetDigestSize())
-        digestEngine.BlockUpdate(data, 0, data.Length)
-        digestEngine.DoFinal(output, 0) |> ignore<int>
-
-        output
+        SHA3256 data
 
     let SignWithED25519
         (privateKey: Ed25519PrivateKeyParameters)
@@ -42,7 +47,7 @@ module HiddenServicesCipher =
         let output = Array.zeroCreate length
 
         digestEngine.BlockUpdate(data, 0, data.Length)
-        digestEngine.DoFinal(output, 0) |> ignore<int>
+        digestEngine.DoFinal(output, 0, length) |> ignore<int>
         output
 
     let CalculateBlindingFactor
@@ -60,32 +65,14 @@ module HiddenServicesCipher =
                     |> IntegerSerialization.FromUInt64ToBigEndianByteArray
                 ]
 
-        let digestEngine = Sha3Digest()
-        let output = Array.zeroCreate(digestEngine.GetDigestSize())
-
-        digestEngine.BlockUpdate(
-            Constants.HiddenServiceBlindString,
-            0,
-            Constants.HiddenServiceBlindString.Length
-        )
-
-        digestEngine.BlockUpdate(publicKey, 0, publicKey.Length)
-
-        digestEngine.BlockUpdate(
-            Constants.Ed25519BasePointString,
-            0,
-            Constants.Ed25519BasePointString.Length
-        )
-
-        digestEngine.BlockUpdate(nonce, 0, nonce.Length)
-        digestEngine.DoFinal(output, 0) |> ignore<int>
-
-        //CLAMPING
-        output.[0] <- output.[0] &&& 248uy
-        output.[31] <- output.[31] &&& 63uy
-        output.[31] <- output.[31] ||| 64uy
-
-        output
+        Array.concat
+            [
+                Constants.HiddenServiceBlindString
+                publicKey
+                Constants.Ed25519BasePointString
+                nonce
+            ]
+        |> SHA3256
 
     let CalculateBlindedPublicKey
         (blindingFactor: array<byte>)
@@ -113,44 +100,24 @@ module HiddenServicesCipher =
         (periodInfo: uint64 * uint64)
         (publicKey: array<byte>)
         =
-        let digestEngine = Sha3Digest()
-
-        let credential = digestEngine.GetByteLength() |> Array.zeroCreate
-
-        let credentialDigestInput =
+        let credential =
             Array.concat
                 [
                     "credential" |> Encoding.ASCII.GetBytes
                     publicKey
                 ]
-
-        digestEngine.BlockUpdate(
-            credentialDigestInput,
-            0,
-            credentialDigestInput.Length
-        )
-
-        digestEngine.DoFinal(credential, 0) |> ignore<int>
+            |> SHA3256
 
         let blindedKey = BuildBlindedPublicKey periodInfo publicKey
 
-        let subcredentialDigestInput =
+        let subcredential =
             Array.concat
                 [
                     "subcredential" |> Encoding.ASCII.GetBytes
                     credential
                     blindedKey
                 ]
-
-        let subcredential = digestEngine.GetByteLength() |> Array.zeroCreate
-
-        digestEngine.BlockUpdate(
-            subcredentialDigestInput,
-            0,
-            subcredentialDigestInput.Length
-        )
-
-        digestEngine.DoFinal(subcredential, 0) |> ignore<int>
+            |> SHA3256
 
         subcredential
 
@@ -203,11 +170,10 @@ module HiddenServicesCipher =
         let macKey = hsKeys |> Array.skip 32 |> Array.take 32
 
         let cipher = TorStreamCipher(encKey, None)
-        let digest = data |> CalculateMacWithSHA3256 macKey
 
         let encryptedInnerData = data |> cipher.Encrypt
 
-        (encryptedInnerData, digest)
+        encryptedInnerData, macKey
 
     let DecryptIntroductionData
         (encryptedData: array<byte>)
@@ -263,9 +229,7 @@ module HiddenServicesCipher =
         let cipher = TorStreamCipher(encKey, None)
         let decryptedData = encryptedData |> cipher.Encrypt
 
-        let digest = decryptedData |> CalculateMacWithSHA3256 macKey
-
-        (decryptedData, digest)
+        (decryptedData, macKey)
 
     let CalculateServerRendezvousKeys
         (clientPublicKey: X25519PublicKeyParameters)

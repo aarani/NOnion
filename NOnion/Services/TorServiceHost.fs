@@ -138,7 +138,7 @@ type TorServiceHost
             let! networkStatus = directory.GetLiveNetworkStatus()
             let periodInfo = networkStatus.GetTimePeriod()
 
-            let decryptedData, digest =
+            let decryptedData, macKey =
                 HiddenServicesCipher.DecryptIntroductionData
                     introduce.EncryptedData
                     (X25519PublicKeyParameters(introduce.ClientPublicKey, 0))
@@ -154,6 +154,15 @@ type TorServiceHost
             use decryptedStream = new MemoryStream(decryptedData)
             use decryptedReader = new BinaryReader(decryptedStream)
             let innerData = RelayIntroduceInnerData.Deserialize decryptedReader
+
+            let digest =
+                let introduceForMac =
+                    { introduce with
+                        Mac = Array.empty
+                    }
+
+                introduceForMac.ToBytes()
+                |> HiddenServicesCipher.CalculateMacWithSHA3256 macKey
 
             if digest <> introduce.Mac then
                 failwith "Invalid mac"
