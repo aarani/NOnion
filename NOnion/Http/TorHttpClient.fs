@@ -71,7 +71,7 @@ type TorHttpClient(stream: TorStream, host: string) =
                 responseLine.[0], responseLine.[1]
 
             if status <> "200" then
-                return failwithf "Non-200 status code received, code: %s" status
+                raise <| UnsuccessfulHttpRequestException status
 
             let parseHeaderLine(header: string) =
                 let splittedHeader =
