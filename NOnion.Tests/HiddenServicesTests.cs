@@ -111,7 +111,7 @@ namespace NOnion.Tests
 
             var clientSide =
                 Task.Run(async () => {
-                    var client = await TorServiceClient.ConnectAsync(directory, host.Export());
+                    var client = await TorServiceClient.ConnectAsync(directory, TorServiceDescriptors.NewNOnion (host.Export()));
                     var stream = client.GetStream();
                     var lengthBytes = new byte[sizeof(int)];
                     await ReadExact(stream, lengthBytes, 0, lengthBytes.Length);
