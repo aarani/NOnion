@@ -25,6 +25,7 @@
     <Compile Include="Utility\DigestUtils.fs" />
     <Compile Include="Utility\BigIntegerSerialization.fs" />
     <Compile Include="Utility\DateTimeUtils.fs" />
+    <Compile Include="Utility\HSUtility.fs" />
     <Compile Include="Utility\IntegerSerialization.fs" />
     <Compile Include="Utility\BinaryIO.fs" />
     <Compile Include="Utility\CertificateUtil.fs" />
