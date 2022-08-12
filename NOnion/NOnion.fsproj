@@ -73,6 +73,9 @@
     <Compile Include="Http\TorHttpClient.fs" />
     <Compile Include="Directory\ServerDescriptorsDocument.fs" />
     <Compile Include="Directory\NetworkStatusDocument.fs" />
+    <Compile Include="Directory\HiddenServiceDescriptorDocument.fs" />
+    <Compile Include="Directory\HiddenServiceFirstLayerDescriptorDocument.fs" />
+    <Compile Include="Directory\HiddenServiceSecondLayerDescriptorDocument.fs" />
     <Compile Include="Directory\TorDirectory.fs" />
     <Compile Include="Services\TorServiceHost.fs" />
     <Compile Include="Services\TorServiceClient.fs" />
