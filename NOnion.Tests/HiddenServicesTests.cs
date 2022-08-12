@@ -92,7 +92,7 @@ namespace NOnion.Tests
             return bytesRead + await ReadExact(stream, buffer, off + bytesRead, len);
         }
 
-        public async Task EstablishAndCommunicateOverHSConnection()
+        public async Task EstablishAndCommunicateOverHSConnectionNOnionStyle()
         {
             TorDirectory directory = await TorDirectory.BootstrapAsync(FallbackDirectorySelector.GetRandomFallbackDirectory());
 
@@ -128,9 +128,25 @@ namespace NOnion.Tests
 
         [Test]
         [Retry(TestsRetryCount)]
-        public void CanEstablishAndCommunicateOverHSConnection()
+        public void CanEstablishAndCommunicateOverHSConnectionNOnionStyle()
         {
-            Assert.DoesNotThrowAsync(EstablishAndCommunicateOverHSConnection);
+            Assert.DoesNotThrowAsync(EstablishAndCommunicateOverHSConnectionNOnionStyle);
+        }
+
+        public async Task EstablishAndCommunicateOverHSConnectionOnionStyle()
+        {
+            TorDirectory directory = await TorDirectory.BootstrapAsync(FallbackDirectorySelector.GetRandomFallbackDirectory());
+
+            var client = await TorServiceClient.ConnectAsync(directory, TorServiceDescriptors.NewOnionURL("facebookwkhpilnemxj7asaniu7vnjjbiltxjqhye3mhbshg7kx5tfyd.onion"));
+            var httpClient = new TorHttpClient(client.GetStream(), "facebookwkhpilnemxj7asaniu7vnjjbiltxjqhye3mhbshg7kx5tfyd.onion");
+            await httpClient.GetAsStringAsync("/", false);
+        }
+
+        [Test]
+        [Retry(TestsRetryCount)]
+        public void CanEstablishAndCommunicateOverHSConnectionOnionStyle()
+        {
+            Assert.ThrowsAsync(typeof(UnsuccessfulHttpRequestException), EstablishAndCommunicateOverHSConnectionOnionStyle);
         }
     }
 }
