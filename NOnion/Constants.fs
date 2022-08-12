@@ -148,3 +148,7 @@ module Constants =
             protoIdStr + "Server" |> Encoding.ASCII.GetBytes
 
     let internal NewConnectionCheckDelay = TimeSpan.FromSeconds 1.
+
+    // https://github.com/torproject/tor/blob/22552ad88e1e95ef9d2c6655c7602b7b25836075/src/feature/hs_common/shared_random_client.h#L33
+    let internal SharedRandomNRounds = 12u
+    let internal SharedRandomNPhases = 2u
