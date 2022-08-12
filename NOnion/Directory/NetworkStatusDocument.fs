@@ -517,3 +517,12 @@ type NetworkStatusDocument =
             self.SharedRandomCurrentValue.Value
         else
             self.SharedRandomPreviousValue.Value
+
+    //HACK: document parser needs to parse ranges but here we use string search instead
+    member self.GetHSDirectories() =
+        self.Routers
+        |> List.filter(fun router ->
+            router.Flags |> Seq.contains "HSDir"
+            && (router.Protocols.Value.Contains("HSDir=1-2")
+                || router.Protocols.Value.Contains("HSDir=2"))
+        )
