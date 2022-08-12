@@ -96,7 +96,7 @@ module HiddenServicesCipher =
 
         CalculateBlindedPublicKey blindingFactor publicKey
 
-    let private GetSubCredential
+    let internal GetSubCredential
         (periodInfo: uint64 * uint64)
         (publicKey: array<byte>)
         =

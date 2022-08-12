@@ -24,6 +24,9 @@ module Constants =
     [<Literal>]
     let KeyS256Length = 32
 
+    [<Literal>]
+    let IVS256Length = 16
+
     (* Amount of bytes needed for generating keys and digest during KDF = 2 * KeyLength + 3 * HashLength *)
     [<Literal>]
     let KdfLength = 92
@@ -147,8 +150,15 @@ module Constants =
         let internal AuthInputSuffix =
             protoIdStr + "Server" |> Encoding.ASCII.GetBytes
 
+    module HSDirEncryption =
+        let SuperEncrypted = "hsdir-superencrypted-data"
+        let Encrypted = "hsdir-encrypted-data"
+
     let internal NewConnectionCheckDelay = TimeSpan.FromSeconds 1.
 
     // https://github.com/torproject/tor/blob/22552ad88e1e95ef9d2c6655c7602b7b25836075/src/feature/hs_common/shared_random_client.h#L33
     let internal SharedRandomNRounds = 12u
     let internal SharedRandomNPhases = 2u
+
+    let HsDirNReplicas = 2
+    let HsDirSpreadFetch = 3
