@@ -243,13 +243,6 @@ type ServerDescriptorEntry =
 
                     innerParse
                         { state with
-                            Reject = readRestAsString() |> Some
-                        }
-                | "ipv6-policy" ->
-                    lines.Dequeue() |> ignore<string>
-
-                    innerParse
-                        { state with
                             IpV6Policy = readRestAsString() |> Some
                         }
                 | "overload-general" ->
@@ -392,8 +385,7 @@ type ServerDescriptorsDocument =
                 | "router" ->
                     { state with
                         Routers =
-                            state.Routers
-                            @ List.singleton(ServerDescriptorEntry.Parse lines)
+                            ServerDescriptorEntry.Parse lines :: state.Routers
                     }
                 | _ ->
                     lines.Dequeue() |> ignore<string>
