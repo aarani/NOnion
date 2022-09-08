@@ -70,6 +70,10 @@ jobs:
       - name: Build
         run: dotnet build --configuration Release --no-restore
       - name: Package
+        # https://stackoverflow.com/questions/70249519/how-to-check-if-a-secret-variable-is-empty-in-if-conditional-github-actions
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        if: "${{ env.NUGET_API_KEY != '' }}"
         run: |
           git clone https://github.com/nblockchain/fsx
           cd fsx
