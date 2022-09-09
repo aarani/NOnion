@@ -1,6 +1,7 @@
 ﻿namespace NOnion.Directory
 
 open System
+open System.Text
 
 open NOnion
 open NOnion.Utility
@@ -503,12 +504,13 @@ type NetworkStatusDocument =
     member self.GetTimePeriod() =
         let hsDirInterval = self.GetHiddenServicesDirectoryInterval()
 
-        HSUtility.GetTimePeriod (self.GetValidAfter()) hsDirInterval |> uint64,
+        HiddenServicesUtility.GetTimePeriod (self.GetValidAfter()) hsDirInterval
+        |> uint64,
         hsDirInterval |> uint64
 
-    member self.GetCurrentSRV() =
+    member self.GetCurrentSRVForClient() =
         let isInBetweenTpAndSRV =
-            HSUtility.InPeriodBetweenTPAndSRV
+            HiddenServicesUtility.InPeriodBetweenTPAndSRV
                 (self.GetValidAfter())
                 (self.GetVotingInterval())
                 (self.GetHiddenServicesDirectoryInterval())
