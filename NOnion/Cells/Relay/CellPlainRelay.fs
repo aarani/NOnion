@@ -81,6 +81,9 @@ type RelayData =
             RelayRendezvous.FromBytes reader |> RelayRendezvous2
         | RelayCommands.RelayIntroduceAck ->
             RelayIntroduceAck.FromBytes reader |> RelayIntroduceAck
+        | RelayCommands.RelaySendMe ->
+            //TODO: complete sendme implementation
+            RelaySendMe
         | _ -> failwith "Unsupported command"
 
     member self.GetCommand() : byte =
@@ -106,7 +109,7 @@ type RelayData =
         | RelayBegin relayBegin -> relayBegin.ToBytes()
         | RelayConnected data -> data
         | RelayData data -> data
-        | RelaySendMe _ -> Array.zeroCreate 3
+        | RelaySendMe -> Array.zeroCreate 3
         | RelayEnd reason -> reason |> byte |> Array.singleton
         | RelayExtend2 extend2 -> extend2.ToBytes()
         | RelayEstablishIntro establishIntro -> establishIntro.ToBytes true true
