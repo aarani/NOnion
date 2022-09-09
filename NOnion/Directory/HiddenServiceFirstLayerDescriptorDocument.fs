@@ -1,15 +1,22 @@
 ﻿namespace NOnion.Directory
 
 open System
+open System.IO
+open System.Text
+
+open Org.BouncyCastle.Crypto.Signers
+open Org.BouncyCastle.Crypto.Parameters
+
+open NOnion.Utility
 
 type HiddenServiceFirstLayerDescriptorDocument =
     {
         Version: Option<int>
         Lifetime: Option<int>
-        SigningKeyCert: Option<string>
+        SigningKeyCert: Option<array<byte>>
         RevisionCounter: Option<int64>
         EncryptedPayload: Option<array<byte>>
-        Signature: Option<string>
+        Signature: Option<array<byte>>
     }
 
     static member Empty =
@@ -50,10 +57,47 @@ type HiddenServiceFirstLayerDescriptorDocument =
                 match words.Dequeue() with
                 | "signature" ->
                     lines.Dequeue() |> ignore<string>
+                    let signature = readRestAsString() |> Base64Util.FromString
+
+                    match state.SigningKeyCert with
+                    | Some keyCert ->
+                        let signatureIndex = stringToParse.IndexOf("signature")
+
+                        let documentExcludingSignature =
+                            stringToParse.Substring(0, signatureIndex)
+
+                        use memStream = new MemoryStream(keyCert)
+                        use reader = new BinaryReader(memStream)
+                        let cert = Certificate.Deserialize reader
+
+                        let signer = Ed25519Signer()
+
+                        signer.Init(
+                            false,
+                            Ed25519PublicKeyParameters(cert.CertifiedKey, 0)
+                        )
+
+                        let currentStateInBytes =
+                            "Tor onion service descriptor sig v3"
+                            + documentExcludingSignature
+                            |> Encoding.ASCII.GetBytes
+
+                        signer.BlockUpdate(
+                            currentStateInBytes,
+                            0,
+                            currentStateInBytes.Length
+                        )
+
+                        if not(signer.VerifySignature(signature)) then
+                            failwith
+                                "Can't parse hs document(outer-wrapper), invalid signature"
+                    | None ->
+                        failwith
+                            "Can't parse hs document(outer-wrapper), signature should be the last item in the doc"
 
                     { state with
                         HiddenServiceFirstLayerDescriptorDocument.Signature =
-                            readRestAsString() |> Some
+                            Some signature
                     }
                 | "hs-descriptor" ->
                     lines.Dequeue() |> ignore<string>
@@ -74,7 +118,11 @@ type HiddenServiceFirstLayerDescriptorDocument =
 
                     { state with
                         HiddenServiceFirstLayerDescriptorDocument.SigningKeyCert =
-                            readBlock String.Empty |> Some
+                            (readBlock String.Empty)
+                                .Replace("-----BEGIN ED25519 CERT-----", "")
+                                .Replace("-----END ED25519 CERT-----", "")
+                            |> Convert.FromBase64String
+                            |> Some
                     }
                 | "revision-counter" ->
                     lines.Dequeue() |> ignore<string>
@@ -106,3 +154,74 @@ type HiddenServiceFirstLayerDescriptorDocument =
                 newState
 
         innerParse HiddenServiceFirstLayerDescriptorDocument.Empty
+
+    override self.ToString() =
+        let writeByteArray data =
+            let dataInString = data |> Convert.ToBase64String
+
+            let chunkedData =
+                dataInString.ToCharArray()
+                |> Array.chunkBySize 64
+                |> Array.map String
+
+            String.Join("\n", chunkedData)
+
+
+        let strBuilder = StringBuilder()
+
+        let appendLine str =
+            strBuilder.Append(sprintf "%s\n" str)
+
+        match self.Version with
+        | Some version ->
+            appendLine(sprintf "hs-descriptor %i" version)
+            |> ignore<StringBuilder>
+        | None ->
+            failwith
+                "HS document (outer wrapper) is incomplete, missing version"
+
+        match self.Lifetime with
+        | Some lifeTime ->
+            appendLine(sprintf "descriptor-lifetime %i" lifeTime)
+            |> ignore<StringBuilder>
+        | None ->
+            failwith
+                "HS document (outer wrapper) is incomplete, missing lifetime"
+
+        match self.SigningKeyCert with
+        | Some keyCert ->
+            appendLine "descriptor-signing-key-cert" |> ignore<StringBuilder>
+            appendLine "-----BEGIN ED25519 CERT-----" |> ignore<StringBuilder>
+            writeByteArray keyCert |> appendLine |> ignore<StringBuilder>
+            appendLine "-----END ED25519 CERT-----" |> ignore<StringBuilder>
+        | None ->
+            failwith
+                "HS document (outer wrapper) is incomplete, missing signing key cert"
+
+        match self.RevisionCounter with
+        | Some counter ->
+            appendLine(sprintf "revision-counter %i" counter)
+            |> ignore<StringBuilder>
+        | None ->
+            failwith
+                "HS document (outer wrapper) is incomplete, missing revision-counter"
+
+        match self.EncryptedPayload with
+        | Some encrypted ->
+            appendLine "superencrypted" |> ignore<StringBuilder>
+            appendLine "-----BEGIN MESSAGE-----" |> ignore<StringBuilder>
+            writeByteArray encrypted |> appendLine |> ignore<StringBuilder>
+            appendLine "-----END MESSAGE-----" |> ignore<StringBuilder>
+        | None ->
+            failwith
+                "HS document (outer wrapper) is incomplete, missing payload"
+
+        match self.Signature with
+        | Some signature when signature.Length > 0 ->
+            appendLine(
+                sprintf "signature %s" (Base64Util.EncodeNoPaddding signature)
+            )
+            |> ignore<StringBuilder>
+        | _ -> ()
+
+        strBuilder.ToString()

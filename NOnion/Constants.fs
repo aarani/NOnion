@@ -162,3 +162,4 @@ module Constants =
 
     let HsDirNReplicas = 2
     let HsDirSpreadFetch = 3
+    let HsDirSpreadStore = 4
