@@ -1,0 +1,21 @@
+name: commitlint check
+
+on: pull_request
+
+jobs:
+  commitlint:
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: Setup Node
+        uses: actions/setup-node@v2
+        with:
+          node-version: 14.x
+      - name: Install dependencies
+        run: npm install
+      - name: Validate all commits from PR
+        run: |
+          echo 'Going to run commitlint for ${{ github.event.pull_request.commits }} commits'
+          npx commitlint --from ${{ github.event.pull_request.head.sha }}~${{ github.event.pull_request.commits }} --to ${{ github.event.pull_request.head.sha }} --verbose
