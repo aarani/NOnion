@@ -74,18 +74,47 @@ module HiddenServicesCipher =
             ]
         |> SHA3256
 
+    let Ed25519Clamp(data: array<byte>) =
+        data.[0] <- data.[0] &&& 248uy
+        data.[31] <- data.[31] &&& 63uy
+        data.[31] <- data.[31] ||| 64uy
+        ()
+
     let CalculateBlindedPublicKey
         (blindingFactor: array<byte>)
         (publicKey: array<byte>)
         =
 
-        blindingFactor.[0] <- blindingFactor.[0] &&& 248uy
-        blindingFactor.[31] <- blindingFactor.[31] &&& 63uy
-        blindingFactor.[31] <- blindingFactor.[31] ||| 64uy
+        Ed25519Clamp blindingFactor
 
         match Ed25519.CalculateBlindedPublicKey(publicKey, blindingFactor) with
         | true, output -> output
         | false, _ -> failwith "can't calculate blinded public key"
+
+    let CalculateExpandedBlindedPrivateKey
+        (blindingFactor: array<byte>)
+        (masterPrivateKey: array<byte>)
+        =
+        let expandedMasterPrivateKey = Array.zeroCreate 64
+
+        let hashEngine = Sha512Digest()
+        hashEngine.BlockUpdate(masterPrivateKey, 0, masterPrivateKey.Length)
+        hashEngine.DoFinal(expandedMasterPrivateKey, 0) |> ignore<int>
+
+        Ed25519Clamp blindingFactor
+        Ed25519Clamp expandedMasterPrivateKey
+
+        match
+            Ed25519.CalculateBlindedPrivateKey
+                (
+                    expandedMasterPrivateKey,
+                    blindingFactor,
+                    "Derive temporary signing key hash input"
+                )
+            with
+        | true, output -> output
+        | false, _ -> failwith "can't calculate blinded private key"
+
 
     let BuildBlindedPublicKey
         (periodNumber: uint64, periodLength: uint64)
@@ -95,6 +124,16 @@ module HiddenServicesCipher =
             CalculateBlindingFactor periodNumber periodLength publicKey
 
         CalculateBlindedPublicKey blindingFactor publicKey
+
+    let BuildExpandedBlindedPrivateKey
+        (periodNumber: uint64, periodLength: uint64)
+        (masterPublicKey: array<byte>)
+        (masterPrivateKey: array<byte>)
+        =
+        let blindingFactor =
+            CalculateBlindingFactor periodNumber periodLength masterPublicKey
+
+        CalculateExpandedBlindedPrivateKey blindingFactor masterPrivateKey
 
     let internal GetSubCredential
         (periodInfo: uint64 * uint64)
@@ -146,13 +185,13 @@ module HiddenServicesCipher =
                     introAuthPublicKey.GetEncoded()
                     randomClientPublicKey.GetEncoded()
                     introEncPublicKey.GetEncoded()
-                    Constants.HiddenServiceNTor.ProtoId
+                    Constants.HiddenServices.NTorEncryption.ProtoId
                 ]
 
         let info =
             Array.concat
                 [
-                    Constants.HiddenServiceNTor.MExpand
+                    Constants.HiddenServices.NTorEncryption.MExpand
                     subcredential
                 ]
 
@@ -160,7 +199,7 @@ module HiddenServicesCipher =
             Array.concat
                 [
                     introSecretHsInput
-                    Constants.HiddenServiceNTor.TEncrypt
+                    Constants.HiddenServices.NTorEncryption.TEncrypt
                     info
                 ]
 
@@ -199,13 +238,13 @@ module HiddenServicesCipher =
                     introAuthPublicKey.GetEncoded()
                     clientRandomKey.GetEncoded()
                     introEncPublicKey.GetEncoded()
-                    Constants.HiddenServiceNTor.ProtoId
+                    Constants.HiddenServices.NTorEncryption.ProtoId
                 ]
 
         let info =
             Array.concat
                 [
-                    Constants.HiddenServiceNTor.MExpand
+                    Constants.HiddenServices.NTorEncryption.MExpand
                     subcredential
                 ]
 
@@ -213,7 +252,7 @@ module HiddenServicesCipher =
             Array.concat
                 [
                     introSecretHsInput
-                    Constants.HiddenServiceNTor.TEncrypt
+                    Constants.HiddenServices.NTorEncryption.TEncrypt
                     info
                 ]
 
@@ -260,18 +299,18 @@ module HiddenServicesCipher =
                     introEncPublicKey.GetEncoded()
                     clientPublicKey.GetEncoded()
                     serverRandomPublicKey.GetEncoded()
-                    Constants.HiddenServiceNTor.ProtoId
+                    Constants.HiddenServices.NTorEncryption.ProtoId
                 ]
 
         let ntorKeySeed =
             CalculateMacWithSHA3256
                 rendSecretHsInput
-                Constants.HiddenServiceNTor.TEncrypt
+                Constants.HiddenServices.NTorEncryption.TEncrypt
 
         let verify =
             CalculateMacWithSHA3256
                 rendSecretHsInput
-                Constants.HiddenServiceNTor.TVerify
+                Constants.HiddenServices.NTorEncryption.TVerify
 
         let authInput =
             Array.concat
@@ -281,11 +320,13 @@ module HiddenServicesCipher =
                     introEncPublicKey.GetEncoded()
                     serverRandomPublicKey.GetEncoded()
                     clientPublicKey.GetEncoded()
-                    Constants.HiddenServiceNTor.AuthInputSuffix
+                    Constants.HiddenServices.NTorEncryption.AuthInputSuffix
                 ]
 
         let authInputMac =
-            CalculateMacWithSHA3256 authInput Constants.HiddenServiceNTor.TMac
+            CalculateMacWithSHA3256
+                authInput
+                Constants.HiddenServices.NTorEncryption.TMac
 
         (ntorKeySeed, authInputMac)
 
@@ -316,18 +357,18 @@ module HiddenServicesCipher =
                     introEncPublicKey.GetEncoded()
                     clientPublicKey.GetEncoded()
                     serverPublicKey.GetEncoded()
-                    Constants.HiddenServiceNTor.ProtoId
+                    Constants.HiddenServices.NTorEncryption.ProtoId
                 ]
 
         let ntorKeySeed =
             CalculateMacWithSHA3256
                 rendSecretHsInput
-                Constants.HiddenServiceNTor.TEncrypt
+                Constants.HiddenServices.NTorEncryption.TEncrypt
 
         let verify =
             CalculateMacWithSHA3256
                 rendSecretHsInput
-                Constants.HiddenServiceNTor.TVerify
+                Constants.HiddenServices.NTorEncryption.TVerify
 
         let authInput =
             Array.concat
@@ -337,10 +378,31 @@ module HiddenServicesCipher =
                     introEncPublicKey.GetEncoded()
                     serverPublicKey.GetEncoded()
                     clientPublicKey.GetEncoded()
-                    Constants.HiddenServiceNTor.AuthInputSuffix
+                    Constants.HiddenServices.NTorEncryption.AuthInputSuffix
                 ]
 
         let authInputMac =
-            CalculateMacWithSHA3256 authInput Constants.HiddenServiceNTor.TMac
+            CalculateMacWithSHA3256
+                authInput
+                Constants.HiddenServices.NTorEncryption.TMac
 
         (ntorKeySeed, authInputMac)
+
+    let CalculateDirectoryEncryptionMac
+        (macKey: array<byte>)
+        (salt: array<byte>)
+        encryptedData
+        =
+        Array.concat
+            [
+                macKey.Length
+                |> uint64
+                |> IntegerSerialization.FromUInt64ToBigEndianByteArray
+                macKey
+                salt.Length
+                |> uint64
+                |> IntegerSerialization.FromUInt64ToBigEndianByteArray
+                salt
+                encryptedData
+            ]
+        |> SHA3256

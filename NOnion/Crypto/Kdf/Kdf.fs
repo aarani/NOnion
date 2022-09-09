@@ -109,7 +109,7 @@ module Kdf =
             Array.concat
                 [
                     ntorKeySeed
-                    Constants.HiddenServiceNTor.MExpand
+                    Constants.HiddenServices.NTorEncryption.MExpand
                 ]
             |> HiddenServicesCipher.CalculateShake256(
                 2 * Constants.Digest256Length + 2 * Constants.KeyS256Length

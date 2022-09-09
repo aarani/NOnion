@@ -1,5 +1,7 @@
 ﻿namespace NOnion.Utility
 
+open System
+
 module Base64Util =
     let private modulus = 4
     let private paddingCharacter = "="
@@ -21,3 +23,6 @@ module Base64Util =
 
     let FromString(input: string) =
         FixMissingPadding input |> System.Convert.FromBase64String
+
+    let EncodeNoPaddding(input: array<byte>) =
+        (Convert.ToBase64String input).TrimEnd '='

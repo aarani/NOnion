@@ -5,7 +5,7 @@ open System
 open NOnion
 open DateTimeUtils
 
-module HSUtility =
+module HiddenServicesUtility =
     let GetTimePeriod (now: DateTime) (hsDirInterval: int) =
         let nowInMinutes =
             let validAfterSinceEpoch = now |> GetTimeSpanSinceEpoch
@@ -19,7 +19,7 @@ module HSUtility =
 
         nowInMinutes / hsDirInterval
 
-    let private GetStartTimeOfCurrentSRVProtocolRun
+    let GetStartTimeOfCurrentSRVProtocolRun
         (now: DateTime)
         (votingInterval: TimeSpan)
         =
@@ -77,11 +77,15 @@ module HSUtility =
     let GetPublicKeyFromUrl(url: string) =
         //Remove .onion suffix and decode
         let keyBytesOpt =
-            url.Split('.') |> Seq.tryHead |> Option.map Base32Util.DecodeBase32
+            url.Split '.' |> Seq.tryHead |> Option.map Base32Util.DecodeBase32
 
-        let expectedOnionUrlLength = 32 + 2 + 1
+        // PublicKey (32 bytes) + Checksum (2 bytes) + Version (1 byte)
+        let expectedOnionUrlLength =
+            Constants.HiddenServices.OnionUrl.PublicKeyLength
+            + Constants.HiddenServices.OnionUrl.ChecksumLength
+            + 1
 
         match keyBytesOpt with
         | Some keyBytes when keyBytes.Length = expectedOnionUrlLength ->
-            keyBytes.[0..31]
+            keyBytes.[0 .. Constants.HiddenServices.OnionUrl.PublicKeyLength - 1]
         | _ -> failwith "Invalid onion service url"

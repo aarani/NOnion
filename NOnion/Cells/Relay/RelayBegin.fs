@@ -25,7 +25,10 @@ type RelayBegin =
 
         {
             Address = readAddress String.Empty
-            Flags = BinaryIO.ReadBigEndianUInt32 reader
+            // This flag apparently doesn't exists in Tor's service stream begin
+            // calls, which caused deserialization excpetion, since we don't really
+            // use this flag, we ignore it when deserializing for now.
+            Flags = 0u
         }
 
     member self.ToBytes() =

@@ -1,6 +1,7 @@
 ﻿namespace NOnion.Directory
 
 open System
+open System.Text
 
 open NOnion
 open NOnion.Utility
@@ -503,12 +504,13 @@ type NetworkStatusDocument =
     member self.GetTimePeriod() =
         let hsDirInterval = self.GetHiddenServicesDirectoryInterval()
 
-        HSUtility.GetTimePeriod (self.GetValidAfter()) hsDirInterval |> uint64,
+        HiddenServicesUtility.GetTimePeriod (self.GetValidAfter()) hsDirInterval
+        |> uint64,
         hsDirInterval |> uint64
 
-    member self.GetCurrentSRV() =
+    member self.GetCurrentSRVForClient() =
         let isInBetweenTpAndSRV =
-            HSUtility.InPeriodBetweenTPAndSRV
+            HiddenServicesUtility.InPeriodBetweenTPAndSRV
                 (self.GetValidAfter())
                 (self.GetVotingInterval())
                 (self.GetHiddenServicesDirectoryInterval())
@@ -519,7 +521,7 @@ type NetworkStatusDocument =
             self.SharedRandomPreviousValue.Value
 
     //HACK: document parser needs to parse ranges but here we use string search instead
-    member self.GetHSDirectories() =
+    member self.GetHiddenServiceDirectories() =
         self.Routers
         |> List.filter(fun router ->
             router.Flags |> Seq.contains "HSDir"
