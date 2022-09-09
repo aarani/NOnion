@@ -450,20 +450,16 @@ type NetworkStatusDocument =
                 | "dir-source" ->
                     { state with
                         Sources =
-                            state.Sources
-                            @ List.singleton(DirectorySourceEntry.Parse lines)
+                            DirectorySourceEntry.Parse lines :: state.Sources
                     }
                 | "r" ->
                     { state with
-                        Routers =
-                            state.Routers
-                            @ List.singleton(RouterStatusEntry.Parse lines)
+                        Routers = RouterStatusEntry.Parse lines :: state.Routers
                     }
                 | "directory-signature" ->
                     { state with
                         Signatures =
-                            state.Signatures
-                            @ List.singleton(DirectorySignature.Parse lines)
+                            DirectorySignature.Parse lines :: state.Signatures
                     }
                 | _ ->
                     lines.Dequeue() |> ignore<string>
