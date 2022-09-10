@@ -10,6 +10,7 @@ open Chaos.NaCl
 
 open NOnion
 open NOnion.Utility
+open Org.BouncyCastle.Math.EC.Rfc7748
 
 module HiddenServicesCipher =
     let SHA3256(bytes: array<byte>) =
@@ -87,6 +88,36 @@ module HiddenServicesCipher =
         | true, output -> output
         | false, _ -> failwith "can't calculate blinded public key"
 
+    let CalculateExpandedBlindedPrivateKey
+        (blindingFactor: array<byte>)
+        (masterPrivateKey: array<byte>)
+        =
+        let expandedMasterPrivateKey = Array.zeroCreate 64
+
+        let hashEngine = Sha512Digest()
+        hashEngine.BlockUpdate(masterPrivateKey, 0, masterPrivateKey.Length)
+        hashEngine.DoFinal(expandedMasterPrivateKey, 0) |> ignore<int>
+
+        blindingFactor.[0] <- blindingFactor.[0] &&& 248uy
+        blindingFactor.[31] <- blindingFactor.[31] &&& 63uy
+        blindingFactor.[31] <- blindingFactor.[31] ||| 64uy
+
+        expandedMasterPrivateKey.[0] <- expandedMasterPrivateKey.[0] &&& 248uy
+        expandedMasterPrivateKey.[31] <- expandedMasterPrivateKey.[31] &&& 63uy
+        expandedMasterPrivateKey.[31] <- expandedMasterPrivateKey.[31] ||| 64uy
+
+        match
+            Ed25519.CalculateBlindedPrivateKey
+                (
+                    expandedMasterPrivateKey,
+                    blindingFactor,
+                    "Derive temporary signing key hash input"
+                )
+            with
+        | true, output -> output
+        | false, _ -> failwith "can't calculate blinded private key"
+
+
     let BuildBlindedPublicKey
         (periodNumber: uint64, periodLength: uint64)
         (publicKey: array<byte>)
@@ -95,6 +126,16 @@ module HiddenServicesCipher =
             CalculateBlindingFactor periodNumber periodLength publicKey
 
         CalculateBlindedPublicKey blindingFactor publicKey
+
+    let BuildExpandedBlindedPrivateKey
+        (periodNumber: uint64, periodLength: uint64)
+        (masterPublicKey: array<byte>)
+        (masterPrivateKey: array<byte>)
+        =
+        let blindingFactor =
+            CalculateBlindingFactor periodNumber periodLength masterPublicKey
+
+        CalculateExpandedBlindedPrivateKey blindingFactor masterPrivateKey
 
     let internal GetSubCredential
         (periodInfo: uint64 * uint64)

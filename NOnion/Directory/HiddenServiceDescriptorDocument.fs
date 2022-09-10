@@ -1,6 +1,7 @@
 ﻿namespace NOnion.Directory
 
 open System
+open System.Text
 
 type IntroductionPointEntry =
     {
@@ -92,14 +93,84 @@ type IntroductionPointEntry =
                                 |> Convert.FromBase64String
                                 |> Some
                         }
-
                 | _ -> state
 
         innerParse IntroductionPointEntry.Empty
 
+    override self.ToString() =
+        let strBuilder = StringBuilder()
+
+        let writeByteArray data =
+            let dataInString = data |> Convert.ToBase64String
+
+            let chunkedData =
+                dataInString.ToCharArray()
+                |> Array.chunkBySize 64
+                |> Array.map String
+
+            String.Join("\n", chunkedData)
+
+        let appendLine str =
+            strBuilder.Append(sprintf "%s\n" str)
+
+        match self.LinkSpecifiers with
+        | Some linkSpecifier ->
+            appendLine(
+                sprintf
+                    "introduction-point %s"
+                    (Convert.ToBase64String linkSpecifier)
+            )
+            |> ignore<StringBuilder>
+        | None ->
+            failwith
+                "HS document (most inner wrapper) is incomplete, missing linkspecifier"
+
+        match self.OnionKey with
+        | Some onionKey ->
+            appendLine(
+                sprintf "onion-key ntor %s" (Convert.ToBase64String onionKey)
+            )
+            |> ignore<StringBuilder>
+        | None ->
+            failwith
+                "HS document (most inner wrapper) is incomplete, missing OnionKey"
+
+        match self.AuthKey with
+        | Some authKey ->
+            appendLine "auth-key" |> ignore<StringBuilder>
+            appendLine "-----BEGIN ED25519 CERT-----" |> ignore<StringBuilder>
+            appendLine(writeByteArray authKey) |> ignore<StringBuilder>
+            appendLine "-----END ED25519 CERT-----" |> ignore<StringBuilder>
+        | None ->
+            failwith
+                "HS document (outer wrapper) is incomplete, missing AuthKey"
+
+        match self.EncKey with
+        | Some encKey ->
+            appendLine(
+                sprintf "enc-key ntor %s" (Convert.ToBase64String encKey)
+            )
+            |> ignore<StringBuilder>
+        | None ->
+            failwith
+                "HS document (most inner wrapper) is incomplete, missing EncKey"
+
+        match self.EncKeyCert with
+        | Some encKeyCert ->
+            appendLine "enc-key-cert" |> ignore<StringBuilder>
+            appendLine "-----BEGIN ED25519 CERT-----" |> ignore<StringBuilder>
+            appendLine(writeByteArray encKeyCert) |> ignore<StringBuilder>
+            appendLine "-----END ED25519 CERT-----" |> ignore<StringBuilder>
+        | None ->
+            failwith
+                "HS document (outer wrapper) is incomplete, missing EncKeyCert"
+
+        strBuilder.ToString()
+
+
 type HiddenServiceDescriptorDocument =
     {
-        Create2Formats: Option<int>
+        Create2Formats: Option<string>
         IsSingleOnionService: bool
 
         IntroductionPoints: List<IntroductionPointEntry>
@@ -128,8 +199,8 @@ type HiddenServiceDescriptorDocument =
 
             let words = lines.Peek().Split ' ' |> MutableQueue<string>
 
-            let readInteger() =
-                words.Dequeue() |> int
+            let readRestAsString() =
+                words.ToArray() |> String.concat " "
 
             let newState =
                 match words.Dequeue() with
@@ -138,8 +209,12 @@ type HiddenServiceDescriptorDocument =
 
                     { state with
                         HiddenServiceDescriptorDocument.Create2Formats =
-                            readInteger() |> Some
+                            readRestAsString() |> Some
                     }
+                | "intro-auth-required" ->
+                    //FIXME: ignore intro-auth-required
+                    lines.Dequeue() |> ignore<string>
+                    failwith "NOnion doesn't support client-authorization"
                 | "single-onion-service" ->
                     lines.Dequeue() |> ignore<string>
 
@@ -163,3 +238,26 @@ type HiddenServiceDescriptorDocument =
                 newState
 
         innerParse HiddenServiceDescriptorDocument.Empty
+
+    override self.ToString() =
+        let strBuilder = StringBuilder()
+
+        let appendLine str =
+            strBuilder.Append(sprintf "%s\n" str)
+
+        match self.Create2Formats with
+        | Some formats ->
+            appendLine(sprintf "create2-formats %s" formats)
+            |> ignore<StringBuilder>
+        | None ->
+            failwith
+                "HS document (most inner wrapper) is incomplete, missing Create2Formats"
+
+        if self.IsSingleOnionService then
+            appendLine "single-onion-service" |> ignore<StringBuilder>
+
+        for introductionPoint in self.IntroductionPoints do
+            strBuilder.Append(introductionPoint.ToString())
+            |> ignore<StringBuilder>
+
+        strBuilder.ToString()

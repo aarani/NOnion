@@ -2,7 +2,7 @@
 namespace NOnion.Utility
 
 module Base32Util =
-    let EncodeBase32 text =
+    let EncodeBase32(data: array<byte>) =
         let quintupletToList ending (x0, x1, x2, x3, x4) =
             // RFC 4648: The Base 32 Alphabet
             let alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567="
@@ -96,12 +96,7 @@ module Base32Util =
             | [ x0 ] -> result @ quintupletToList 1 (x0, 0uy, 0uy, 0uy, 0uy)
             | [] -> result
 
-        (text: string)
-        |> System.Text.Encoding.UTF8.GetBytes
-        |> Array.toList
-        |> parse []
-        |> List.toArray
-        |> System.String.Concat
+        data |> Array.toList |> parse [] |> List.toArray |> System.String.Concat
 
     /// Decodes a Base32 string to a UTF8 string
     let DecodeBase32 text =

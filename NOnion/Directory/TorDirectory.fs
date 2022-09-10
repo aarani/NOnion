@@ -2,8 +2,10 @@
 
 open System
 open System.Net
+open System.Text
 
 open NOnion
+open NOnion.Crypto
 open NOnion.Network
 open NOnion.Http
 open NOnion.Utility
@@ -211,3 +213,130 @@ type TorDirectory =
 
     static member BootstrapAsync(nodeEndPoint: IPEndPoint) =
         TorDirectory.Bootstrap nodeEndPoint |> Async.StartAsTask
+
+    member self.GetResponsibleHiddenServiceDirectories
+        (blindedPublicKey: array<byte>)
+        (sharedRandomValue: string)
+        (periodNumber: uint64)
+        (periodLength: uint64)
+        (directoriesToAdd: int)
+        =
+        async {
+
+            let! networkStatus = self.GetLiveNetworkStatus()
+
+            let ByteArrayCompare (x: array<byte>) (y: array<byte>) =
+                let xlen = x.Length
+                let ylen = y.Length
+
+                let len =
+                    if xlen < ylen then
+                        xlen
+                    else
+                        ylen
+
+                let mutable index = 0
+                let mutable result = 0
+
+                while index < len do
+                    let diff = (int(x.[index])) - int(y.[index])
+
+                    if diff <> 0 then
+                        index <- len + 1 // breaks out of the loop, and signals that result is valid
+                        result <- diff
+                    else
+                        index <- index + 1
+
+                if index > len then
+                    result
+                else
+                    (xlen - ylen)
+
+            let directories =
+                networkStatus.GetHSDirectories()
+                |> List.choose(fun node ->
+                    try
+                        (node.GetIdentity(),
+                         Array.concat
+                             [
+                                 "node-idx" |> Encoding.ASCII.GetBytes
+                                 (node.GetIdentity()
+                                  |> self.GetDescriptorByIdentity)
+                                     .MasterKeyEd25519
+                                     .Value
+                                 |> Base64Util.FromString
+                                 sharedRandomValue |> Convert.FromBase64String
+                                 periodNumber
+                                 |> IntegerSerialization.FromUInt64ToBigEndianByteArray
+                                 periodLength
+                                 |> IntegerSerialization.FromUInt64ToBigEndianByteArray
+                             ]
+                         |> HiddenServicesCipher.SHA3256)
+                        |> Some
+                    with
+                    | _ -> None
+                )
+                |> List.sortWith(fun (_, idx1) (_, idx2) ->
+                    ByteArrayCompare idx1 idx2
+                )
+
+            let rec getRoutersToFetch (replicaNum: int) (state: list<string>) =
+                if replicaNum > Constants.HsDirNReplicas then
+                    state
+                else
+                    let hsIndex =
+                        Array.concat
+                            [
+                                "store-at-idx" |> Encoding.ASCII.GetBytes
+                                blindedPublicKey
+                                replicaNum
+                                |> uint64
+                                |> IntegerSerialization.FromUInt64ToBigEndianByteArray
+                                periodLength
+                                |> IntegerSerialization.FromUInt64ToBigEndianByteArray
+                                periodNumber
+                                |> IntegerSerialization.FromUInt64ToBigEndianByteArray
+                            ]
+                        |> HiddenServicesCipher.SHA3256
+
+                    //FIXME: binary serach idx here
+                    let start =
+                        directories
+                        |> Seq.tryFindIndex(fun (_, index) ->
+                            ByteArrayCompare index hsIndex >= 0
+                        )
+                        |> Option.defaultValue 0
+
+                    let rec pickNodes startIndex nToAdd state =
+                        if nToAdd = 0 then
+                            state
+                        else
+                            let node = fst directories.[startIndex]
+
+                            let nextIndex =
+                                let idx = startIndex + 1
+
+                                if idx = directories.Length then
+                                    0
+                                else
+                                    idx
+
+                            if not(state |> Seq.contains node) then
+                                if nextIndex = start then
+                                    node :: state
+                                else
+                                    pickNodes
+                                        nextIndex
+                                        (nToAdd - 1)
+                                        (node :: state)
+                            else if nextIndex = start then
+                                state
+                            else
+                                pickNodes nextIndex nToAdd state
+
+                    getRoutersToFetch
+                        (replicaNum + 1)
+                        (pickNodes start directoriesToAdd state)
+
+            return getRoutersToFetch 1 List.empty
+        }

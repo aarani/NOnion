@@ -1,6 +1,7 @@
 ﻿namespace NOnion.Directory
 
 open System
+open System.Text
 
 open NOnion
 open NOnion.Utility
@@ -506,7 +507,7 @@ type NetworkStatusDocument =
         HSUtility.GetTimePeriod (self.GetValidAfter()) hsDirInterval |> uint64,
         hsDirInterval |> uint64
 
-    member self.GetCurrentSRV() =
+    member self.GetCurrentSRVForClient() =
         let isInBetweenTpAndSRV =
             HSUtility.InPeriodBetweenTPAndSRV
                 (self.GetValidAfter())

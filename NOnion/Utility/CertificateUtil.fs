@@ -3,6 +3,9 @@ namespace NOnion.Utility
 
 open System.IO
 
+open Org.BouncyCastle.Crypto.Signers
+open Org.BouncyCastle.Crypto.Parameters
+
 type CertificateExtensionType =
     // https://github.com/torproject/torspec/blob/cb4ae84a20793a00f35a70aad5df47d4e4c7da7c/cert-spec.txt#L175
     | SignedWithEd25519Key = 4uy
@@ -36,16 +39,18 @@ type CertificateExtension =
                 self.Data
             ]
 
-type CertKeyType =
+type CertType =
     // https://github.com/torproject/torspec/blob/cb4ae84a20793a00f35a70aad5df47d4e4c7da7c/cert-spec.txt#L162
     | IntroPointAuthKeySignedByDescriptorSigningKey = 9uy
+    | ShortTermDescriptorSigningKeyByBlindedPublicKey = 8uy
+    | IntroPointEncKeySignedByDescriptorSigningKey = 0x0Buy
 
 type Certificate =
     {
         Version: byte
-        Type: byte
+        Type: CertType
         ExpirationDate: uint
-        CertKeyType: CertKeyType
+        CertKeyType: byte
         CertifiedKey: array<byte>
         Extensions: List<CertificateExtension>
         Signature: array<byte>
@@ -70,31 +75,49 @@ type Certificate =
                     (remainingExtsCount - 1)
                     (CertificateExtension.Deserialize reader :: state)
 
-        {
-            Version = reader.ReadByte()
-            Type = reader.ReadByte()
-            ExpirationDate = BinaryIO.ReadBigEndianUInt32 reader
-            CertKeyType =
-                reader.ReadByte()
-                |> LanguagePrimitives.EnumOfValue<byte, CertKeyType>
-            CertifiedKey = reader.ReadBytes 32
-            Extensions = readExtensions (reader.ReadByte() |> int) List.empty
-            Signature = reader.ReadBytes 64
-        }
+        let tempBeforeVerify =
+            {
+                Version = reader.ReadByte()
+                Type =
+                    reader.ReadByte()
+                    |> LanguagePrimitives.EnumOfValue<byte, CertType>
+                ExpirationDate = BinaryIO.ReadBigEndianUInt32 reader
+                CertKeyType = reader.ReadByte()
+                CertifiedKey = reader.ReadBytes 32
+                Extensions =
+                    readExtensions (reader.ReadByte() |> int) List.empty
+                Signature = reader.ReadBytes 64
+            }
 
-    member self.ToBytes() =
+        match tempBeforeVerify.TryGetSignedWithEd25519Key() with
+        | Some signedByKey ->
+            let verifier = Ed25519Signer()
+            verifier.Init(false, Ed25519PublicKeyParameters(signedByKey, 0))
+            let tmpBytes = tempBeforeVerify.ToBytes(true)
+            verifier.BlockUpdate(tmpBytes, 0, tmpBytes.Length)
+
+            if not(verifier.VerifySignature(tempBeforeVerify.Signature)) then
+                failwith "Invalid certificate"
+        | None -> ()
+
+        tempBeforeVerify
+
+
+    member self.ToBytes(ignoreSig: bool) =
         Array.concat
             [
                 Array.singleton self.Version
-                Array.singleton self.Type
+                Array.singleton(self.Type |> byte)
                 IntegerSerialization.FromUInt32ToBigEndianByteArray
                     self.ExpirationDate
-                Array.singleton(self.CertKeyType |> byte)
+                Array.singleton self.CertKeyType
                 self.CertifiedKey
                 Array.singleton(self.Extensions.Length |> byte)
                 self.Extensions
-                |> Seq.map(fun ext -> ext.ToBytes())
-                |> Seq.concat
+                |> Seq.collect(fun ext -> ext.ToBytes())
                 |> Seq.toArray
-                self.Signature
+                if ignoreSig then
+                    Array.empty
+                else
+                    self.Signature
             ]

@@ -19,7 +19,7 @@ module HSUtility =
 
         nowInMinutes / hsDirInterval
 
-    let private GetStartTimeOfCurrentSRVProtocolRun
+    let GetStartTimeOfCurrentSRVProtocolRun
         (now: DateTime)
         (votingInterval: TimeSpan)
         =

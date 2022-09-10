@@ -25,7 +25,7 @@ type RelayBegin =
 
         {
             Address = readAddress String.Empty
-            Flags = BinaryIO.ReadBigEndianUInt32 reader
+            Flags = 0u
         }
 
     member self.ToBytes() =

@@ -16,6 +16,10 @@ using NOnion.Cells.Relay;
 using NOnion.Directory;
 using NOnion.Tests.Utility;
 using NOnion.Services;
+using Org.BouncyCastle.Crypto.Parameters;
+using Org.BouncyCastle.Crypto.Generators;
+using Org.BouncyCastle.Security;
+using NUnit.Framework.Internal;
 
 namespace NOnion.Tests
 {
@@ -96,7 +100,7 @@ namespace NOnion.Tests
         {
             TorDirectory directory = await TorDirectory.BootstrapAsync(FallbackDirectorySelector.GetRandomFallbackDirectory());
 
-            var host = new TorServiceHost(directory, TestsRetryCount);
+            var host = new TorServiceHost(directory, TestsRetryCount, null);
             await host.StartAsync();
 
             var dataToSendAndReceive = new byte[] { 1, 2, 3, 4 };
@@ -133,7 +137,7 @@ namespace NOnion.Tests
             Assert.DoesNotThrowAsync(EstablishAndCommunicateOverHSConnectionNOnionStyle);
         }
 
-        public async Task EstablishAndCommunicateOverHSConnectionOnionStyle()
+        public async Task BrowseFacebookOverHS()
         {
             TorDirectory directory = await TorDirectory.BootstrapAsync(FallbackDirectorySelector.GetRandomFallbackDirectory());
 
@@ -144,10 +148,56 @@ namespace NOnion.Tests
 
         [Test]
         [Retry(TestsRetryCount)]
+        public void CanBrowseFacebookOverHS()
+        {
+            Assert.ThrowsAsync(typeof(UnsuccessfulHttpRequestException), BrowseFacebookOverHS);
+        }
+
+        public async Task EstablishAndCommunicateOverHSConnectionOnionStyle()
+        {
+            TorDirectory directory = await TorDirectory.BootstrapAsync(FallbackDirectorySelector.GetRandomFallbackDirectory());
+
+            var kpGen = new Ed25519KeyPairGenerator();
+            var random = new SecureRandom();
+            kpGen.Init(new Ed25519KeyGenerationParameters(random));
+            var masterKey = kpGen.GenerateKeyPair();
+
+            var host = new TorServiceHost(directory, TestsRetryCount, masterKey);
+            await host.StartAsync();
+
+            var dataToSendAndReceive = new byte[] { 1, 2, 3, 4 };
+
+            var serverSide =
+                Task.Run(async () => {
+                    var stream = await host.AcceptClientAsync();
+                    var bytesToSendWithLength = BitConverter.GetBytes(dataToSendAndReceive.Length).Concat(dataToSendAndReceive).ToArray();
+                    await stream.SendDataAsync(bytesToSendWithLength);
+                    await stream.EndAsync();
+                });
+
+            var clientSide =
+                Task.Run(async () => {
+                    var client = await TorServiceClient.ConnectAsync(directory, TorServiceDescriptors.NewOnionURL(host.ExportUrl()));
+                    var stream = client.GetStream();
+                    var lengthBytes = new byte[sizeof(int)];
+                    await ReadExact(stream, lengthBytes, 0, lengthBytes.Length);
+                    var length = BitConverter.ToInt32(lengthBytes);
+                    var buffer = new byte[length];
+                    await ReadExact(stream, buffer, 0, buffer.Length);
+
+                    CollectionAssert.AreEqual(buffer, dataToSendAndReceive);
+                });
+
+
+            await TaskUtils.WhenAllFailFast(serverSide, clientSide);
+        }
+        
+        [Test]
+        [Retry(TestsRetryCount)]
         public void CanEstablishAndCommunicateOverHSConnectionOnionStyle()
         {
-            Assert.ThrowsAsync(typeof(UnsuccessfulHttpRequestException), EstablishAndCommunicateOverHSConnectionOnionStyle);
-        }
+            Assert.DoesNotThrowAsync(EstablishAndCommunicateOverHSConnectionOnionStyle);
+        }    
     }
 }
 
