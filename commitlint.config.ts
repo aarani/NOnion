@@ -28,13 +28,15 @@ module.exports = {
 
 		{
 			rules: {
-				'type-space-after-colon': ({header}) => {
+				'type-space-after-colon': ({header}: {header:any}) => {
+					// to convert from 'any' type
+					let headerStr = String(header);
 
-					let colonFirstIndex = header.indexOf(":");
+					let colonFirstIndex = headerStr.indexOf(":");
 
 					let offence = false;
-					if ((colonFirstIndex > 0) && (header.length > colonFirstIndex)) {
-						if (header[colonFirstIndex + 1] != ' ') {
+					if ((colonFirstIndex > 0) && (headerStr.length > colonFirstIndex)) {
+						if (headerStr[colonFirstIndex + 1] != ' ') {
 							offence = true;
 						}
 					}
@@ -44,13 +46,15 @@ module.exports = {
 						`Please place a space after the first colon character in your commit message title`
 					];
 				},
-				'subject-lowercase': ({subject}) => {
+				'subject-lowercase': ({subject}: {subject:any}) => {
+					// to convert from 'any' type
+					let subjectStr = String(subject);
 
 					let offence = false;
-					if (subject != null && subject.length > 1) {
-						offence = subject[0].toUpperCase() == subject[0]
+					if (subjectStr != null && subjectStr.length > 1) {
+						offence = subjectStr[0].toUpperCase() == subjectStr[0]
 							// to whitelist acronyms
-							&& subject[1].toLowerCase() == subject[1];
+							&& subjectStr[1].toLowerCase() == subjectStr[1];
 					}
 
 					return [
