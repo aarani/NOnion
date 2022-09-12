@@ -60,6 +60,8 @@ type HiddenServiceFirstLayerDescriptorDocument =
 
                     match state.SigningKeyCert with
                     | Some keyCert ->
+                        let signatureIndex = stringToParse.IndexOf("signature")
+                        let documentExcludingSignature = stringToParse.Substring(0, signatureIndex)
                         use memStream = new MemoryStream(keyCert)
                         use reader = new BinaryReader(memStream)
                         let cert = Certificate.Deserialize reader
@@ -75,7 +77,7 @@ type HiddenServiceFirstLayerDescriptorDocument =
                         // remove the "signature" line and verify the rest
                         let currentStateInBytes =
                             "Tor onion service descriptor sig v3"
-                            + state.ToString()
+                            + documentExcludingSignature
                             |> Encoding.ASCII.GetBytes
 
                         signer.BlockUpdate(
@@ -85,8 +87,9 @@ type HiddenServiceFirstLayerDescriptorDocument =
                         )
 
                         if not(signer.VerifySignature(signature)) then
-                            failwith "oops!"
-                    | None -> ()
+                            failwith "Can't parse hs document(outer-wrapper), invalid signature"
+                    | None ->
+                        failwith "Can't parse hs document(outer-wrapper), signature should be the last item in the doc"
 
                     { state with
                         HiddenServiceFirstLayerDescriptorDocument.Signature =

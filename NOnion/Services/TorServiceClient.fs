@@ -23,7 +23,6 @@ open NOnion.Network
 
 type TorServiceDescriptors =
     | OnionURL of string
-    | NOnion of IntroductionPointPublicInfo
 
     member self.GetConnectionInfo(directory: TorDirectory) =
         async {
@@ -361,26 +360,6 @@ type TorServiceDescriptors =
                 }
 
             match self with
-            | NOnion connectionDetail ->
-                return
-                    Ed25519PublicKeyParameters(
-                        connectionDetail.AuthKey |> Convert.FromBase64String,
-                        0
-                    ),
-                    X25519PublicKeyParameters(
-                        connectionDetail.EncryptionKey
-                        |> Convert.FromBase64String,
-                        0
-                    ),
-                    CircuitNodeDetail.Create(
-                        IPEndPoint(
-                            IPAddress.Parse(connectionDetail.Address),
-                            connectionDetail.Port
-                        ),
-                        connectionDetail.OnionKey |> Convert.FromBase64String,
-                        connectionDetail.Fingerprint |> Convert.FromBase64String
-                    ),
-                    connectionDetail.MasterPublicKey |> Convert.FromBase64String
             | OnionURL url ->
                 return! getFromPublicKey(HSUtility.GetPublicKeyFromUrl url)
         }

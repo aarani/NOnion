@@ -30,19 +30,8 @@ type IntroductionPointInfo =
         EncryptionKey: AsymmetricCipherKeyPair
         AuthKey: AsymmetricCipherKeyPair
         MasterPublicKey: array<byte>
-        OnionKey: string
-        Fingerprint: string
-    }
-
-type IntroductionPointPublicInfo =
-    {
-        Address: string
-        Port: int
-        EncryptionKey: string
-        AuthKey: string
-        OnionKey: string
-        Fingerprint: string
-        MasterPublicKey: string
+        OnionKey: array<byte>
+        Fingerprint: array<byte>
     }
 
 type TorServiceHost
@@ -69,6 +58,8 @@ type TorServiceHost
 
     let mutable pendingConnectionQueue: Queue<uint16 * TorCircuit> = Queue.empty
     let queueLock: SemaphoreLocker = SemaphoreLocker()
+
+    let Version = 3uy
 
     member private self.IncomingServiceStreamCallback
         (streamId: uint16)
@@ -229,123 +220,123 @@ type TorServiceHost
 
     member self.RegisterIntroductionPoints() =
         async {
-            let safeCreateIntroductionPoint() =
+            let rec createIntroductionPoint () = 
                 async {
-                    let! guardEndPoint, guardNodeDetail =
-                        directory.GetRouter RouterType.Guard
+                    try
+                        let! guardEndPoint, guardNodeDetail =
+                            directory.GetRouter RouterType.Guard
 
-                    let! _, introNodeDetail =
-                        directory.GetRouter RouterType.Normal
+                        let! _, introNodeDetail =
+                            directory.GetRouter RouterType.Normal
 
-                    match introNodeDetail with
-                    | FastCreate ->
-                        return
-                            failwith
-                                "Unreachable, directory always returns non-fast connection info"
-                    | Create(address, onionKey, fingerprint) ->
+                        match introNodeDetail with
+                        | FastCreate ->
+                            return
+                                failwith
+                                    "Unreachable, directory always returns non-fast connection info"
+                        | Create(address, onionKey, fingerprint) ->
 
-                        let! guard = TorGuard.NewClient guardEndPoint
-                        let circuit = TorCircuit guard
+                            let! guard = TorGuard.NewClient guardEndPoint
+                            let circuit = TorCircuit guard
 
-                        let encKeyPair, authKeyPair =
-                            let kpGen = Ed25519KeyPairGenerator()
-                            let kpGenX = X25519KeyPairGenerator()
+                            let encKeyPair, authKeyPair =
+                                let kpGen = Ed25519KeyPairGenerator()
+                                let kpGenX = X25519KeyPairGenerator()
 
-                            let random = SecureRandom()
+                                let random = SecureRandom()
 
-                            kpGen.Init(Ed25519KeyGenerationParameters random)
-                            kpGenX.Init(X25519KeyGenerationParameters random)
+                                kpGen.Init(Ed25519KeyGenerationParameters random)
+                                kpGenX.Init(X25519KeyGenerationParameters random)
 
-                            kpGenX.GenerateKeyPair(), kpGen.GenerateKeyPair()
+                                kpGenX.GenerateKeyPair(), kpGen.GenerateKeyPair()
 
-                        let introductionPointInfo =
-                            {
-                                IntroductionPointInfo.Address = address
-                                AuthKey = authKeyPair
-                                EncryptionKey = encKeyPair
-                                OnionKey = onionKey |> Convert.ToBase64String
-                                Fingerprint =
-                                    fingerprint |> Convert.ToBase64String
-                                MasterPublicKey =
-                                    let masterPublicKey =
-                                        if not(isNull masterKeyPair) then
-                                            masterKeyPair.Public
-                                            :?> Ed25519PublicKeyParameters
-                                        else
-                                            let kpGen =
-                                                Ed25519KeyPairGenerator()
+                            let introductionPointInfo =
+                                {
+                                    IntroductionPointInfo.Address = address
+                                    AuthKey = authKeyPair
+                                    EncryptionKey = encKeyPair
+                                    OnionKey = onionKey
+                                    Fingerprint = fingerprint
+                                    MasterPublicKey =
+                                        let masterPublicKey =
+                                            if not(isNull masterKeyPair) then
+                                                masterKeyPair.Public
+                                                :?> Ed25519PublicKeyParameters
+                                            else
+                                                let kpGen =
+                                                    Ed25519KeyPairGenerator()
 
-                                            let random = SecureRandom()
+                                                let random = SecureRandom()
 
-                                            kpGen.Init(
-                                                Ed25519KeyGenerationParameters
-                                                    random
-                                            )
+                                                kpGen.Init(
+                                                    Ed25519KeyGenerationParameters
+                                                        random
+                                                )
 
-                                            kpGen.GenerateKeyPair().Public
-                                            :?> Ed25519PublicKeyParameters
+                                                kpGen.GenerateKeyPair().Public
+                                                :?> Ed25519PublicKeyParameters
 
-                                    masterPublicKey.GetEncoded()
+                                        masterPublicKey.GetEncoded()
 
-                            }
+                                }
 
-                        do! circuit.Create guardNodeDetail |> Async.Ignore
-                        do! circuit.Extend introNodeDetail |> Async.Ignore
+                            do! circuit.Create guardNodeDetail |> Async.Ignore
+                            do! circuit.Extend introNodeDetail |> Async.Ignore
 
-                        do!
-                            circuit.RegisterAsIntroductionPoint
-                                (Some authKeyPair)
-                                self.RelayIntroduceCallback
+                            do!
+                                circuit.RegisterAsIntroductionPoint
+                                    (Some authKeyPair)
+                                    self.RelayIntroduceCallback
 
-                        guardNode <- guard :: guardNode
+                            let safeRegister () =
+                                guardNode <- guard :: guardNode
 
-                        introductionPointKeys <-
-                            Map.add
-                                ((authKeyPair.Public
-                                 :?> Ed25519PublicKeyParameters)
-                                     .GetEncoded()
-                                 |> Convert.ToBase64String)
-                                introductionPointInfo
-                                introductionPointKeys
+                                introductionPointKeys <-
+                                    Map.add
+                                        ((authKeyPair.Public
+                                         :?> Ed25519PublicKeyParameters)
+                                             .GetEncoded()
+                                         |> Convert.ToBase64String)
+                                        introductionPointInfo
+                                        introductionPointKeys
+
+                            introductionPointSemaphore.RunSyncWithSemaphore safeRegister
+                    with
+                    | ex ->
+                        TorLogger.Log(
+                            sprintf
+                                "TorServiceHost: failed to register introduction point, ex=%s"
+                                (ex.ToString())
+                        )
+                        return! createIntroductionPoint()
+                        
                 }
 
-            while introductionPointKeys.Count < 3 do
-                try
-                    do!
-                        introductionPointSemaphore.RunAsyncWithSemaphore
-                            safeCreateIntroductionPoint
-                with
-                | ex ->
-                    // Silence exceptions in registering introduction points
-                    TorLogger.Log(
-                        sprintf
-                            "TorServiceHost: failed to register introduction point, ex=%s"
-                            (ex.ToString())
-                    )
+            do!
+                Seq.replicate 3 (createIntroductionPoint ())
+                |> Async.Parallel
+                |> Async.Ignore
         }
 
     member self.UploadDescriptor
-        (responsibleDirs: List<string>)
+        (directoryToUploadTo: string)
         (document: HiddenServiceFirstLayerDescriptorDocument)
         (retry: int)
         =
         async {
-            match responsibleDirs with
-            | [] -> ()
-            | _ :: tail when retry > 2 ->
-                return! self.UploadDescriptor tail document 0
-            | responsibleDir :: tail ->
+            if retry > 2 then
+                return ()
+            else
                 try
                     let hsDirectoryNode =
-                        directory.GetCircuitNodeDetailByIdentity responsibleDir
-
+                        directory.GetCircuitNodeDetailByIdentity directoryToUploadTo
                     let descriptor =
-                        directory.GetDescriptorByIdentity responsibleDir
+                        directory.GetDescriptorByIdentity directoryToUploadTo
 
                     if descriptor.Hibernating
                        || descriptor.NTorOnionKey.IsNone
                        || descriptor.Fingerprint.IsNone then
-                        return! self.UploadDescriptor tail document 0
+                        return ()
                     else
                         let! guardEndPoint, randomGuardNode =
                             directory.GetRouter RouterType.Guard
@@ -364,17 +355,18 @@ type TorServiceHost
 
                         let! _response =
                             TorHttpClient(dirStream, "127.0.0.1").PostString
-                                "/tor/hs/3/publish"
+                                (sprintf "/tor/hs/%d/publish" Version)
                                 (document.ToString())
 
-                        return! self.UploadDescriptor tail document 0
-                with
-                | _ ->
-                    return!
-                        self.UploadDescriptor
-                            responsibleDirs
-                            document
-                            (retry + 1)
+                        return ()
+                    with
+                    | ex ->
+                        TorLogger.Log (sprintf "TorServiceHost: hs descriptor upload failed, ex=%s" (ex.ToString()))
+                        return!
+                            self.UploadDescriptor
+                                directoryToUploadTo
+                                document
+                                (retry + 1)
         }
 
     member self.BuildAndUploadDescriptor
@@ -419,7 +411,7 @@ type TorServiceHost
                             {
                                 LinkSpecifier.Type =
                                     LinkSpecifierType.LegacyIdentity
-                                Data = Convert.FromBase64String info.Fingerprint
+                                Data = info.Fingerprint
                             }
                         ]
 
@@ -433,115 +425,40 @@ type TorServiceHost
                         ]
 
                 let authKeyCert =
-                    let unsignedCert =
-                        {
-                            Certificate.Version = 1uy
-                            CertKeyType = 1uy
-                            Type =
-                                CertType.IntroPointAuthKeySignedByDescriptorSigningKey
-                            CertifiedKey =
-                                (info.AuthKey.Public
-                                :?> Ed25519PublicKeyParameters)
-                                    .GetEncoded()
-                            //TODO(PRIVACY?): tor uses nearest hour instead of Now
-                            ExpirationDate =
-                                DateTime.UtcNow.AddHours(3.).Subtract(
-                                    DateTime(1970, 1, 1)
-                                )
-                                    .TotalHours
-                                |> uint
-                            Extensions =
-                                List.singleton(
-                                    {
-                                        CertificateExtension.Type =
-                                            CertificateExtensionType.SignedWithEd25519Key
-                                        Flags = 0uy
-                                        Data =
-                                            (descriptorSigningKey.Public
-                                            :?> Ed25519PublicKeyParameters)
-                                                .GetEncoded()
-                                    }
-                                )
-                            Signature = Array.empty
-                        }
-
-                    let unsignedCertBytes = unsignedCert.ToBytes true
-
-                    let signer = Ed25519Signer()
-                    signer.Init(true, descriptorSigningKey.Private)
-
-                    signer.BlockUpdate(
-                        unsignedCertBytes,
-                        0,
-                        unsignedCertBytes.Length
-                    )
-
-                    { unsignedCert with
-                        Signature = signer.GenerateSignature()
-                    }
+                    Certificate.CreateNew
+                        CertType.IntroPointAuthKeySignedByDescriptorSigningKey
+                        ((info.AuthKey.Public :?> Ed25519PublicKeyParameters).GetEncoded())
+                        ((descriptorSigningKey.Public:?> Ed25519PublicKeyParameters).GetEncoded())
+                        ((descriptorSigningKey.Private :?> Ed25519PrivateKeyParameters).GetEncoded())
+                        (TimeSpan.FromHours 54.)
 
                 let encKeyCert =
-                    let unsignedCert =
-                        {
-                            Certificate.Version = 1uy
-                            CertKeyType = 1uy
-                            Type =
-                                CertType.IntroPointEncKeySignedByDescriptorSigningKey
-                            CertifiedKey =
-                                let x25519 =
-                                    info.EncryptionKey.Public
-                                    :?> X25519PublicKeyParameters
+                    let convertedX25519Key =
+                        let x25519 =
+                            info.EncryptionKey.Public
+                            :?> X25519PublicKeyParameters
 
-                                match
-                                    Ed25519.Ed25519PublicKeyFromCurve25519
-                                        (
-                                            x25519.GetEncoded(),
-                                            false
-                                        )
-                                    with
-                                | true, output -> output
-                                | false, _ ->
-                                    failwith
-                                        "Should not happen, Ed25519PublicKeyFromCurve25519 will never return false"
-                            ExpirationDate =
-                                DateTime.UtcNow.AddHours(3.).Subtract(
-                                    DateTime(1970, 1, 1)
+                        match
+                            Ed25519.Ed25519PublicKeyFromCurve25519
+                                (
+                                    x25519.GetEncoded(),
+                                    false
                                 )
-                                    .TotalHours
-                                |> uint
-                            Extensions =
-                                List.singleton(
-                                    {
-                                        CertificateExtension.Type =
-                                            CertificateExtensionType.SignedWithEd25519Key
-                                        Flags = 0uy
-                                        Data =
-                                            (descriptorSigningKey.Public
-                                            :?> Ed25519PublicKeyParameters)
-                                                .GetEncoded()
-                                    }
-                                )
-                            Signature = Array.empty
-                        }
+                            with
+                        | true, output -> output
+                        | false, _ ->
+                            failwith
+                                "Should not happen, Ed25519PublicKeyFromCurve25519 will never return false"
 
-                    let unsignedCertBytes = unsignedCert.ToBytes true
-
-                    let signer = Ed25519Signer()
-                    signer.Init(true, descriptorSigningKey.Private)
-
-                    signer.BlockUpdate(
-                        unsignedCertBytes,
-                        0,
-                        unsignedCertBytes.Length
-                    )
-
-                    { unsignedCert with
-                        Signature = signer.GenerateSignature()
-                    }
+                    Certificate.CreateNew
+                        CertType.IntroPointEncKeySignedByDescriptorSigningKey
+                        convertedX25519Key
+                        ((descriptorSigningKey.Public:?> Ed25519PublicKeyParameters).GetEncoded())
+                        ((descriptorSigningKey.Private :?> Ed25519PrivateKeyParameters).GetEncoded())
+                        (TimeSpan.FromHours 54.)
 
                 {
-                    IntroductionPointEntry.OnionKey =
-                        Convert.FromBase64String info.OnionKey |> Some
+                    IntroductionPointEntry.OnionKey = Some info.OnionKey
                     AuthKey = authKeyCert.ToBytes false |> Some
                     EncKey =
                         (info.EncryptionKey.Public :?> X25519PublicKeyParameters)
@@ -702,39 +619,6 @@ type TorServiceHost
 
             let outerWrapper =
                 let descriptorSigningKeyCert =
-                    let unsignedDescriptorSigningKeyCert =
-                        {
-                            Certificate.Version = 1uy
-                            CertKeyType = 1uy
-                            Type =
-                                CertType.ShortTermDescriptorSigningKeyByBlindedPublicKey
-                            CertifiedKey =
-                                (descriptorSigningKey.Public
-                                :?> Ed25519PublicKeyParameters)
-                                    .GetEncoded()
-                            ExpirationDate =
-                                DateTime.UtcNow.AddHours(3.).Subtract(
-                                    DateTime(1970, 1, 1)
-                                )
-                                    .TotalHours
-                                |> uint
-                            Extensions =
-                                List.singleton(
-                                    {
-                                        CertificateExtension.Type =
-                                            CertificateExtensionType.SignedWithEd25519Key
-                                        Flags = 0uy
-                                        Data = blindedPublicKey
-                                    }
-                                )
-                            Signature = Array.empty
-                        }
-
-                    let unsignedDescriptorSigningKeyCertBytes =
-                        unsignedDescriptorSigningKeyCert.ToBytes true
-
-                    let signature = Array.zeroCreate<byte> 64
-
                     let blindedPrivateKey =
                         HiddenServicesCipher.BuildExpandedBlindedPrivateKey
                             (periodNum, periodLength)
@@ -745,16 +629,12 @@ type TorServiceHost
                             :?> Ed25519PrivateKeyParameters)
                                 .GetEncoded())
 
-                    Ed25519.SignWithPrehashedPrivateKey(
-                        ArraySegment signature,
-                        ArraySegment unsignedDescriptorSigningKeyCertBytes,
-                        ArraySegment blindedPrivateKey,
-                        ArraySegment blindedPublicKey
-                    )
-
-                    { unsignedDescriptorSigningKeyCert with
-                        Signature = signature
-                    }
+                    Certificate.CreateNew
+                        CertType.ShortTermDescriptorSigningKeyByBlindedPublicKey
+                        ((descriptorSigningKey.Public :?> Ed25519PublicKeyParameters).GetEncoded())
+                        blindedPublicKey
+                        blindedPrivateKey
+                        (TimeSpan.FromHours 54.)
 
                 let certInBytes = descriptorSigningKeyCert.ToBytes false
 
@@ -762,11 +642,11 @@ type TorServiceHost
                     {
                         HiddenServiceFirstLayerDescriptorDocument.EncryptedPayload =
                             Some encryptedSecondLayer
-                        Version = Some 3
+                        Version = int Version |> Some
                         Lifetime = Some 180
                         RevisionCounter = revisionCounter
                         Signature = None
-                        SigningKeyCert = Some(certInBytes)
+                        SigningKeyCert = Some certInBytes
                     }
 
                 let unsignedOuterWrapperInBytes =
@@ -789,7 +669,14 @@ type TorServiceHost
                     Signature = Some signature
                 }
 
-            do! self.UploadDescriptor responsibleDirs outerWrapper 0
+
+            let chunkedJobs =
+                responsibleDirs
+                |> Seq.map (fun dir -> self.UploadDescriptor dir outerWrapper 1)
+                |> Seq.chunkBySize 4
+
+            for chunk in chunkedJobs do
+                do! chunk |> Async.Parallel |> Async.Ignore
         }
 
     member self.UpdateSecondDescriptor(networkStatus: NetworkStatusDocument) =
@@ -855,8 +742,7 @@ type TorServiceHost
         async {
             do! self.RegisterIntroductionPoints()
 
-            if not(isNull masterKeyPair) then
-                do! self.KeepDescriptorsUpToDate()
+            do! self.KeepDescriptorsUpToDate()
         }
 
     member __.AcceptClient() =
@@ -901,36 +787,6 @@ type TorServiceHost
             cancellationToken = cancellationToken
         )
 
-    member self.Export() : IntroductionPointPublicInfo =
-        let exportIntroductionPoint(_key, info: IntroductionPointInfo) =
-            {
-                IntroductionPointPublicInfo.Address =
-                    info.Address.Address.ToString()
-                Port = info.Address.Port
-                OnionKey = info.OnionKey
-                Fingerprint = info.Fingerprint
-                AuthKey =
-                    (info.AuthKey.Public :?> Ed25519PublicKeyParameters)
-                        .GetEncoded()
-                    |> Convert.ToBase64String
-                EncryptionKey =
-                    (info.EncryptionKey.Public :?> X25519PublicKeyParameters)
-                        .GetEncoded()
-                    |> Convert.ToBase64String
-                MasterPublicKey = info.MasterPublicKey |> Convert.ToBase64String
-            }
-
-        let maybeIntroductionPointPublicInfo =
-            introductionPointKeys
-            |> Map.toList
-            |> List.map exportIntroductionPoint
-            |> SeqUtils.TakeRandom 1
-            |> Seq.tryExactlyOne
-
-        match maybeIntroductionPointPublicInfo with
-        | Some introductionPointPublicInfo -> introductionPointPublicInfo
-        | None -> failwith "No introduction point found!"
-
     member self.ExportUrl() =
         let publicKey =
             (masterKeyPair.Public :?> Ed25519PublicKeyParameters)
@@ -941,7 +797,7 @@ type TorServiceHost
                 [
                     ".onion checksum" |> System.Text.Encoding.ASCII.GetBytes
                     publicKey
-                    Array.singleton 3uy
+                    Array.singleton Version
                 ]
             |> HiddenServicesCipher.SHA3256
             |> Seq.take 2
@@ -951,7 +807,7 @@ type TorServiceHost
             [
                 publicKey
                 checksum
-                Array.singleton 3uy
+                Array.singleton Version
             ]
          |> Base32Util.EncodeBase32)
             .ToLower()

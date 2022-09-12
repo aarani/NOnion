@@ -20,6 +20,7 @@ using Org.BouncyCastle.Crypto.Parameters;
 using Org.BouncyCastle.Crypto.Generators;
 using Org.BouncyCastle.Security;
 using NUnit.Framework.Internal;
+using System.Diagnostics;
 
 namespace NOnion.Tests
 {
@@ -96,47 +97,6 @@ namespace NOnion.Tests
             return bytesRead + await ReadExact(stream, buffer, off + bytesRead, len);
         }
 
-        public async Task EstablishAndCommunicateOverHSConnectionNOnionStyle()
-        {
-            TorDirectory directory = await TorDirectory.BootstrapAsync(FallbackDirectorySelector.GetRandomFallbackDirectory());
-
-            var host = new TorServiceHost(directory, TestsRetryCount, null);
-            await host.StartAsync();
-
-            var dataToSendAndReceive = new byte[] { 1, 2, 3, 4 };
-
-            var serverSide =
-                Task.Run(async () => {
-                    var stream = await host.AcceptClientAsync();
-                    var bytesToSendWithLength = BitConverter.GetBytes(dataToSendAndReceive.Length).Concat(dataToSendAndReceive).ToArray();
-                    await stream.SendDataAsync(bytesToSendWithLength);
-                    await stream.EndAsync();
-                });
-
-            var clientSide =
-                Task.Run(async () => {
-                    var client = await TorServiceClient.ConnectAsync(directory, TorServiceDescriptors.NewNOnion (host.Export()));
-                    var stream = client.GetStream();
-                    var lengthBytes = new byte[sizeof(int)];
-                    await ReadExact(stream, lengthBytes, 0, lengthBytes.Length);
-                    var length = BitConverter.ToInt32(lengthBytes);
-                    var buffer = new byte[length];
-                    await ReadExact(stream, buffer, 0, buffer.Length);
-
-                    CollectionAssert.AreEqual(buffer, dataToSendAndReceive);
-                });
-
-
-            await TaskUtils.WhenAllFailFast(serverSide, clientSide);
-        }
-
-        [Test]
-        [Retry(TestsRetryCount)]
-        public void CanEstablishAndCommunicateOverHSConnectionNOnionStyle()
-        {
-            Assert.DoesNotThrowAsync(EstablishAndCommunicateOverHSConnectionNOnionStyle);
-        }
-
         public async Task BrowseFacebookOverHS()
         {
             TorDirectory directory = await TorDirectory.BootstrapAsync(FallbackDirectorySelector.GetRandomFallbackDirectory());
@@ -156,6 +116,8 @@ namespace NOnion.Tests
         public async Task EstablishAndCommunicateOverHSConnectionOnionStyle()
         {
             TorDirectory directory = await TorDirectory.BootstrapAsync(FallbackDirectorySelector.GetRandomFallbackDirectory());
+ 
+            TorLogger.Log("Finished bootstraping");
 
             var kpGen = new Ed25519KeyPairGenerator();
             var random = new SecureRandom();
@@ -164,6 +126,8 @@ namespace NOnion.Tests
 
             var host = new TorServiceHost(directory, TestsRetryCount, masterKey);
             await host.StartAsync();
+
+            TorLogger.Log("Finished starting HS host");
 
             var dataToSendAndReceive = new byte[] { 1, 2, 3, 4 };
 
@@ -187,7 +151,6 @@ namespace NOnion.Tests
 
                     CollectionAssert.AreEqual(buffer, dataToSendAndReceive);
                 });
-
 
             await TaskUtils.WhenAllFailFast(serverSide, clientSide);
         }
