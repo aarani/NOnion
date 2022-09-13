@@ -1,14 +1,14 @@
 ﻿using Microsoft.FSharp.Core;
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Security.Cryptography;
-using System.Text;
 using System.Threading.Tasks;
-using System.IO;
 
 using NUnit.Framework;
 using Org.BouncyCastle.Crypto;
+using Org.BouncyCastle.Crypto.Parameters;
+using Org.BouncyCastle.Crypto.Generators;
+using Org.BouncyCastle.Security;
 
 using NOnion.Network;
 using NOnion.Http;
@@ -16,11 +16,6 @@ using NOnion.Cells.Relay;
 using NOnion.Directory;
 using NOnion.Tests.Utility;
 using NOnion.Services;
-using Org.BouncyCastle.Crypto.Parameters;
-using Org.BouncyCastle.Crypto.Generators;
-using Org.BouncyCastle.Security;
-using NUnit.Framework.Internal;
-using System.Diagnostics;
 
 namespace NOnion.Tests
 {

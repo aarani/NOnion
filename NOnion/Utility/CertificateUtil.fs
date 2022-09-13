@@ -4,9 +4,9 @@ namespace NOnion.Utility
 open System
 open System.IO
 
+open Chaos.NaCl
 open Org.BouncyCastle.Crypto.Signers
 open Org.BouncyCastle.Crypto.Parameters
-open Chaos.NaCl
 
 type CertificateExtensionType =
     // https://github.com/torproject/torspec/blob/cb4ae84a20793a00f35a70aad5df47d4e4c7da7c/cert-spec.txt#L175
