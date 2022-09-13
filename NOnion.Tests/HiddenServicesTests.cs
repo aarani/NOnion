@@ -119,12 +119,12 @@ namespace NOnion.Tests
  
             TorLogger.Log("Finished bootstraping");
 
-            var kpGen = new Ed25519KeyPairGenerator();
-            var random = new SecureRandom();
+            SecureRandom random = new SecureRandom();
+            Ed25519KeyPairGenerator kpGen = new Ed25519KeyPairGenerator();
             kpGen.Init(new Ed25519KeyGenerationParameters(random));
-            var masterKey = kpGen.GenerateKeyPair();
+            Ed25519PrivateKeyParameters masterPrivateKey = (Ed25519PrivateKeyParameters)kpGen.GenerateKeyPair().Private;
 
-            var host = new TorServiceHost(directory, TestsRetryCount, masterKey);
+            TorServiceHost host = new TorServiceHost(directory, TestsRetryCount, FSharpOption<Ed25519PrivateKeyParameters>.Some(masterPrivateKey));
             await host.StartAsync();
 
             TorLogger.Log("Finished starting HS host");

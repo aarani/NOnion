@@ -6,6 +6,7 @@ open System.Text
 open Org.BouncyCastle.Crypto.Parameters
 open Org.BouncyCastle.Crypto.Generators
 open Org.BouncyCastle.Security
+
 open NOnion.Utility
 
 type HiddenServiceSecondLayerDescriptorDocument =
@@ -91,23 +92,21 @@ type HiddenServiceSecondLayerDescriptorDocument =
         |> ignore<StringBuilder>
 
         let authClientLine =
-            let rngEngine =
-                System.Security.Cryptography.RandomNumberGenerator.Create()
+            let random = SecureRandom()
 
             let clientId = Array.zeroCreate 8
-            rngEngine.GetBytes clientId
-
             let iv = Array.zeroCreate 16
-            rngEngine.GetBytes iv
-
             let cookie = Array.zeroCreate 16
-            rngEngine.GetBytes cookie
+
+            random.NextBytes clientId
+            random.NextBytes iv
+            random.NextBytes cookie
 
             sprintf
                 "%s %s %s"
-                (Base64Util.ToStringNoPad clientId)
-                (Base64Util.ToStringNoPad iv)
-                (Base64Util.ToStringNoPad cookie)
+                (Base64Util.EncodeNoPaddding clientId)
+                (Base64Util.EncodeNoPaddding iv)
+                (Base64Util.EncodeNoPaddding cookie)
 
         appendLine(sprintf "auth-client %s" authClientLine)
         |> ignore<StringBuilder>
@@ -116,7 +115,7 @@ type HiddenServiceSecondLayerDescriptorDocument =
         | Some encrypted ->
             appendLine "encrypted" |> ignore<StringBuilder>
             appendLine "-----BEGIN MESSAGE-----" |> ignore<StringBuilder>
-            appendLine(writeByteArray encrypted) |> ignore<StringBuilder>
+            writeByteArray encrypted |> appendLine |> ignore<StringBuilder>
             appendLine "-----END MESSAGE-----" |> ignore<StringBuilder>
         | None ->
             failwith

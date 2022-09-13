@@ -139,7 +139,7 @@ type IntroductionPointEntry =
         | Some authKey ->
             appendLine "auth-key" |> ignore<StringBuilder>
             appendLine "-----BEGIN ED25519 CERT-----" |> ignore<StringBuilder>
-            appendLine(writeByteArray authKey) |> ignore<StringBuilder>
+            writeByteArray authKey |> appendLine |> ignore<StringBuilder>
             appendLine "-----END ED25519 CERT-----" |> ignore<StringBuilder>
         | None ->
             failwith
@@ -159,7 +159,7 @@ type IntroductionPointEntry =
         | Some encKeyCert ->
             appendLine "enc-key-cert" |> ignore<StringBuilder>
             appendLine "-----BEGIN ED25519 CERT-----" |> ignore<StringBuilder>
-            appendLine(writeByteArray encKeyCert) |> ignore<StringBuilder>
+            writeByteArray encKeyCert |> appendLine |> ignore<StringBuilder>
             appendLine "-----END ED25519 CERT-----" |> ignore<StringBuilder>
         | None ->
             failwith
@@ -212,8 +212,6 @@ type HiddenServiceDescriptorDocument =
                             readRestAsString() |> Some
                     }
                 | "intro-auth-required" ->
-                    //FIXME: ignore intro-auth-required
-                    lines.Dequeue() |> ignore<string>
                     failwith "NOnion doesn't support client-authorization"
                 | "single-onion-service" ->
                     lines.Dequeue() |> ignore<string>

@@ -1,12 +1,13 @@
 ﻿namespace NOnion.Directory
 
 open System
+open System.IO
 open System.Text
 
-open NOnion.Utility
-open System.IO
 open Org.BouncyCastle.Crypto.Signers
 open Org.BouncyCastle.Crypto.Parameters
+
+open NOnion.Utility
 
 type HiddenServiceFirstLayerDescriptorDocument =
     {
@@ -61,7 +62,10 @@ type HiddenServiceFirstLayerDescriptorDocument =
                     match state.SigningKeyCert with
                     | Some keyCert ->
                         let signatureIndex = stringToParse.IndexOf("signature")
-                        let documentExcludingSignature = stringToParse.Substring(0, signatureIndex)
+
+                        let documentExcludingSignature =
+                            stringToParse.Substring(0, signatureIndex)
+
                         use memStream = new MemoryStream(keyCert)
                         use reader = new BinaryReader(memStream)
                         let cert = Certificate.Deserialize reader
@@ -72,9 +76,7 @@ type HiddenServiceFirstLayerDescriptorDocument =
                             false,
                             Ed25519PublicKeyParameters(cert.CertifiedKey, 0)
                         )
-                        //FIXME: reserializing for verification is not a good idea
-                        // order of keywords might be different instead we need to
-                        // remove the "signature" line and verify the rest
+
                         let currentStateInBytes =
                             "Tor onion service descriptor sig v3"
                             + documentExcludingSignature
@@ -87,9 +89,11 @@ type HiddenServiceFirstLayerDescriptorDocument =
                         )
 
                         if not(signer.VerifySignature(signature)) then
-                            failwith "Can't parse hs document(outer-wrapper), invalid signature"
+                            failwith
+                                "Can't parse hs document(outer-wrapper), invalid signature"
                     | None ->
-                        failwith "Can't parse hs document(outer-wrapper), signature should be the last item in the doc"
+                        failwith
+                            "Can't parse hs document(outer-wrapper), signature should be the last item in the doc"
 
                     { state with
                         HiddenServiceFirstLayerDescriptorDocument.Signature =
@@ -188,7 +192,7 @@ type HiddenServiceFirstLayerDescriptorDocument =
         | Some keyCert ->
             appendLine "descriptor-signing-key-cert" |> ignore<StringBuilder>
             appendLine "-----BEGIN ED25519 CERT-----" |> ignore<StringBuilder>
-            appendLine(writeByteArray keyCert) |> ignore<StringBuilder>
+            writeByteArray keyCert |> appendLine |> ignore<StringBuilder>
             appendLine "-----END ED25519 CERT-----" |> ignore<StringBuilder>
         | None ->
             failwith
@@ -206,7 +210,7 @@ type HiddenServiceFirstLayerDescriptorDocument =
         | Some encrypted ->
             appendLine "superencrypted" |> ignore<StringBuilder>
             appendLine "-----BEGIN MESSAGE-----" |> ignore<StringBuilder>
-            appendLine(writeByteArray encrypted) |> ignore<StringBuilder>
+            writeByteArray encrypted |> appendLine |> ignore<StringBuilder>
             appendLine "-----END MESSAGE-----" |> ignore<StringBuilder>
         | None ->
             failwith
@@ -215,7 +219,7 @@ type HiddenServiceFirstLayerDescriptorDocument =
         match self.Signature with
         | Some signature when signature.Length > 0 ->
             appendLine(
-                sprintf "signature %s" (Base64Util.ToStringNoPad signature)
+                sprintf "signature %s" (Base64Util.EncodeNoPaddding signature)
             )
             |> ignore<StringBuilder>
         | _ -> ()

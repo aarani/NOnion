@@ -65,7 +65,13 @@ type Certificate =
         )
         |> Option.map(fun ext -> ext.Data)
 
-    static member CreateNew certType (certifiedKey: array<byte>) (signingPublicKey: array<byte>) (signingPrivateKey: array<byte>) (lifetime: TimeSpan) =
+    static member CreateNew
+        certType
+        (certifiedKey: array<byte>)
+        (signingPublicKey: array<byte>)
+        (signingPrivateKey: array<byte>)
+        (lifetime: TimeSpan)
+        =
         let unsignedCertificate =
             {
                 Certificate.Version = 1uy
@@ -74,7 +80,10 @@ type Certificate =
                 CertifiedKey = certifiedKey
                 ExpirationDate =
                     //TODO: TOR uses newerst hour instead of now
-                    (DateTimeUtils.GetTimeSpanSinceEpoch DateTime.UtcNow + lifetime).TotalHours |> uint
+                    (DateTimeUtils.GetTimeSpanSinceEpoch DateTime.UtcNow
+                     + lifetime)
+                        .TotalHours
+                    |> uint
                 Extensions =
                     List.singleton(
                         {
@@ -87,14 +96,17 @@ type Certificate =
                 Signature = Array.empty
             }
 
-        let unsignedCertificateBytes =
-            unsignedCertificate.ToBytes true
+        let unsignedCertificateBytes = unsignedCertificate.ToBytes true
 
-        let signature = 
+        let signature =
             if signingPrivateKey.Length = 32 then
                 //Standard private key, we can sign with bouncycastle
                 let signer = Ed25519Signer()
-                signer.Init(true, Ed25519PrivateKeyParameters(signingPrivateKey, 0))
+
+                signer.Init(
+                    true,
+                    Ed25519PrivateKeyParameters(signingPrivateKey, 0)
+                )
 
                 signer.BlockUpdate(
                     unsignedCertificateBytes,
@@ -116,13 +128,13 @@ type Certificate =
 
                 signature
             else
-                failwith "Invalid private key, private key should either be 32 (standard ed25519) or 64 bytes (expanded ed25519 key)"
+                failwith
+                    "Invalid private key, private key should either be 32 (standard ed25519) or 64 bytes (expanded ed25519 key)"
 
-        {
-            unsignedCertificate with
-                Signature = signature
+        { unsignedCertificate with
+            Signature = signature
         }
-        
+
 
     static member Deserialize(reader: BinaryReader) =
         let rec readExtensions
@@ -144,8 +156,7 @@ type Certificate =
             ExpirationDate = BinaryIO.ReadBigEndianUInt32 reader
             CertKeyType = reader.ReadByte()
             CertifiedKey = reader.ReadBytes 32
-            Extensions =
-                readExtensions (reader.ReadByte() |> int) List.empty
+            Extensions = readExtensions (reader.ReadByte() |> int) List.empty
             Signature = reader.ReadBytes 64
         }
 
@@ -159,8 +170,7 @@ type Certificate =
 
             if not(verifier.VerifySignature self.Signature) then
                 failwith "Invalid certificate"
-        | None ->
-            failwith "Certificate validation failed: invalid signature"
+        | None -> failwith "Certificate validation failed: invalid signature"
         //TODO: validate datetime
 
     member self.ToBytes(ignoreSig: bool) =

@@ -4,6 +4,8 @@ open System
 open System.IO
 open System.Net
 open System.Net.Sockets
+open System.Security.Cryptography
+open System.Text
 open System.Threading
 open FSharpx.Collections
 
@@ -11,6 +13,7 @@ open Chaos.NaCl
 open Org.BouncyCastle.Crypto
 open Org.BouncyCastle.Crypto.Parameters
 open Org.BouncyCastle.Crypto.Generators
+open Org.BouncyCastle.Crypto.Signers
 open Org.BouncyCastle.Security
 
 open NOnion
@@ -19,10 +22,7 @@ open NOnion.Crypto
 open NOnion.Directory
 open NOnion.Utility
 open NOnion.Network
-open Org.BouncyCastle.Crypto.Signers
 open NOnion.Http
-open System.Security.Cryptography
-open System.Text
 
 type IntroductionPointInfo =
     {
@@ -38,7 +38,7 @@ type TorServiceHost
     (
         directory: TorDirectory,
         maxRendezvousConnectRetryCount: int,
-        masterKeyPair: AsymmetricCipherKeyPair
+        maybeMasterPrivateKey: Option<Ed25519PrivateKeyParameters>
     ) =
 
     let mutable introductionPointKeys: Map<string, IntroductionPointInfo> =
@@ -47,6 +47,24 @@ type TorServiceHost
     let mutable guardNode: List<TorGuard> = List.empty
     let introductionPointSemaphore: SemaphoreLocker = SemaphoreLocker()
     let newClientSemaphore = new SemaphoreSlim(0)
+
+    let masterPrivateKey, masterPublicKey =
+        let masterPrivateKey =
+            match maybeMasterPrivateKey with
+            | Some masterPrivateKey when not(isNull masterPrivateKey) ->
+                masterPrivateKey
+            | _ ->
+                let keyPair =
+                    let kpGen = Ed25519KeyPairGenerator()
+                    let random = SecureRandom()
+
+                    kpGen.Init(Ed25519KeyGenerationParameters random)
+
+                    kpGen.GenerateKeyPair()
+
+                keyPair.Private :?> Ed25519PrivateKeyParameters
+
+        masterPrivateKey, masterPrivateKey.GeneratePublicKey()
 
     let descriptorSigningKey =
         let kpGen = Ed25519KeyPairGenerator()
@@ -59,7 +77,7 @@ type TorServiceHost
     let mutable pendingConnectionQueue: Queue<uint16 * TorCircuit> = Queue.empty
     let queueLock: SemaphoreLocker = SemaphoreLocker()
 
-    let Version = 3uy
+    let hiddenServiceVersion = 3uy
 
     member private self.IncomingServiceStreamCallback
         (streamId: uint16)
@@ -220,7 +238,7 @@ type TorServiceHost
 
     member self.RegisterIntroductionPoints() =
         async {
-            let rec createIntroductionPoint () = 
+            let rec createIntroductionPoint() =
                 async {
                     try
                         let! guardEndPoint, guardNodeDetail =
@@ -245,10 +263,16 @@ type TorServiceHost
 
                                 let random = SecureRandom()
 
-                                kpGen.Init(Ed25519KeyGenerationParameters random)
-                                kpGenX.Init(X25519KeyGenerationParameters random)
+                                kpGen.Init(
+                                    Ed25519KeyGenerationParameters random
+                                )
 
-                                kpGenX.GenerateKeyPair(), kpGen.GenerateKeyPair()
+                                kpGenX.Init(
+                                    X25519KeyGenerationParameters random
+                                )
+
+                                kpGenX.GenerateKeyPair(),
+                                kpGen.GenerateKeyPair()
 
                             let introductionPointInfo =
                                 {
@@ -259,9 +283,8 @@ type TorServiceHost
                                     Fingerprint = fingerprint
                                     MasterPublicKey =
                                         let masterPublicKey =
-                                            if not(isNull masterKeyPair) then
-                                                masterKeyPair.Public
-                                                :?> Ed25519PublicKeyParameters
+                                            if not(isNull masterPrivateKey) then
+                                                masterPublicKey
                                             else
                                                 let kpGen =
                                                     Ed25519KeyPairGenerator()
@@ -288,19 +311,31 @@ type TorServiceHost
                                     (Some authKeyPair)
                                     self.RelayIntroduceCallback
 
-                            let safeRegister () =
-                                guardNode <- guard :: guardNode
+                            let safeRegister() =
+                                let introductionPointAlreadyExists =
+                                    introductionPointKeys
+                                    |> Map.toSeq
+                                    |> Seq.exists(fun (_authKey, info) ->
+                                        info.Address = introductionPointInfo.Address
+                                    )
 
-                                introductionPointKeys <-
-                                    Map.add
-                                        ((authKeyPair.Public
-                                         :?> Ed25519PublicKeyParameters)
-                                             .GetEncoded()
-                                         |> Convert.ToBase64String)
-                                        introductionPointInfo
-                                        introductionPointKeys
+                                if introductionPointAlreadyExists then
+                                    failwith
+                                        "duplicate introduction point, try again!"
+                                else
+                                    guardNode <- guard :: guardNode
 
-                            introductionPointSemaphore.RunSyncWithSemaphore safeRegister
+                                    introductionPointKeys <-
+                                        Map.add
+                                            ((authKeyPair.Public
+                                             :?> Ed25519PublicKeyParameters)
+                                                 .GetEncoded()
+                                             |> Convert.ToBase64String)
+                                            introductionPointInfo
+                                            introductionPointKeys
+
+                            introductionPointSemaphore.RunSyncWithSemaphore
+                                safeRegister
                     with
                     | ex ->
                         TorLogger.Log(
@@ -308,12 +343,13 @@ type TorServiceHost
                                 "TorServiceHost: failed to register introduction point, ex=%s"
                                 (ex.ToString())
                         )
+
                         return! createIntroductionPoint()
-                        
+
                 }
 
             do!
-                Seq.replicate 3 (createIntroductionPoint ())
+                Seq.replicate 3 (createIntroductionPoint())
                 |> Async.Parallel
                 |> Async.Ignore
         }
@@ -329,7 +365,9 @@ type TorServiceHost
             else
                 try
                     let hsDirectoryNode =
-                        directory.GetCircuitNodeDetailByIdentity directoryToUploadTo
+                        directory.GetCircuitNodeDetailByIdentity
+                            directoryToUploadTo
+
                     let descriptor =
                         directory.GetDescriptorByIdentity directoryToUploadTo
 
@@ -355,18 +393,25 @@ type TorServiceHost
 
                         let! _response =
                             TorHttpClient(dirStream, "127.0.0.1").PostString
-                                (sprintf "/tor/hs/%d/publish" Version)
+                                (sprintf
+                                    "/tor/hs/%i/publish"
+                                    hiddenServiceVersion)
                                 (document.ToString())
 
                         return ()
-                    with
-                    | ex ->
-                        TorLogger.Log (sprintf "TorServiceHost: hs descriptor upload failed, ex=%s" (ex.ToString()))
-                        return!
-                            self.UploadDescriptor
-                                directoryToUploadTo
-                                document
-                                (retry + 1)
+                with
+                | ex ->
+                    TorLogger.Log(
+                        sprintf
+                            "TorServiceHost: hs descriptor upload failed, ex=%s"
+                            (ex.ToString())
+                    )
+
+                    return!
+                        self.UploadDescriptor
+                            directoryToUploadTo
+                            document
+                            (retry + 1)
         }
 
     member self.BuildAndUploadDescriptor
@@ -379,8 +424,7 @@ type TorServiceHost
             let blindedPublicKey =
                 HiddenServicesCipher.BuildBlindedPublicKey
                     (periodNum, periodLength)
-                    ((masterKeyPair.Public :?> Ed25519PublicKeyParameters)
-                        .GetEncoded())
+                    (masterPublicKey.GetEncoded())
 
             let! responsibleDirs =
                 directory.GetResponsibleHiddenServiceDirectories
@@ -427,9 +471,14 @@ type TorServiceHost
                 let authKeyCert =
                     Certificate.CreateNew
                         CertType.IntroPointAuthKeySignedByDescriptorSigningKey
-                        ((info.AuthKey.Public :?> Ed25519PublicKeyParameters).GetEncoded())
-                        ((descriptorSigningKey.Public:?> Ed25519PublicKeyParameters).GetEncoded())
-                        ((descriptorSigningKey.Private :?> Ed25519PrivateKeyParameters).GetEncoded())
+                        ((info.AuthKey.Public :?> Ed25519PublicKeyParameters)
+                            .GetEncoded())
+                        ((descriptorSigningKey.Public
+                        :?> Ed25519PublicKeyParameters)
+                            .GetEncoded())
+                        ((descriptorSigningKey.Private
+                        :?> Ed25519PrivateKeyParameters)
+                            .GetEncoded())
                         (TimeSpan.FromHours 54.)
 
                 let encKeyCert =
@@ -453,8 +502,12 @@ type TorServiceHost
                     Certificate.CreateNew
                         CertType.IntroPointEncKeySignedByDescriptorSigningKey
                         convertedX25519Key
-                        ((descriptorSigningKey.Public:?> Ed25519PublicKeyParameters).GetEncoded())
-                        ((descriptorSigningKey.Private :?> Ed25519PrivateKeyParameters).GetEncoded())
+                        ((descriptorSigningKey.Public
+                        :?> Ed25519PublicKeyParameters)
+                            .GetEncoded())
+                        ((descriptorSigningKey.Private
+                        :?> Ed25519PrivateKeyParameters)
+                            .GetEncoded())
                         (TimeSpan.FromHours 54.)
 
                 {
@@ -489,9 +542,7 @@ type TorServiceHost
                         blindedPublicKey
                         HiddenServicesCipher.GetSubCredential
                             (periodNum, periodLength)
-                            ((masterKeyPair.Public
-                            :?> Ed25519PublicKeyParameters)
-                                .GetEncoded())
+                            (masterPublicKey.GetEncoded())
                         revisionCounter.Value
                         |> uint64
                         |> IntegerSerialization.FromUInt64ToBigEndianByteArray
@@ -622,16 +673,14 @@ type TorServiceHost
                     let blindedPrivateKey =
                         HiddenServicesCipher.BuildExpandedBlindedPrivateKey
                             (periodNum, periodLength)
-                            ((masterKeyPair.Public
-                            :?> Ed25519PublicKeyParameters)
-                                .GetEncoded())
-                            ((masterKeyPair.Private
-                            :?> Ed25519PrivateKeyParameters)
-                                .GetEncoded())
+                            (masterPublicKey.GetEncoded())
+                            (masterPrivateKey.GetEncoded())
 
                     Certificate.CreateNew
                         CertType.ShortTermDescriptorSigningKeyByBlindedPublicKey
-                        ((descriptorSigningKey.Public :?> Ed25519PublicKeyParameters).GetEncoded())
+                        ((descriptorSigningKey.Public
+                        :?> Ed25519PublicKeyParameters)
+                            .GetEncoded())
                         blindedPublicKey
                         blindedPrivateKey
                         (TimeSpan.FromHours 54.)
@@ -642,7 +691,7 @@ type TorServiceHost
                     {
                         HiddenServiceFirstLayerDescriptorDocument.EncryptedPayload =
                             Some encryptedSecondLayer
-                        Version = int Version |> Some
+                        Version = int hiddenServiceVersion |> Some
                         Lifetime = Some 180
                         RevisionCounter = revisionCounter
                         Signature = None
@@ -672,7 +721,7 @@ type TorServiceHost
 
             let chunkedJobs =
                 responsibleDirs
-                |> Seq.map (fun dir -> self.UploadDescriptor dir outerWrapper 1)
+                |> Seq.map(fun dir -> self.UploadDescriptor dir outerWrapper 1)
                 |> Seq.chunkBySize 4
 
             for chunk in chunkedJobs do
@@ -788,16 +837,14 @@ type TorServiceHost
         )
 
     member self.ExportUrl() =
-        let publicKey =
-            (masterKeyPair.Public :?> Ed25519PublicKeyParameters)
-                .GetEncoded()
+        let publicKey = masterPublicKey.GetEncoded()
 
         let checksum =
             Array.concat
                 [
                     ".onion checksum" |> System.Text.Encoding.ASCII.GetBytes
                     publicKey
-                    Array.singleton Version
+                    Array.singleton hiddenServiceVersion
                 ]
             |> HiddenServicesCipher.SHA3256
             |> Seq.take 2
@@ -807,7 +854,7 @@ type TorServiceHost
             [
                 publicKey
                 checksum
-                Array.singleton Version
+                Array.singleton hiddenServiceVersion
             ]
          |> Base32Util.EncodeBase32)
             .ToLower()

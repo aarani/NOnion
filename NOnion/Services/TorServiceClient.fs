@@ -2,13 +2,10 @@
 
 open System
 open System.IO
-open System.Net
 open System.Security.Cryptography
 open System.Text
 open System.Linq
 
-open Org.BouncyCastle.Crypto.Agreement
-open Org.BouncyCastle.Crypto.Digests
 open Org.BouncyCastle.Crypto.Parameters
 open Org.BouncyCastle.Crypto.Generators
 open Org.BouncyCastle.Security
