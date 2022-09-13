@@ -2,8 +2,6 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
-using FSharpx.Collections;
-using System.Runtime.Intrinsics.X86;
 using System.Text.RegularExpressions;
 
 namespace NOnion.Tests
