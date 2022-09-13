@@ -37,6 +37,7 @@ type IntroductionPointInfo =
 type TorServiceHost
     (
         directory: TorDirectory,
+        maxDescriptorUploadRetryCount: int,
         maxRendezvousConnectRetryCount: int,
         maybeMasterPrivateKey: Option<Ed25519PrivateKeyParameters>
     ) =
@@ -66,18 +67,19 @@ type TorServiceHost
 
         masterPrivateKey, masterPrivateKey.GeneratePublicKey()
 
-    let descriptorSigningKey =
-        let kpGen = Ed25519KeyPairGenerator()
-        let random = SecureRandom()
+    let descriptorSigningPublicKey, descriptorSigningPrivateKey =
+        let keyPair =
+            let kpGen = Ed25519KeyPairGenerator()
+            let random = SecureRandom()
 
-        kpGen.Init(Ed25519KeyGenerationParameters random)
+            kpGen.Init(Ed25519KeyGenerationParameters random)
+            kpGen.GenerateKeyPair()
 
-        kpGen.GenerateKeyPair()
+        keyPair.Public :?> Ed25519PublicKeyParameters,
+        keyPair.Private :?> Ed25519PrivateKeyParameters
 
     let mutable pendingConnectionQueue: Queue<uint16 * TorCircuit> = Queue.empty
     let queueLock: SemaphoreLocker = SemaphoreLocker()
-
-    let hiddenServiceVersion = 3uy
 
     member private self.IncomingServiceStreamCallback
         (streamId: uint16)
@@ -253,7 +255,6 @@ type TorServiceHost
                                 failwith
                                     "Unreachable, directory always returns non-fast connection info"
                         | Create(address, onionKey, fingerprint) ->
-
                             let! guard = TorGuard.NewClient guardEndPoint
                             let circuit = TorCircuit guard
 
@@ -331,7 +332,9 @@ type TorServiceHost
                 }
 
             do!
-                Seq.replicate 3 (createIntroductionPoint())
+                Seq.replicate
+                    Constants.IntroductionPointCount
+                    (createIntroductionPoint())
                 |> Async.Parallel
                 |> Async.Ignore
         }
@@ -342,7 +345,7 @@ type TorServiceHost
         (retry: int)
         =
         async {
-            if retry > 2 then
+            if retry > maxDescriptorUploadRetryCount then
                 return ()
             else
                 try
@@ -374,10 +377,14 @@ type TorServiceHost
                         do! dirStream.ConnectToDirectory() |> Async.Ignore
 
                         let! _response =
-                            TorHttpClient(dirStream, "127.0.0.1").PostString
+                            TorHttpClient(
+                                dirStream,
+                                Constants.DefaultHttpHost
+                            )
+                                .PostString
                                 (sprintf
                                     "/tor/hs/%i/publish"
-                                    hiddenServiceVersion)
+                                    Constants.HiddenServiceVersion)
                                 (document.ToString())
 
                         return ()
@@ -429,85 +436,13 @@ type TorServiceHost
                 |> int64
                 |> Some
 
-            let createIntoductionPointEntry(info: IntroductionPointInfo) =
-                let linkSpecifiersInBytes =
-                    let linkSpecifiers =
-                        [
-                            LinkSpecifier.CreateFromEndPoint info.Address
-                            {
-                                LinkSpecifier.Type =
-                                    LinkSpecifierType.LegacyIdentity
-                                Data = info.Fingerprint
-                            }
-                        ]
-
-                    Array.concat
-                        [
-                            linkSpecifiers.Length |> byte |> Array.singleton
-
-                            linkSpecifiers
-                            |> List.map(fun link -> link.ToBytes())
-                            |> Array.concat
-                        ]
-
-                let authKeyCert =
-                    Certificate.CreateNew
-                        CertType.IntroPointAuthKeySignedByDescriptorSigningKey
-                        ((info.AuthKey.Public :?> Ed25519PublicKeyParameters)
-                            .GetEncoded())
-                        ((descriptorSigningKey.Public
-                        :?> Ed25519PublicKeyParameters)
-                            .GetEncoded())
-                        ((descriptorSigningKey.Private
-                        :?> Ed25519PrivateKeyParameters)
-                            .GetEncoded())
-                        (TimeSpan.FromHours 54.)
-
-                let encKeyCert =
-                    let convertedX25519Key =
-                        let x25519 =
-                            info.EncryptionKey.Public
-                            :?> X25519PublicKeyParameters
-
-                        match
-                            Ed25519.Ed25519PublicKeyFromCurve25519
-                                (
-                                    x25519.GetEncoded(),
-                                    false
-                                )
-                            with
-                        | true, output -> output
-                        | false, _ ->
-                            failwith
-                                "Should not happen, Ed25519PublicKeyFromCurve25519 will never return false"
-
-                    Certificate.CreateNew
-                        CertType.IntroPointEncKeySignedByDescriptorSigningKey
-                        convertedX25519Key
-                        ((descriptorSigningKey.Public
-                        :?> Ed25519PublicKeyParameters)
-                            .GetEncoded())
-                        ((descriptorSigningKey.Private
-                        :?> Ed25519PrivateKeyParameters)
-                            .GetEncoded())
-                        (TimeSpan.FromHours 54.)
-
-                {
-                    IntroductionPointEntry.OnionKey = Some info.OnionKey
-                    AuthKey = authKeyCert.ToBytes false |> Some
-                    EncKey =
-                        (info.EncryptionKey.Public :?> X25519PublicKeyParameters)
-                            .GetEncoded()
-                        |> Some
-                    EncKeyCert = encKeyCert.ToBytes false |> Some
-                    LinkSpecifiers = linkSpecifiersInBytes |> Some
-                }
-
             let getEncryptionKeys(input: array<byte>) =
                 let keyBytes =
                     input
                     |> HiddenServicesCipher.CalculateShake256(
-                        Constants.KeyS256Length + Constants.IVS256Length + 32
+                        Constants.KeyS256Length
+                        + Constants.IVS256Length
+                        + Constants.HSDirEncryption.MacKeyLength
                     )
 
                 keyBytes |> Array.take Constants.KeyS256Length,
@@ -516,7 +451,7 @@ type TorServiceHost
                 |> Array.take Constants.IVS256Length,
                 keyBytes
                 |> Array.skip(Constants.KeyS256Length + Constants.IVS256Length)
-                |> Array.take 32
+                |> Array.take Constants.HSDirEncryption.MacKeyLength
 
             let secretInput =
                 Array.concat
@@ -530,127 +465,188 @@ type TorServiceHost
                         |> IntegerSerialization.FromUInt64ToBigEndianByteArray
                     ]
 
+            let outerWrapper =
+                let encryptedSecondLayer =
+                    let encryptedFirstLayer =
+                        let innerCoreInBytes =
+                            let createIntoductionPointEntry
+                                (info: IntroductionPointInfo)
+                                =
+                                let linkSpecifiersInBytes =
+                                    let linkSpecifiers =
+                                        [
+                                            LinkSpecifier.CreateFromEndPoint
+                                                info.Address
+                                            {
+                                                LinkSpecifier.Type =
+                                                    LinkSpecifierType.LegacyIdentity
+                                                Data = info.Fingerprint
+                                            }
+                                        ]
 
-            let encryptedFirstLayer =
-                let innerCoreInBytes =
-                    {
-                        HiddenServiceDescriptorDocument.Create2Formats =
-                            Some "2"
-                        IsSingleOnionService = false
-                        IntroductionPoints =
-                            introductionPointKeys
-                            |> Map.values
-                            |> Seq.map createIntoductionPointEntry
-                            |> Seq.toList
-                    }
-                        .ToString()
-                    |> Encoding.ASCII.GetBytes
+                                    Array.concat
+                                        [
+                                            linkSpecifiers.Length
+                                            |> byte
+                                            |> Array.singleton
+                                            linkSpecifiers
+                                            |> List.map(fun link ->
+                                                link.ToBytes()
+                                            )
+                                            |> Array.concat
+                                        ]
 
-                let firstLayerSalt =
-                    let salt = Array.zeroCreate 16
-                    RandomNumberGenerator.Create().GetBytes salt
-                    salt
+                                let authKeyCert =
+                                    Certificate.CreateNew
+                                        CertType.IntroPointAuthKeySignedByDescriptorSigningKey
+                                        ((info.AuthKey.Public
+                                        :?> Ed25519PublicKeyParameters)
+                                            .GetEncoded())
+                                        (descriptorSigningPublicKey.GetEncoded())
+                                        (descriptorSigningPrivateKey.GetEncoded
+                                            ())
+                                        Constants.HiddenServiceDescriptorCertificateLifetime
 
-                let firstLayerKey, firstLayerIV, firstLayerMacKey =
-                    Array.concat
-                        [
-                            secretInput
-                            firstLayerSalt
-                            Constants.HSDirEncryption.Encrypted
+                                let encKeyBytes =
+                                    (info.EncryptionKey.Public
+                                    :?> X25519PublicKeyParameters)
+                                        .GetEncoded()
+
+                                let encKeyCert =
+                                    let convertedX25519Key =
+                                        match
+                                            Ed25519.Ed25519PublicKeyFromCurve25519
+                                                (
+                                                    encKeyBytes,
+                                                    false
+                                                )
+                                            with
+                                        | true, output -> output
+                                        | false, _ ->
+                                            failwith
+                                                "Should not happen, Ed25519PublicKeyFromCurve25519 will never return false"
+
+                                    Certificate.CreateNew
+                                        CertType.IntroPointEncKeySignedByDescriptorSigningKey
+                                        convertedX25519Key
+                                        (descriptorSigningPublicKey.GetEncoded())
+                                        (descriptorSigningPrivateKey.GetEncoded
+                                            ())
+                                        Constants.HiddenServiceDescriptorCertificateLifetime
+
+                                {
+                                    IntroductionPointEntry.OnionKey =
+                                        Some info.OnionKey
+                                    AuthKey = Some authKeyCert
+                                    EncKey = Some encKeyBytes
+                                    EncKeyCert = Some encKeyCert
+                                    LinkSpecifiers =
+                                        linkSpecifiersInBytes |> Some
+                                }
+
+                            { HiddenServiceDescriptorDocument.Default with
+                                IsSingleOnionService = false
+                                IntroductionPoints =
+                                    introductionPointKeys
+                                    |> Map.values
+                                    |> Seq.map createIntoductionPointEntry
+                                    |> Seq.toList
+                            }
+                                .ToString()
                             |> Encoding.ASCII.GetBytes
-                        ]
-                    |> getEncryptionKeys
 
-                let firstLayerEncryptedData =
-                    TorStreamCipher(firstLayerKey, Some firstLayerIV)
-                        .Encrypt innerCoreInBytes
+                        let firstLayerSalt =
+                            let salt =
+                                Array.zeroCreate
+                                    Constants.HSDirEncryption.SaltLength
 
-                let computedFirstLayerMac =
-                    Array.concat
-                        [
-                            firstLayerMacKey.Length
-                            |> uint64
-                            |> IntegerSerialization.FromUInt64ToBigEndianByteArray
-                            firstLayerMacKey
-                            firstLayerSalt.Length
-                            |> uint64
-                            |> IntegerSerialization.FromUInt64ToBigEndianByteArray
-                            firstLayerSalt
-                            firstLayerEncryptedData
-                        ]
-                    |> HiddenServicesCipher.SHA3256
+                            RandomNumberGenerator.Create().GetBytes salt
+                            salt
 
-                Array.concat
-                    [
-                        firstLayerSalt
-                        firstLayerEncryptedData
-                        computedFirstLayerMac
-                    ]
+                        let firstLayerKey, firstLayerIV, firstLayerMacKey =
+                            Array.concat
+                                [
+                                    secretInput
+                                    firstLayerSalt
+                                    Constants.HSDirEncryption.Encrypted
+                                    |> Encoding.ASCII.GetBytes
+                                ]
+                            |> getEncryptionKeys
 
-            let encryptedSecondLayer =
-                let secondLayerPlainText =
-                    {
-                        HiddenServiceSecondLayerDescriptorDocument.EncryptedPayload =
-                            Some encryptedFirstLayer
-                    }
-                        .ToString()
-                    |> Encoding.ASCII.GetBytes
+                        let firstLayerEncryptedData =
+                            TorStreamCipher(firstLayerKey, Some firstLayerIV)
+                                .Encrypt innerCoreInBytes
 
-                let paddedSecondLayerPlainText =
-                    let paddedLength =
-                        let pad = 10000
-                        (secondLayerPlainText.Length + pad - 1) / pad * pad
+                        let computedFirstLayerMac =
+                            HiddenServicesCipher.CalculateDirectoryEncryptionMac
+                                firstLayerMacKey
+                                firstLayerSalt
+                                firstLayerEncryptedData
 
-                    Array.zeroCreate paddedLength
+                        Array.concat
+                            [
+                                firstLayerSalt
+                                firstLayerEncryptedData
+                                computedFirstLayerMac
+                            ]
 
-                Array.Copy(
-                    secondLayerPlainText,
-                    paddedSecondLayerPlainText,
-                    secondLayerPlainText.Length
-                )
+                    let secondLayerPlainText =
+                        {
+                            HiddenServiceSecondLayerDescriptorDocument.EncryptedPayload =
+                                Some encryptedFirstLayer
+                        }
+                            .ToString()
+                        |> Encoding.ASCII.GetBytes
 
-                let secondLayerSalt =
-                    let salt = Array.zeroCreate 16
-                    RandomNumberGenerator.Create().GetBytes salt
-                    salt
+                    let paddedSecondLayerPlainText =
+                        let paddedLength =
+                            // Before encryption the plaintext is padded with NUL bytes to the nearest multiple of 10k bytes.
+                            let pad = 10000
+                            (secondLayerPlainText.Length + pad - 1) / pad * pad
 
-                let secondLayerKey, secondLayerIV, secondLayerMacKey =
-                    Array.concat
-                        [
-                            secretInput
-                            secondLayerSalt
-                            Constants.HSDirEncryption.SuperEncrypted
-                            |> Encoding.ASCII.GetBytes
-                        ]
-                    |> getEncryptionKeys
+                        Array.zeroCreate paddedLength
 
-                let secondLayerEncryptedData =
-                    TorStreamCipher(secondLayerKey, Some secondLayerIV)
-                        .Encrypt paddedSecondLayerPlainText
+                    Array.Copy(
+                        secondLayerPlainText,
+                        paddedSecondLayerPlainText,
+                        secondLayerPlainText.Length
+                    )
 
-                let computedSecondLayerMac =
-                    Array.concat
-                        [
-                            secondLayerMacKey.Length
-                            |> uint64
-                            |> IntegerSerialization.FromUInt64ToBigEndianByteArray
+                    let secondLayerSalt =
+                        let salt =
+                            Array.zeroCreate
+                                Constants.HSDirEncryption.SaltLength
+
+                        RandomNumberGenerator.Create().GetBytes salt
+                        salt
+
+                    let secondLayerKey, secondLayerIV, secondLayerMacKey =
+                        Array.concat
+                            [
+                                secretInput
+                                secondLayerSalt
+                                Constants.HSDirEncryption.SuperEncrypted
+                                |> Encoding.ASCII.GetBytes
+                            ]
+                        |> getEncryptionKeys
+
+                    let secondLayerEncryptedData =
+                        TorStreamCipher(secondLayerKey, Some secondLayerIV)
+                            .Encrypt paddedSecondLayerPlainText
+
+                    let computedSecondLayerMac =
+                        HiddenServicesCipher.CalculateDirectoryEncryptionMac
                             secondLayerMacKey
-                            secondLayerSalt.Length
-                            |> uint64
-                            |> IntegerSerialization.FromUInt64ToBigEndianByteArray
                             secondLayerSalt
                             secondLayerEncryptedData
+
+                    Array.concat
+                        [
+                            secondLayerSalt
+                            secondLayerEncryptedData
+                            computedSecondLayerMac
                         ]
-                    |> HiddenServicesCipher.SHA3256
 
-                Array.concat
-                    [
-                        secondLayerSalt
-                        secondLayerEncryptedData
-                        computedSecondLayerMac
-                    ]
-
-            let outerWrapper =
                 let descriptorSigningKeyCert =
                     let blindedPrivateKey =
                         HiddenServicesCipher.BuildExpandedBlindedPrivateKey
@@ -660,103 +656,64 @@ type TorServiceHost
 
                     Certificate.CreateNew
                         CertType.ShortTermDescriptorSigningKeyByBlindedPublicKey
-                        ((descriptorSigningKey.Public
-                        :?> Ed25519PublicKeyParameters)
-                            .GetEncoded())
+                        (descriptorSigningPublicKey.GetEncoded())
                         blindedPublicKey
                         blindedPrivateKey
-                        (TimeSpan.FromHours 54.)
+                        Constants.HiddenServiceDescriptorCertificateLifetime
 
-                let certInBytes = descriptorSigningKeyCert.ToBytes false
+                HiddenServiceFirstLayerDescriptorDocument.CreateNew
+                    Constants.HiddenServiceVersion
+                    Constants.HiddenServiceDescriptorLifetime
+                    descriptorSigningKeyCert
+                    revisionCounter
+                    encryptedSecondLayer
+                    descriptorSigningPrivateKey
 
-                let unsignedOuterWrapper =
-                    {
-                        HiddenServiceFirstLayerDescriptorDocument.EncryptedPayload =
-                            Some encryptedSecondLayer
-                        Version = int hiddenServiceVersion |> Some
-                        Lifetime = Some 180
-                        RevisionCounter = revisionCounter
-                        Signature = None
-                        SigningKeyCert = Some certInBytes
-                    }
-
-                let unsignedOuterWrapperInBytes =
-                    "Tor onion service descriptor sig v3"
-                    + unsignedOuterWrapper.ToString()
-                    |> System.Text.Encoding.ASCII.GetBytes
-
-                let signer = Ed25519Signer()
-                signer.Init(true, descriptorSigningKey.Private)
-
-                signer.BlockUpdate(
-                    unsignedOuterWrapperInBytes,
-                    0,
-                    unsignedOuterWrapperInBytes.Length
-                )
-
-                let signature = signer.GenerateSignature()
-
-                { unsignedOuterWrapper with
-                    Signature = Some signature
-                }
-
-
-            let chunkedJobs =
+            let jobs =
                 responsibleDirs
                 |> Seq.map(fun dir -> self.UploadDescriptor dir outerWrapper 1)
-                |> Seq.chunkBySize 4
 
-            for chunk in chunkedJobs do
-                do! chunk |> Async.Parallel |> Async.Ignore
+            do!
+                Async.Parallel(
+                    jobs,
+                    maxDegreeOfParallelism = Constants.HsDirSpreadStore
+                )
+                |> Async.Ignore
         }
 
     member self.UpdateSecondDescriptor(networkStatus: NetworkStatusDocument) =
-        async {
-            let srv = networkStatus.SharedRandomCurrentValue.Value
+        let srv = networkStatus.SharedRandomCurrentValue.Value
 
-            let periodNum, periodLength =
-                let periodNum, periodLength = networkStatus.GetTimePeriod()
+        let periodNum, periodLength =
+            let periodNum, periodLength = networkStatus.GetTimePeriod()
 
-                if
-                    HSUtility.InPeriodBetweenTPAndSRV
-                        (networkStatus.GetValidAfter())
-                        (networkStatus.GetVotingInterval())
-                        (networkStatus.GetHiddenServicesDirectoryInterval()) then
-                    periodNum, periodLength
-                else
-                    periodNum + 1UL, periodLength
+            if
+                HSUtility.InPeriodBetweenTPAndSRV
+                    (networkStatus.GetValidAfter())
+                    (networkStatus.GetVotingInterval())
+                    (networkStatus.GetHiddenServicesDirectoryInterval()) then
+                periodNum, periodLength
+            else
+                periodNum + 1UL, periodLength
 
-            return!
-                self.BuildAndUploadDescriptor
-                    periodNum
-                    periodLength
-                    srv
-                    networkStatus
-        }
+        self.BuildAndUploadDescriptor periodNum periodLength srv networkStatus
 
     member self.UpdateFirstDescriptor(networkStatus: NetworkStatusDocument) =
-        async {
-            let srv = networkStatus.SharedRandomPreviousValue.Value
+        let srv = networkStatus.SharedRandomPreviousValue.Value
 
-            let periodNum, periodLength =
-                let periodNum, periodLength = networkStatus.GetTimePeriod()
+        let periodNum, periodLength =
+            let periodNum, periodLength = networkStatus.GetTimePeriod()
 
-                if
-                    HSUtility.InPeriodBetweenTPAndSRV
-                        (networkStatus.GetValidAfter())
-                        (networkStatus.GetVotingInterval())
-                        (networkStatus.GetHiddenServicesDirectoryInterval()) then
-                    periodNum - 1UL, periodLength
-                else
-                    periodNum, periodLength
+            if
+                HSUtility.InPeriodBetweenTPAndSRV
+                    (networkStatus.GetValidAfter())
+                    (networkStatus.GetVotingInterval())
+                    (networkStatus.GetHiddenServicesDirectoryInterval()) then
+                periodNum - 1UL, periodLength
+            else
+                periodNum, periodLength
 
-            return!
-                self.BuildAndUploadDescriptor
-                    periodNum
-                    periodLength
-                    srv
-                    networkStatus
-        }
+        self.BuildAndUploadDescriptor periodNum periodLength srv networkStatus
 
     //TODO: this should refresh every 60-120min
     member self.KeepDescriptorsUpToDate() =
@@ -765,8 +722,6 @@ type TorServiceHost
 
             do! self.UpdateFirstDescriptor networkStatus
             do! self.UpdateSecondDescriptor networkStatus
-
-            ()
         }
 
     member self.Start() =
@@ -824,19 +779,20 @@ type TorServiceHost
         let checksum =
             Array.concat
                 [
-                    ".onion checksum" |> System.Text.Encoding.ASCII.GetBytes
+                    Constants.OnionChecksumPrefix
+                    |> System.Text.Encoding.ASCII.GetBytes
                     publicKey
-                    Array.singleton hiddenServiceVersion
+                    Constants.HiddenServiceVersion |> byte |> Array.singleton
                 ]
             |> HiddenServicesCipher.SHA3256
-            |> Seq.take 2
+            |> Seq.take Constants.OnionUrlChecksumLength
             |> Seq.toArray
 
         (Array.concat
             [
                 publicKey
                 checksum
-                Array.singleton hiddenServiceVersion
+                Constants.HiddenServiceVersion |> byte |> Array.singleton
             ]
          |> Base32Util.EncodeBase32)
             .ToLower()

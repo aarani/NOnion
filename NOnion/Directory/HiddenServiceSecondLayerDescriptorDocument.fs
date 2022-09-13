@@ -7,6 +7,7 @@ open Org.BouncyCastle.Crypto.Parameters
 open Org.BouncyCastle.Crypto.Generators
 open Org.BouncyCastle.Security
 
+open NOnion
 open NOnion.Utility
 
 type HiddenServiceSecondLayerDescriptorDocument =
@@ -66,7 +67,7 @@ type HiddenServiceSecondLayerDescriptorDocument =
 
             let chunkedData =
                 dataInString.ToCharArray()
-                |> Array.chunkBySize 64
+                |> Array.chunkBySize Constants.DirectoryBlockLineLength
                 |> Array.map String
 
             String.Join("\n", chunkedData)

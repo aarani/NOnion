@@ -98,11 +98,12 @@ type TorServiceClient =
                                 let! documentInString =
                                     TorHttpClient(
                                         dirStream,
-                                        "127.0.0.1"
+                                        Constants.DefaultHttpHost
                                     )
                                         .GetAsString
                                         (sprintf
-                                            "/tor/hs/3/%s"
+                                            "/tor/hs/%i/%s"
+                                            Constants.HiddenServiceVersion
                                             ((Convert.ToBase64String
                                                 blindedPublicKey)))
                                         false
@@ -128,7 +129,7 @@ type TorServiceClient =
                                 |> HiddenServicesCipher.CalculateShake256(
                                     Constants.KeyS256Length
                                     + Constants.IVS256Length
-                                    + 32
+                                    + Constants.HSDirEncryption.MacKeyLength
                                 )
 
                             keyBytes |> Array.take Constants.KeyS256Length,
@@ -139,7 +140,7 @@ type TorServiceClient =
                             |> Array.skip(
                                 Constants.KeyS256Length + Constants.IVS256Length
                             )
-                            |> Array.take 32
+                            |> Array.take Constants.HSDirEncryption.MacKeyLength
 
                         let decryptDocument
                             (key: array<byte>)
@@ -280,18 +281,7 @@ type TorServiceClient =
                         | Some introductionPoint ->
                             let introductionPointAuthKey =
                                 let authKeyBytes =
-                                    use memStream =
-                                        new System.IO.MemoryStream(
-                                            introductionPoint.AuthKey.Value
-                                        )
-
-                                    use binaryReader =
-                                        new System.IO.BinaryReader(memStream)
-
-                                    let certficate =
-                                        Certificate.Deserialize binaryReader
-
-                                    certficate.CertifiedKey
+                                    introductionPoint.AuthKey.Value.CertifiedKey
 
                                 Ed25519PublicKeyParameters(authKeyBytes, 0)
 
@@ -493,7 +483,9 @@ type TorServiceClient =
                         RendezvousCircuit = rendezvousCircuit
                         Stream = serviceStream
                     }
-            | _ -> return failwith "wat?"
+            | _ ->
+                return
+                    failwith "Never happens. GetRouter never returns FastCreate"
         }
 
     interface IDisposable with

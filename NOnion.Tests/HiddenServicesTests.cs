@@ -110,6 +110,8 @@ namespace NOnion.Tests
 
         public async Task EstablishAndCommunicateOverHSConnectionOnionStyle()
         {
+            int descriptorUploadRetryLimit = 2;
+
             TorDirectory directory = await TorDirectory.BootstrapAsync(FallbackDirectorySelector.GetRandomFallbackDirectory());
  
             TorLogger.Log("Finished bootstraping");
@@ -119,7 +121,7 @@ namespace NOnion.Tests
             kpGen.Init(new Ed25519KeyGenerationParameters(random));
             Ed25519PrivateKeyParameters masterPrivateKey = (Ed25519PrivateKeyParameters)kpGen.GenerateKeyPair().Private;
 
-            TorServiceHost host = new TorServiceHost(directory, TestsRetryCount, FSharpOption<Ed25519PrivateKeyParameters>.Some(masterPrivateKey));
+            TorServiceHost host = new TorServiceHost(directory, descriptorUploadRetryLimit, TestsRetryCount, FSharpOption<Ed25519PrivateKeyParameters>.Some(masterPrivateKey));
             await host.StartAsync();
 
             TorLogger.Log("Finished starting HS host");

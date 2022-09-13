@@ -3,12 +3,15 @@
 open System
 open System.Text
 
+open NOnion
+open NOnion.Utility
+
 type IntroductionPointEntry =
     {
         OnionKey: Option<array<byte>>
-        AuthKey: Option<array<byte>>
+        AuthKey: Option<Certificate>
         EncKey: Option<array<byte>>
-        EncKeyCert: Option<array<byte>>
+        EncKeyCert: Option<Certificate>
         LinkSpecifiers: Option<array<byte>>
     }
 
@@ -78,6 +81,7 @@ type IntroductionPointEntry =
                             AuthKey =
                                 readBlock String.Empty
                                 |> Convert.FromBase64String
+                                |> Certificate.FromBytes
                                 |> Some
                         }
                 | "enc-key-cert" ->
@@ -91,6 +95,7 @@ type IntroductionPointEntry =
                             EncKeyCert =
                                 readBlock String.Empty
                                 |> Convert.FromBase64String
+                                |> Certificate.FromBytes
                                 |> Some
                         }
 
@@ -106,7 +111,7 @@ type IntroductionPointEntry =
 
             let chunkedData =
                 dataInString.ToCharArray()
-                |> Array.chunkBySize 64
+                |> Array.chunkBySize Constants.DirectoryBlockLineLength
                 |> Array.map String
 
             String.Join("\n", chunkedData)
@@ -140,7 +145,12 @@ type IntroductionPointEntry =
         | Some authKey ->
             appendLine "auth-key" |> ignore<StringBuilder>
             appendLine "-----BEGIN ED25519 CERT-----" |> ignore<StringBuilder>
-            writeByteArray authKey |> appendLine |> ignore<StringBuilder>
+
+            authKey.ToBytes false
+            |> writeByteArray
+            |> appendLine
+            |> ignore<StringBuilder>
+
             appendLine "-----END ED25519 CERT-----" |> ignore<StringBuilder>
         | None ->
             failwith
@@ -160,7 +170,12 @@ type IntroductionPointEntry =
         | Some encKeyCert ->
             appendLine "enc-key-cert" |> ignore<StringBuilder>
             appendLine "-----BEGIN ED25519 CERT-----" |> ignore<StringBuilder>
-            writeByteArray encKeyCert |> appendLine |> ignore<StringBuilder>
+
+            encKeyCert.ToBytes false
+            |> writeByteArray
+            |> appendLine
+            |> ignore<StringBuilder>
+
             appendLine "-----END ED25519 CERT-----" |> ignore<StringBuilder>
         | None ->
             failwith
@@ -183,6 +198,13 @@ type HiddenServiceDescriptorDocument =
             IsSingleOnionService = false
 
             IntroductionPoints = List.empty
+        }
+
+    static member Default =
+        let ntorCreateFormat = "2"
+
+        { HiddenServiceDescriptorDocument.Empty with
+            Create2Formats = Some ntorCreateFormat
         }
 
     static member Parse(stringToParse: string) =

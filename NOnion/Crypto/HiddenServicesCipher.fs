@@ -383,3 +383,22 @@ module HiddenServicesCipher =
             CalculateMacWithSHA3256 authInput Constants.HiddenServiceNTor.TMac
 
         (ntorKeySeed, authInputMac)
+
+    let CalculateDirectoryEncryptionMac
+        (macKey: array<byte>)
+        (salt: array<byte>)
+        encryptedData
+        =
+        Array.concat
+            [
+                macKey.Length
+                |> uint64
+                |> IntegerSerialization.FromUInt64ToBigEndianByteArray
+                macKey
+                salt.Length
+                |> uint64
+                |> IntegerSerialization.FromUInt64ToBigEndianByteArray
+                salt
+                encryptedData
+            ]
+        |> SHA3256

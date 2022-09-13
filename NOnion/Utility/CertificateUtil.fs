@@ -8,6 +8,8 @@ open Chaos.NaCl
 open Org.BouncyCastle.Crypto.Signers
 open Org.BouncyCastle.Crypto.Parameters
 
+open NOnion
+
 type CertificateExtensionType =
     // https://github.com/torproject/torspec/blob/cb4ae84a20793a00f35a70aad5df47d4e4c7da7c/cert-spec.txt#L175
     | SignedWithEd25519Key = 4uy
@@ -155,10 +157,16 @@ type Certificate =
                 |> LanguagePrimitives.EnumOfValue<byte, CertType>
             ExpirationDate = BinaryIO.ReadBigEndianUInt32 reader
             CertKeyType = reader.ReadByte()
-            CertifiedKey = reader.ReadBytes 32
+            CertifiedKey =
+                reader.ReadBytes Constants.CertificateCertifiedKeyLength
             Extensions = readExtensions (reader.ReadByte() |> int) List.empty
-            Signature = reader.ReadBytes 64
+            Signature = reader.ReadBytes Constants.CertificateSignatureLength
         }
+
+    static member FromBytes(data: array<byte>) =
+        use memStream = new MemoryStream(data)
+        use reader = new BinaryReader(memStream)
+        Certificate.Deserialize reader
 
     member self.Validate() =
         match self.TryGetSignedWithEd25519Key() with

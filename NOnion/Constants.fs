@@ -90,6 +90,8 @@ module Constants =
 
     let internal HttpClientBufferSize = 1024
 
+    let internal DefaultHttpHost = "127.0.0.1"
+
     // NTor Handshake Constants
     let private nTorProtoIdStr = "ntor-curve25519-sha256-1"
     let internal NTorProtoId = nTorProtoIdStr |> Encoding.ASCII.GetBytes
@@ -154,6 +156,9 @@ module Constants =
         let SuperEncrypted = "hsdir-superencrypted-data"
         let Encrypted = "hsdir-encrypted-data"
 
+        let SaltLength = 16
+        let MacKeyLength = 32
+
     let internal NewConnectionCheckDelay = TimeSpan.FromSeconds 1.
 
     // https://github.com/torproject/tor/blob/22552ad88e1e95ef9d2c6655c7602b7b25836075/src/feature/hs_common/shared_random_client.h#L33
@@ -162,4 +167,26 @@ module Constants =
 
     let HsDirNReplicas = 2
     let HsDirSpreadFetch = 3
-    let HsDirSpreadStore = 4
+    let internal HsDirSpreadStore = 4
+
+    let internal HiddenServiceDescriptorCertificateLifetime =
+        TimeSpan.FromHours 5.
+
+    let internal IntroductionPointCount = 3
+
+    let internal OnionUrlChecksumLength = 2
+    let internal OnionChecksumPrefix = ".onion checksum"
+
+    let internal OnionMasterKeyPublicKeyLength = 32
+
+    let internal HiddenServiceDescriptorSigningPrefix =
+        "Tor onion service descriptor sig v3"
+
+    let internal DirectoryBlockLineLength = 64
+
+    let internal HiddenServiceVersion = 3
+
+    let internal HiddenServiceDescriptorLifetime = 180
+
+    let internal CertificateCertifiedKeyLength = 32
+    let internal CertificateSignatureLength = 64

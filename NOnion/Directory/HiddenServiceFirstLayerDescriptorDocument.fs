@@ -1,23 +1,62 @@
 ﻿namespace NOnion.Directory
 
 open System
-open System.IO
 open System.Text
 
 open Org.BouncyCastle.Crypto.Signers
 open Org.BouncyCastle.Crypto.Parameters
 
+open NOnion
 open NOnion.Utility
 
 type HiddenServiceFirstLayerDescriptorDocument =
     {
         Version: Option<int>
         Lifetime: Option<int>
-        SigningKeyCert: Option<array<byte>>
+        SigningKeyCert: Option<Certificate>
         RevisionCounter: Option<int64>
         EncryptedPayload: Option<array<byte>>
         Signature: Option<array<byte>>
     }
+
+    static member CreateNew
+        version
+        lifetime
+        signingKeyCert
+        revision
+        payload
+        signingPrivateKey
+        =
+        let unsignedOuterWrapper =
+            {
+                HiddenServiceFirstLayerDescriptorDocument.EncryptedPayload =
+                    Some payload
+                Version = version |> Some
+                Lifetime = Some lifetime
+                RevisionCounter = revision
+                Signature = None
+                SigningKeyCert = Some signingKeyCert
+            }
+
+        let unsignedOuterWrapperInBytes =
+            Constants.HiddenServiceDescriptorSigningPrefix
+            + unsignedOuterWrapper.ToString()
+            |> System.Text.Encoding.ASCII.GetBytes
+
+        let signer = Ed25519Signer()
+        signer.Init(true, signingPrivateKey)
+
+        signer.BlockUpdate(
+            unsignedOuterWrapperInBytes,
+            0,
+            unsignedOuterWrapperInBytes.Length
+        )
+
+        let signature = signer.GenerateSignature()
+
+        { unsignedOuterWrapper with
+            Signature = Some signature
+        }
 
     static member Empty =
         {
@@ -66,19 +105,15 @@ type HiddenServiceFirstLayerDescriptorDocument =
                         let documentExcludingSignature =
                             stringToParse.Substring(0, signatureIndex)
 
-                        use memStream = new MemoryStream(keyCert)
-                        use reader = new BinaryReader(memStream)
-                        let cert = Certificate.Deserialize reader
-
                         let signer = Ed25519Signer()
 
                         signer.Init(
                             false,
-                            Ed25519PublicKeyParameters(cert.CertifiedKey, 0)
+                            Ed25519PublicKeyParameters(keyCert.CertifiedKey, 0)
                         )
 
                         let currentStateInBytes =
-                            "Tor onion service descriptor sig v3"
+                            Constants.HiddenServiceDescriptorSigningPrefix
                             + documentExcludingSignature
                             |> Encoding.ASCII.GetBytes
 
@@ -122,6 +157,7 @@ type HiddenServiceFirstLayerDescriptorDocument =
                                 .Replace("-----BEGIN ED25519 CERT-----", "")
                                 .Replace("-----END ED25519 CERT-----", "")
                             |> Convert.FromBase64String
+                            |> Certificate.FromBytes
                             |> Some
                     }
                 | "revision-counter" ->
@@ -161,7 +197,7 @@ type HiddenServiceFirstLayerDescriptorDocument =
 
             let chunkedData =
                 dataInString.ToCharArray()
-                |> Array.chunkBySize 64
+                |> Array.chunkBySize Constants.DirectoryBlockLineLength
                 |> Array.map String
 
             String.Join("\n", chunkedData)
@@ -192,7 +228,12 @@ type HiddenServiceFirstLayerDescriptorDocument =
         | Some keyCert ->
             appendLine "descriptor-signing-key-cert" |> ignore<StringBuilder>
             appendLine "-----BEGIN ED25519 CERT-----" |> ignore<StringBuilder>
-            writeByteArray keyCert |> appendLine |> ignore<StringBuilder>
+
+            keyCert.ToBytes false
+            |> writeByteArray
+            |> appendLine
+            |> ignore<StringBuilder>
+
             appendLine "-----END ED25519 CERT-----" |> ignore<StringBuilder>
         | None ->
             failwith

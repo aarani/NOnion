@@ -170,11 +170,11 @@ type TorDirectory =
                     "/tor/status-vote/current/consensus"
                     false
 
-            let descriptorsStream = TorStream(circuit)
+            let descriptorsStream = TorStream circuit
             do! descriptorsStream.ConnectToDirectory() |> Async.Ignore
 
             let descriptorsHttpClient =
-                TorHttpClient(descriptorsStream, "127.0.0.1")
+                TorHttpClient(descriptorsStream, Constants.DefaultHttpHost)
 
             let! descriptorsStr =
                 descriptorsHttpClient.GetAsString "/tor/server/all" false
