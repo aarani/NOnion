@@ -63,6 +63,12 @@ type TorHttpClient(stream: TorStream, host: string) =
                 Encoding.UTF8.GetString(httpResponse, 0, headerEndIndex),
                 Array.skip (headerEndIndex + delimiter.Length) httpResponse
 
+            TorLogger.Log(
+                sprintf
+                    "TorHttpClient: read %i bytes in response"
+                    httpResponse.Length
+            )
+
             let headerLines =
                 header.Split(Array.singleton "\r\n", StringSplitOptions.None)
 
