@@ -385,7 +385,9 @@ type TorDirectory =
                          |> HiddenServicesCipher.SHA3256)
                         |> Some
                     with
-                    | _ -> None
+                    | :? System.Collections.Generic.KeyNotFoundException ->
+                        //We don't have the descriptor for this server
+                        None
                 )
                 |> List.sortWith(fun (_, idx1) (_, idx2) ->
                     ByteArrayCompare idx1 idx2
