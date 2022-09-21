@@ -359,7 +359,7 @@ type TorServiceHost
                     let! _, randomMiddleNode =
                         directory.GetRouter RouterType.Normal
 
-                    let! guardNode = TorGuard.NewClient guardEndPoint
+                    use! guardNode = TorGuard.NewClient guardEndPoint
                     let circuit = TorCircuit guardNode
                     do! circuit.Create randomGuardNode |> Async.Ignore
                     do! circuit.Extend randomMiddleNode |> Async.Ignore
