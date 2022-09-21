@@ -1,5 +1,6 @@
 ﻿using Microsoft.FSharp.Core;
 using System;
+using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Threading.Tasks;
@@ -94,7 +95,7 @@ namespace NOnion.Tests
 
         public async Task BrowseFacebookOverHS()
         {
-            TorDirectory directory = await TorDirectory.BootstrapAsync(FallbackDirectorySelector.GetRandomFallbackDirectory());
+            TorDirectory directory = await TorDirectory.BootstrapAsync(FallbackDirectorySelector.GetRandomFallbackDirectory(), Path.GetTempPath());
 
             var client = await TorServiceClient.ConnectAsync(directory, "facebookwkhpilnemxj7asaniu7vnjjbiltxjqhye3mhbshg7kx5tfyd.onion");
             var httpClient = new TorHttpClient(client.GetStream(), "facebookwkhpilnemxj7asaniu7vnjjbiltxjqhye3mhbshg7kx5tfyd.onion");
@@ -112,7 +113,7 @@ namespace NOnion.Tests
         {
             int descriptorUploadRetryLimit = 2;
 
-            TorDirectory directory = await TorDirectory.BootstrapAsync(FallbackDirectorySelector.GetRandomFallbackDirectory());
+            TorDirectory directory = await TorDirectory.BootstrapAsync(FallbackDirectorySelector.GetRandomFallbackDirectory(), Path.GetTempPath());
  
             TorLogger.Log("Finished bootstraping");
 

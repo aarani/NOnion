@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.IO;
 using System.Threading.Tasks;
 using NUnit.Framework;
 
@@ -27,7 +28,7 @@ namespace NOnion.Tests
 
         private async Task BootstrapTorDirectory()
         {
-            await TorDirectory.BootstrapAsync(FallbackDirectorySelector.GetRandomFallbackDirectory());
+            await TorDirectory.BootstrapAsync(FallbackDirectorySelector.GetRandomFallbackDirectory(), Path.GetTempPath());
         }
 
         [Test]
@@ -39,7 +40,7 @@ namespace NOnion.Tests
 
         private async Task ReturnRandomRouter()
         {
-            TorDirectory directory = await TorDirectory.BootstrapAsync(FallbackDirectorySelector.GetRandomFallbackDirectory());
+            TorDirectory directory = await TorDirectory.BootstrapAsync(FallbackDirectorySelector.GetRandomFallbackDirectory(), Path.GetTempPath());
             var (endPoint, router) = await directory.GetRouterAsync(RouterType.Normal);
             Assert.IsTrue(router.IsCreate);
             Assert.IsFalse(((CircuitNodeDetail.Create)router).IdentityKey.All(x => x == 0));
