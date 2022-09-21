@@ -509,6 +509,11 @@ type NetworkStatusDocument =
     member self.GetVotingInterval() =
         self.GetFreshUntil() - self.GetValidAfter()
 
+    member self.IsLive() =
+        let now = DateTime.UtcNow
+
+        self.GetValidAfter() < now && self.GetValidUntil() > now
+
     member self.GetTimePeriod() =
         let hsDirInterval = self.GetHiddenServicesDirectoryInterval()
 

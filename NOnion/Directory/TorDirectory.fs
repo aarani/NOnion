@@ -1,8 +1,10 @@
 ﻿namespace NOnion.Directory
 
 open System
+open System.IO
 open System.Net
 open System.Text
+open System.Text.Json
 
 open NOnion
 open NOnion.Crypto
@@ -23,10 +25,7 @@ type TorDirectory =
         }
 
     member private self.IsLive() =
-        let now = DateTime.UtcNow
-
-        self.NetworkStatus.GetValidAfter() < now
-        && self.NetworkStatus.GetValidUntil() > now
+        self.NetworkStatus.IsLive()
 
     member private self.GetRandomDirectorySource() =
         let directorySourceOpt =
@@ -238,61 +237,165 @@ type TorDirectory =
                 self.NetworkStatus <- NetworkStatusDocument.Parse response
         }
 
-    static member Bootstrap(nodeEndPoint: IPEndPoint) =
+    static member Bootstrap
+        (nodeEndPoint: IPEndPoint)
+        (cacheDirectory: DirectoryInfo)
+        =
         async {
-            use! guard = TorGuard.NewClient(nodeEndPoint)
-            let circuit = TorCircuit(guard)
-            do! circuit.Create(CircuitNodeDetail.FastCreate) |> Async.Ignore
+            let! networkStatus =
+                let downloadConsensus(consensusPathOpt: Option<string>) =
+                    async {
+                        use! guard = TorGuard.NewClient nodeEndPoint
+                        let circuit = TorCircuit guard
 
-            let consensusStream = TorStream(circuit)
-            do! consensusStream.ConnectToDirectory() |> Async.Ignore
+                        do!
+                            circuit.Create CircuitNodeDetail.FastCreate
+                            |> Async.Ignore
 
-            let consensusHttpClient =
-                TorHttpClient(consensusStream, nodeEndPoint.Address.ToString())
+                        let consensusStream = TorStream circuit
+                        do! consensusStream.ConnectToDirectory() |> Async.Ignore
 
-            let! consensusStr =
-                consensusHttpClient.GetAsString
-                    "/tor/status-vote/current/consensus-microdesc"
-                    false
+                        let consensusHttpClient =
+                            TorHttpClient(
+                                consensusStream,
+                                nodeEndPoint.Address.ToString()
+                            )
 
-            let networkStatus = NetworkStatusDocument.Parse consensusStr
+                        let! consensusStr =
+                            consensusHttpClient.GetAsString
+                                "/tor/status-vote/current/consensus-microdesc"
+                                false
 
-            let downloadDescriptorsForChunk(digestsChunk: array<string>) =
+                        match consensusPathOpt with
+                        | Some consensusPath ->
+                            File.WriteAllText(consensusPath, consensusStr)
+                        | None -> ()
+
+                        return NetworkStatusDocument.Parse consensusStr
+                    }
+
                 async {
-                    let descriptorsStream = TorStream circuit
-                    do! descriptorsStream.ConnectToDirectory() |> Async.Ignore
+                    if isNull cacheDirectory then
+                        return! downloadConsensus None
+                    else
+                        let consensusPath =
+                            Path.Combine(
+                                cacheDirectory.FullName,
+                                "consensus.txt"
+                            )
 
-                    let descriptorsHttpClient =
-                        TorHttpClient(
-                            descriptorsStream,
-                            Constants.DefaultHttpHost
-                        )
+                        if File.Exists consensusPath then
+                            let maybeLiveNetworkStatus =
+                                File.ReadAllText consensusPath
+                                |> NetworkStatusDocument.Parse
 
-                    let! descriptorsStr =
-                        descriptorsHttpClient.GetAsString
-                            (sprintf
-                                "/tor/micro/d/%s"
-                                (String.concat "-" digestsChunk))
-                            false
-
-                    let trimmedDescriptors = descriptorsStr.TrimEnd('\n')
-
-                    return
-                        MicroDescriptorEntry.ParseMany trimmedDescriptors
-                        |> List.map(fun descriptor ->
-                            descriptor.Digest.Value, descriptor
-                        )
+                            if maybeLiveNetworkStatus.IsLive() then
+                                return maybeLiveNetworkStatus
+                            else
+                                return! downloadConsensus(Some consensusPath)
+                        else
+                            return! downloadConsensus(Some consensusPath)
                 }
 
-            let chunkedJobs =
+            let stillValidOldDescriptors =
+                if isNull cacheDirectory then
+                    List.empty<string * MicroDescriptorEntry>
+                else
+                    let consensusPath =
+                        Path.Combine(cacheDirectory.FullName, "descriptor.json")
+
+                    if File.Exists consensusPath then
+                        let oldDescriptorCache =
+                            File.ReadAllText consensusPath
+                            |> JsonSerializer.Deserialize<List<string * MicroDescriptorEntry>>
+
+                        oldDescriptorCache
+                        |> List.filter(fun (digest, _) ->
+                            networkStatus.Routers
+                            |> List.exists(fun router ->
+                                router.MicroDescriptorDigest.Value = digest
+                            )
+                        )
+                    else
+                        List.empty<string * MicroDescriptorEntry>
+
+            let descriptorsToDownload =
                 networkStatus.Routers
                 |> Seq.choose(fun router -> router.MicroDescriptorDigest)
-                |> Seq.chunkBySize 96
-                |> Seq.map downloadDescriptorsForChunk
+                |> Seq.except(
+                    stillValidOldDescriptors
+                    |> Seq.map(fun (digest, _) -> digest)
+                )
 
-            let! downloadResults = Async.Parallel(chunkedJobs, 16)
+            let! downloadResults =
+                async {
+                    if Seq.length descriptorsToDownload > 0 then
+                        use! guard = TorGuard.NewClient nodeEndPoint
+                        let circuit = TorCircuit guard
 
-            let descriptorsMap = downloadResults |> List.concat |> Map.ofList
+                        do!
+                            circuit.Create CircuitNodeDetail.FastCreate
+                            |> Async.Ignore
+
+                        let downloadDescriptorsForChunk
+                            (digestsChunk: array<string>)
+                            =
+                            async {
+                                let descriptorsStream = TorStream circuit
+
+                                do!
+                                    descriptorsStream.ConnectToDirectory()
+                                    |> Async.Ignore
+
+                                let descriptorsHttpClient =
+                                    TorHttpClient(
+                                        descriptorsStream,
+                                        Constants.DefaultHttpHost
+                                    )
+
+                                let! descriptorsStr =
+                                    descriptorsHttpClient.GetAsString
+                                        (sprintf
+                                            "/tor/micro/d/%s"
+                                            (String.concat "-" digestsChunk))
+                                        false
+
+                                let trimmedDescriptors =
+                                    descriptorsStr.TrimEnd('\n')
+
+                                return
+                                    MicroDescriptorEntry.ParseMany
+                                        trimmedDescriptors
+                                    |> List.map(fun descriptor ->
+                                        descriptor.Digest.Value, descriptor
+                                    )
+                            }
+
+                        let chunkedJobs =
+                            descriptorsToDownload
+                            |> Seq.chunkBySize 96
+                            |> Seq.map downloadDescriptorsForChunk
+
+                        let! chunkedResults = Async.Parallel(chunkedJobs, 16)
+
+                        return List.concat chunkedResults
+
+                    else
+                        return List.empty<string * MicroDescriptorEntry>
+                }
+
+            let allResults =
+                List.append downloadResults stillValidOldDescriptors
+
+            if not(isNull cacheDirectory) then
+                let jsonRep = JsonSerializer.Serialize allResults
+
+                File.WriteAllText(
+                    Path.Combine(cacheDirectory.FullName, "descriptor.json"),
+                    jsonRep
+                )
+
+            let descriptorsMap = allResults |> Map.ofList
 
             return
                 {
@@ -322,8 +425,12 @@ type TorDirectory =
         | Some routerEntry ->
             self.ServerDescriptors.[routerEntry.MicroDescriptorDigest.Value]
 
-    static member BootstrapAsync(nodeEndPoint: IPEndPoint) =
-        TorDirectory.Bootstrap nodeEndPoint |> Async.StartAsTask
+    static member BootstrapAsync
+        (
+            nodeEndPoint: IPEndPoint,
+            cacheDirectory: DirectoryInfo
+        ) =
+        TorDirectory.Bootstrap nodeEndPoint cacheDirectory |> Async.StartAsTask
 
     member self.GetResponsibleHiddenServiceDirectories
         (blindedPublicKey: array<byte>)
