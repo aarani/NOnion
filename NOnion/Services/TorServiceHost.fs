@@ -722,8 +722,19 @@ type TorServiceHost
         async {
             let! networkStatus = directory.GetLiveNetworkStatus()
 
-            do! self.UpdateFirstDescriptor networkStatus
-            do! self.UpdateSecondDescriptor networkStatus
+            let firstDescriptorBuildJob =
+                self.UpdateFirstDescriptor networkStatus
+
+            let secondDescriptorBuildJob =
+                self.UpdateSecondDescriptor networkStatus
+
+            do!
+                Async.Parallel
+                    [|
+                        firstDescriptorBuildJob
+                        secondDescriptorBuildJob
+                    |]
+                |> Async.Ignore
         }
 
     member self.Start() =
