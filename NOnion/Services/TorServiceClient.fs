@@ -76,7 +76,7 @@ type TorServiceClient =
                                         directory.GetCircuitNodeDetailByIdentity
                                             hsDirectory
 
-                                    let! guardNode =
+                                    use! guardNode =
                                         TorGuard.NewClient guardEndPoint
 
                                     let circuit = TorCircuit guardNode
