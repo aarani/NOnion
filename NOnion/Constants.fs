@@ -83,7 +83,8 @@ module Constants =
     let internal StreamCreationTimeout = TimeSpan.FromSeconds 10.
 
     // Time limit used for http requests
-    let internal HttpResponseTimeout = TimeSpan.FromMinutes 3.
+    let internal HttpGetResponseTimeout = TimeSpan.FromMinutes 3.
+    let internal HttpPostResponseTimeout = TimeSpan.FromSeconds 30.
 
     // Time limit used for receving data in stream
     let internal StreamReceiveTimeout = TimeSpan.FromSeconds 1.
