@@ -349,46 +349,50 @@ type TorServiceHost
                 return ()
             else
                 try
-                    let hsDirectoryNode =
+                    let! hsDirectoryNode =
                         directory.GetCircuitNodeDetailByIdentity
                             directoryToUploadTo
 
-                    let descriptor =
-                        directory.GetDescriptorByIdentity directoryToUploadTo
+                    let! guardEndPoint, randomGuardNode =
+                        directory.GetRouter RouterType.Guard
 
-                    if descriptor.Hibernating
-                       || descriptor.NTorOnionKey.IsNone
-                       || descriptor.Fingerprint.IsNone then
-                        return ()
-                    else
-                        let! guardEndPoint, randomGuardNode =
-                            directory.GetRouter RouterType.Guard
+                    let! _, randomMiddleNode =
+                        directory.GetRouter RouterType.Normal
 
-                        let! _, randomMiddleNode =
-                            directory.GetRouter RouterType.Normal
+                    let! guardNode = TorGuard.NewClient guardEndPoint
+                    let circuit = TorCircuit guardNode
+                    do! circuit.Create randomGuardNode |> Async.Ignore
+                    do! circuit.Extend randomMiddleNode |> Async.Ignore
+                    do! circuit.Extend hsDirectoryNode |> Async.Ignore
 
-                        let! guardNode = TorGuard.NewClient guardEndPoint
-                        let circuit = TorCircuit guardNode
-                        do! circuit.Create randomGuardNode |> Async.Ignore
-                        do! circuit.Extend randomMiddleNode |> Async.Ignore
-                        do! circuit.Extend hsDirectoryNode |> Async.Ignore
+                    let dirStream = TorStream circuit
+                    do! dirStream.ConnectToDirectory() |> Async.Ignore
 
-                        let dirStream = TorStream circuit
-                        do! dirStream.ConnectToDirectory() |> Async.Ignore
+                    let! _response =
+                        TorHttpClient(
+                            dirStream,
+                            Constants.DefaultHttpHost
+                        )
+                            .PostString
+                            (sprintf
+                                "/tor/hs/%i/publish"
+                                Constants.HiddenServices.Version)
+                            (document.ToString())
 
-                        let! _response =
-                            TorHttpClient(
-                                dirStream,
-                                Constants.DefaultHttpHost
-                            )
-                                .PostString
-                                (sprintf
-                                    "/tor/hs/%i/publish"
-                                    Constants.HiddenServices.Version)
-                                (document.ToString())
+                    TorLogger.Log(
+                        sprintf
+                            "TorServiceHost: descriptor uploaded to node with identity %s"
+                            directoryToUploadTo
+                    )
 
-                        return ()
+                    return ()
                 with
+                | :? UnsuccessfulHttpRequestException ->
+                    // During testing, after migration to microdescriptor, we saw instances of
+                    // 404 error msg when trying to publish our descriptors which mean for
+                    // some reason we're trying to upload descriptor to a directory that
+                    // is not a hidden service directory, there is no point in retrying here.
+                    return ()
                 | ex ->
                     TorLogger.Log(
                         sprintf

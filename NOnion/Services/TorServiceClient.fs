@@ -57,308 +57,314 @@ type TorServiceClient =
                             periodLength
                             Constants.HiddenServices.Hashring.SpreadFetch
 
-                    let hsDirectoryNodeOpt =
-                        responsibleDirs
-                        |> Seq.filter(fun dir ->
-                            let descriptor =
-                                directory.GetDescriptorByIdentity dir
+                    let rec downloadDescriptor(responsibleDirs: List<string>) =
+                        async {
+                            match responsibleDirs with
+                            | [] ->
+                                return
+                                    failwith
+                                        "TorServiceClient: can't download descriptor, all requests failed."
+                            | hsDirectory :: tail ->
+                                try
+                                    let! guardEndPoint, randomGuardNode =
+                                        directory.GetRouter RouterType.Guard
 
-                            not(
-                                descriptor.Hibernating
-                                || descriptor.NTorOnionKey.IsNone
-                                || descriptor.Fingerprint.IsNone
+                                    let! _, randomMiddleNode =
+                                        directory.GetRouter RouterType.Normal
+
+                                    let! hsDirectoryNode =
+                                        directory.GetCircuitNodeDetailByIdentity
+                                            hsDirectory
+
+                                    let! guardNode =
+                                        TorGuard.NewClient guardEndPoint
+
+                                    let circuit = TorCircuit guardNode
+
+                                    do!
+                                        circuit.Create randomGuardNode
+                                        |> Async.Ignore
+
+                                    do!
+                                        circuit.Extend randomMiddleNode
+                                        |> Async.Ignore
+
+                                    do!
+                                        circuit.Extend hsDirectoryNode
+                                        |> Async.Ignore
+
+                                    let dirStream = TorStream circuit
+
+                                    do!
+                                        dirStream.ConnectToDirectory()
+                                        |> Async.Ignore
+
+                                    let! documentInString =
+                                        TorHttpClient(
+                                            dirStream,
+                                            Constants.DefaultHttpHost
+                                        )
+                                            .GetAsString
+                                            (sprintf
+                                                "/tor/hs/%i/%s"
+                                                Constants.HiddenServices.Version
+                                                ((Convert.ToBase64String
+                                                    blindedPublicKey)))
+                                            false
+
+                                    return
+                                        HiddenServiceFirstLayerDescriptorDocument.Parse
+                                            documentInString
+
+                                with
+                                | :? NOnionException ->
+                                        // Using micro descriptors means we might use servers that are hibernating or etc
+                                        // so we need to be able to try multiple servers to receive the descriptor.
+                                    return! downloadDescriptor tail
+                        }
+
+                    let! firstLayerDescriptorDocument =
+                        downloadDescriptor responsibleDirs
+
+                    let readEncryptedPayload(encryptedPayload: array<byte>) =
+                        encryptedPayload |> Array.take 16,
+                        encryptedPayload
+                        |> Array.skip 16
+                        |> Array.take(encryptedPayload.Length - 48),
+                        encryptedPayload
+                        |> Array.skip(encryptedPayload.Length - 32)
+
+                    let getDecryptionKeys(input: array<byte>) =
+                        let keyBytes =
+                            input
+                            |> HiddenServicesCipher.CalculateShake256(
+                                Constants.KeyS256Length
+                                + Constants.IVS256Length
+                                + Constants.HiddenServices.DirectoryEncryption.MacKeyLength
                             )
+
+                        keyBytes |> Array.take Constants.KeyS256Length,
+                        keyBytes
+                        |> Array.skip Constants.KeyS256Length
+                        |> Array.take Constants.IVS256Length,
+                        keyBytes
+                        |> Array.skip(
+                            Constants.KeyS256Length + Constants.IVS256Length
                         )
+                        |> Array.take
+                            Constants.HiddenServices.DirectoryEncryption.MacKeyLength
+
+                    let decryptDocument
+                        (key: array<byte>)
+                        (iv: array<byte>)
+                        (encryptedData: array<byte>)
+                        (parser: string -> 'T)
+                        =
+                        (TorStreamCipher(key, Some iv)
+                            .Encrypt encryptedData
+                         |> Encoding.ASCII.GetString)
+                            .Trim('\000')
+                        |> parser
+
+                    let (firstLayerSalt, firstLayerEncryptedData, firstLayerMac) =
+                        readEncryptedPayload
+                            firstLayerDescriptorDocument.EncryptedPayload.Value
+
+                    let secretInput =
+                        Array.concat
+                            [
+                                blindedPublicKey
+                                HiddenServicesCipher.GetSubCredential
+                                    (periodNum, periodLength)
+                                    publicKey
+                                firstLayerDescriptorDocument.RevisionCounter.Value
+                                |> uint64
+                                |> IntegerSerialization.FromUInt64ToBigEndianByteArray
+                            ]
+
+                    let (firstLayerDecryptionKey,
+                         firstLayerDecryptionIV,
+                         firstLayerDecryptionMacKey) =
+                        Array.concat
+                            [
+                                secretInput
+                                firstLayerSalt
+                                Constants.HiddenServices.DirectoryEncryption.SuperEncrypted
+                                |> Encoding.ASCII.GetBytes
+                            ]
+                        |> getDecryptionKeys
+
+                    let computedFirstLayerMac =
+                        Array.concat
+                            [
+                                firstLayerDecryptionMacKey.Length
+                                |> uint64
+                                |> IntegerSerialization.FromUInt64ToBigEndianByteArray
+                                firstLayerDecryptionMacKey
+                                firstLayerSalt.Length
+                                |> uint64
+                                |> IntegerSerialization.FromUInt64ToBigEndianByteArray
+                                firstLayerSalt
+                                firstLayerEncryptedData
+                            ]
+                        |> HiddenServicesCipher.SHA3256
+
+                    if
+                        not
+                            (
+                                Enumerable.SequenceEqual(
+                                    computedFirstLayerMac,
+                                    firstLayerMac
+                                )
+                            )
+                    then
+                        failwith "First layer mac is not correct"
+
+                    let (secondLayerSalt,
+                         secondLayerEncryptedData,
+                         secondLayerMac) =
+                        let secondLayerDescriptorDocument =
+                            decryptDocument
+                                firstLayerDecryptionKey
+                                firstLayerDecryptionIV
+                                firstLayerEncryptedData
+                                HiddenServiceSecondLayerDescriptorDocument.Parse
+
+                        readEncryptedPayload
+                            secondLayerDescriptorDocument.EncryptedPayload.Value
+
+                    let (secondLayerDecryptionKey,
+                         secondLayerDecryptionIV,
+                         secondLayerDecryptionMacKey) =
+                        Array.concat
+                            [
+                                secretInput
+                                secondLayerSalt
+                                Constants.HiddenServices.DirectoryEncryption.Encrypted
+                                |> Encoding.ASCII.GetBytes
+                            ]
+                        |> getDecryptionKeys
+
+                    let computedSecondLayerMac =
+                        Array.concat
+                            [
+                                secondLayerDecryptionMacKey.Length
+                                |> uint64
+                                |> IntegerSerialization.FromUInt64ToBigEndianByteArray
+                                secondLayerDecryptionMacKey
+                                secondLayerSalt.Length
+                                |> uint64
+                                |> IntegerSerialization.FromUInt64ToBigEndianByteArray
+                                secondLayerSalt
+                                secondLayerEncryptedData
+                            ]
+                        |> HiddenServicesCipher.SHA3256
+
+                    if
+                        not
+                            (
+                                Enumerable.SequenceEqual(
+                                    computedSecondLayerMac,
+                                    secondLayerMac
+                                )
+                            )
+                    then
+                        failwith "Second layer mac is not correct"
+
+                    let hiddenServiceDescriptorDocument =
+                        decryptDocument
+                            secondLayerDecryptionKey
+                            secondLayerDecryptionIV
+                            secondLayerEncryptedData
+                            HiddenServiceDescriptorDocument.Parse
+
+                    let introductionPointOpt =
+                        hiddenServiceDescriptorDocument.IntroductionPoints
                         |> SeqUtils.TakeRandom 1
                         |> Seq.tryExactlyOne
-                        |> Option.map directory.GetCircuitNodeDetailByIdentity
 
-                    match hsDirectoryNodeOpt with
+                    match introductionPointOpt with
                     | None ->
-                        return
-                            failwith
-                                "BUG: TorServiceClient::getRoutersToFetch returned empty list"
-                    | Some hsDirectoryNode ->
-                        let! guardEndPoint, randomGuardNode =
-                            directory.GetRouter RouterType.Guard
+                        return failwith "HS's introduction point list was empty"
+                    | Some introductionPoint ->
+                        let introductionPointAuthKey =
+                            let authKeyBytes =
+                                introductionPoint.AuthKey.Value.CertifiedKey
 
-                        let! _, randomMiddleNode =
-                            directory.GetRouter RouterType.Normal
+                            Ed25519PublicKeyParameters(authKeyBytes, 0)
 
-                        let! guardNode = TorGuard.NewClient guardEndPoint
-                        let circuit = TorCircuit guardNode
-                        do! circuit.Create randomGuardNode |> Async.Ignore
-                        do! circuit.Extend randomMiddleNode |> Async.Ignore
-                        do! circuit.Extend hsDirectoryNode |> Async.Ignore
-
-                        let dirStream = TorStream circuit
-                        do! dirStream.ConnectToDirectory() |> Async.Ignore
-
-                        let! firstLayerDescriptorDocument =
-                            async {
-                                let! documentInString =
-                                    TorHttpClient(
-                                        dirStream,
-                                        Constants.DefaultHttpHost
-                                    )
-                                        .GetAsString
-                                        (sprintf
-                                            "/tor/hs/%i/%s"
-                                            Constants.HiddenServices.Version
-                                            ((Convert.ToBase64String
-                                                blindedPublicKey)))
-                                        false
-
-                                return
-                                    HiddenServiceFirstLayerDescriptorDocument.Parse
-                                        documentInString
-                            }
-
-                        let readEncryptedPayload
-                            (encryptedPayload: array<byte>)
-                            =
-                            encryptedPayload |> Array.take 16,
-                            encryptedPayload
-                            |> Array.skip 16
-                            |> Array.take(encryptedPayload.Length - 48),
-                            encryptedPayload
-                            |> Array.skip(encryptedPayload.Length - 32)
-
-                        let getDecryptionKeys(input: array<byte>) =
-                            let keyBytes =
-                                input
-                                |> HiddenServicesCipher.CalculateShake256(
-                                    Constants.KeyS256Length
-                                    + Constants.IVS256Length
-                                    + Constants.HiddenServices.DirectoryEncryption.MacKeyLength
-                                )
-
-                            keyBytes |> Array.take Constants.KeyS256Length,
-                            keyBytes
-                            |> Array.skip Constants.KeyS256Length
-                            |> Array.take Constants.IVS256Length,
-                            keyBytes
-                            |> Array.skip(
-                                Constants.KeyS256Length + Constants.IVS256Length
+                        let introductionPointEncKey =
+                            X25519PublicKeyParameters(
+                                introductionPoint.EncKey.Value,
+                                0
                             )
-                            |> Array.take
-                                Constants.HiddenServices.DirectoryEncryption.MacKeyLength
 
-                        let decryptDocument
-                            (key: array<byte>)
-                            (iv: array<byte>)
-                            (encryptedData: array<byte>)
-                            (parser: string -> 'T)
-                            =
-                            (TorStreamCipher(key, Some iv)
-                                .Encrypt encryptedData
-                             |> Encoding.ASCII.GetString)
-                                .Trim('\000')
-                            |> parser
-
-                        let (firstLayerSalt,
-                             firstLayerEncryptedData,
-                             firstLayerMac) =
-                            readEncryptedPayload
-                                firstLayerDescriptorDocument.EncryptedPayload.Value
-
-                        let secretInput =
-                            Array.concat
-                                [
-                                    blindedPublicKey
-                                    HiddenServicesCipher.GetSubCredential
-                                        (periodNum, periodLength)
-                                        publicKey
-                                    firstLayerDescriptorDocument.RevisionCounter.Value
-                                    |> uint64
-                                    |> IntegerSerialization.FromUInt64ToBigEndianByteArray
-                                ]
-
-                        let (firstLayerDecryptionKey,
-                             firstLayerDecryptionIV,
-                             firstLayerDecryptionMacKey) =
-                            Array.concat
-                                [
-                                    secretInput
-                                    firstLayerSalt
-                                    Constants.HiddenServices.DirectoryEncryption.SuperEncrypted
-                                    |> Encoding.ASCII.GetBytes
-                                ]
-                            |> getDecryptionKeys
-
-                        let computedFirstLayerMac =
-                            Array.concat
-                                [
-                                    firstLayerDecryptionMacKey.Length
-                                    |> uint64
-                                    |> IntegerSerialization.FromUInt64ToBigEndianByteArray
-                                    firstLayerDecryptionMacKey
-                                    firstLayerSalt.Length
-                                    |> uint64
-                                    |> IntegerSerialization.FromUInt64ToBigEndianByteArray
-                                    firstLayerSalt
-                                    firstLayerEncryptedData
-                                ]
-                            |> HiddenServicesCipher.SHA3256
-
-                        if
-                            not
-                                (
-                                    Enumerable.SequenceEqual(
-                                        computedFirstLayerMac,
-                                        firstLayerMac
-                                    )
+                        let introductionPointNodeDetail =
+                            use memStream =
+                                new MemoryStream(
+                                    introductionPoint.LinkSpecifiers.Value
                                 )
-                        then
-                            failwith "First layer mac is not correct"
 
-                        let (secondLayerSalt,
-                             secondLayerEncryptedData,
-                             secondLayerMac) =
-                            let secondLayerDescriptorDocument =
-                                decryptDocument
-                                    firstLayerDecryptionKey
-                                    firstLayerDecryptionIV
-                                    firstLayerEncryptedData
-                                    HiddenServiceSecondLayerDescriptorDocument.Parse
+                            use reader = new BinaryReader(memStream)
 
-                            readEncryptedPayload
-                                secondLayerDescriptorDocument.EncryptedPayload.Value
-
-                        let (secondLayerDecryptionKey,
-                             secondLayerDecryptionIV,
-                             secondLayerDecryptionMacKey) =
-                            Array.concat
-                                [
-                                    secretInput
-                                    secondLayerSalt
-                                    Constants.HiddenServices.DirectoryEncryption.Encrypted
-                                    |> Encoding.ASCII.GetBytes
-                                ]
-                            |> getDecryptionKeys
-
-                        let computedSecondLayerMac =
-                            Array.concat
-                                [
-                                    secondLayerDecryptionMacKey.Length
-                                    |> uint64
-                                    |> IntegerSerialization.FromUInt64ToBigEndianByteArray
-                                    secondLayerDecryptionMacKey
-                                    secondLayerSalt.Length
-                                    |> uint64
-                                    |> IntegerSerialization.FromUInt64ToBigEndianByteArray
-                                    secondLayerSalt
-                                    secondLayerEncryptedData
-                                ]
-                            |> HiddenServicesCipher.SHA3256
-
-                        if
-                            not
-                                (
-                                    Enumerable.SequenceEqual(
-                                        computedSecondLayerMac,
-                                        secondLayerMac
+                            let rec readLinkSpecifier
+                                (remainingLinkSpecifiers: int)
+                                (state: List<LinkSpecifier>)
+                                =
+                                if remainingLinkSpecifiers = 0 then
+                                    state
+                                else
+                                    LinkSpecifier.Deserialize reader
+                                    |> List.singleton
+                                    |> List.append state
+                                    |> readLinkSpecifier(
+                                        remainingLinkSpecifiers - 1
                                     )
+
+                            let linkSpecifiers =
+                                readLinkSpecifier
+                                    (reader.ReadByte() |> int)
+                                    List.empty
+
+                            let endpointSpecifierOpt =
+                                linkSpecifiers
+                                |> List.tryFind(fun linkSpecifier ->
+                                    linkSpecifier.Type = LinkSpecifierType.TLSOverTCPV4
                                 )
-                        then
-                            failwith "Second layer mac is not correct"
+                                |> Option.map(fun linkSpecifier ->
+                                    linkSpecifier.ToEndPoint()
+                                )
 
-                        let hiddenServiceDescriptorDocument =
-                            decryptDocument
-                                secondLayerDecryptionKey
-                                secondLayerDecryptionIV
-                                secondLayerEncryptedData
-                                HiddenServiceDescriptorDocument.Parse
-
-                        let introductionPointOpt =
-                            hiddenServiceDescriptorDocument.IntroductionPoints
-                            |> SeqUtils.TakeRandom 1
-                            |> Seq.tryExactlyOne
-
-                        match introductionPointOpt with
-                        | None ->
-                            return
+                            match endpointSpecifierOpt with
+                            | None ->
                                 failwith
-                                    "HS's introduction point list was empty"
-                        | Some introductionPoint ->
-                            let introductionPointAuthKey =
-                                let authKeyBytes =
-                                    introductionPoint.AuthKey.Value.CertifiedKey
-
-                                Ed25519PublicKeyParameters(authKeyBytes, 0)
-
-                            let introductionPointEncKey =
-                                X25519PublicKeyParameters(
-                                    introductionPoint.EncKey.Value,
-                                    0
-                                )
-
-                            let introductionPointNodeDetail =
-                                use memStream =
-                                    new MemoryStream(
-                                        introductionPoint.LinkSpecifiers.Value
-                                    )
-
-                                use reader = new BinaryReader(memStream)
-
-                                let rec readLinkSpecifier
-                                    (remainingLinkSpecifiers: int)
-                                    (state: List<LinkSpecifier>)
-                                    =
-                                    if remainingLinkSpecifiers = 0 then
-                                        state
-                                    else
-                                        LinkSpecifier.Deserialize reader
-                                        |> List.singleton
-                                        |> List.append state
-                                        |> readLinkSpecifier(
-                                            remainingLinkSpecifiers - 1
-                                        )
-
-                                let linkSpecifiers =
-                                    readLinkSpecifier
-                                        (reader.ReadByte() |> int)
-                                        List.empty
-
-                                let endpointSpecifierOpt =
+                                    "Introduction point didn't have an IPV4 endpoint"
+                            | Some endpointSpecifier ->
+                                let identityKeyOpt =
                                     linkSpecifiers
-                                    |> List.tryFind(fun linkSpecifier ->
-                                        linkSpecifier.Type = LinkSpecifierType.TLSOverTCPV4
+                                    |> Seq.tryFind(fun linkSpecifier ->
+                                        linkSpecifier.Type = LinkSpecifierType.LegacyIdentity
                                     )
                                     |> Option.map(fun linkSpecifier ->
-                                        linkSpecifier.ToEndPoint()
+                                        linkSpecifier.Data
                                     )
 
-                                match endpointSpecifierOpt with
+                                match identityKeyOpt with
                                 | None ->
                                     failwith
-                                        "Introduction point didn't have an IPV4 endpoint"
-                                | Some endpointSpecifier ->
-                                    let identityKeyOpt =
-                                        linkSpecifiers
-                                        |> Seq.tryFind(fun linkSpecifier ->
-                                            linkSpecifier.Type = LinkSpecifierType.LegacyIdentity
-                                        )
-                                        |> Option.map(fun linkSpecifier ->
-                                            linkSpecifier.Data
-                                        )
+                                        "Introduction point didn't have a legacy identity"
+                                | Some identityKey ->
+                                    CircuitNodeDetail.Create(
+                                        endpointSpecifier,
+                                        introductionPoint.OnionKey.Value,
+                                        identityKey
+                                    )
 
-                                    match identityKeyOpt with
-                                    | None ->
-                                        failwith
-                                            "Introduction point didn't have a legacy identity"
-                                    | Some identityKey ->
-                                        CircuitNodeDetail.Create(
-                                            endpointSpecifier,
-                                            introductionPoint.OnionKey.Value,
-                                            identityKey
-                                        )
-
-                            return
-                                introductionPointAuthKey,
-                                introductionPointEncKey,
-                                introductionPointNodeDetail,
-                                publicKey
+                        return
+                            introductionPointAuthKey,
+                            introductionPointEncKey,
+                            introductionPointNodeDetail,
+                            publicKey
                 }
 
             let! introductionPointAuthKey,
