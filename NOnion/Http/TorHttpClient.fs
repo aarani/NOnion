@@ -50,7 +50,7 @@ type TorHttpClient(stream: TorStream, host: string) =
 
             do!
                 ReceiveAll memStream
-                |> FSharpUtil.WithTimeout Constants.HttpResponseTimeout
+                |> FSharpUtil.WithTimeout Constants.HttpGetResponseTimeout
 
             let httpResponse = memStream.ToArray()
 
@@ -138,7 +138,7 @@ type TorHttpClient(stream: TorStream, host: string) =
 
             do!
                 ReceiveAll memStream
-                |> FSharpUtil.WithTimeout Constants.HttpResponseTimeout
+                |> FSharpUtil.WithTimeout Constants.HttpPostResponseTimeout
 
             let httpResponse = memStream.ToArray()
 
