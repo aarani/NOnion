@@ -18,10 +18,16 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Content Include="Directory-Samples\MicroDescriptor.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
     <Content Include="Directory-Samples\NetworkStatus.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <Content Include="Directory-Samples\NetworkStatus.txt">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Directory-Samples\MicroDescriptor.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <Content Include="Directory-Samples\ServerDescriptors.txt">

@@ -19,7 +19,7 @@ type TorDirectory =
     private
         {
             mutable NetworkStatus: NetworkStatusDocument
-            mutable ServerDescriptors: Map<string, ServerDescriptorEntry>
+            mutable ServerDescriptors: Map<string, MicroDescriptorEntry>
         }
 
     member private self.IsLive() =
@@ -39,76 +39,161 @@ type TorDirectory =
 
         match directorySourceOpt with
         | Some directorySource -> directorySource
-        | None -> failwith "Couldn't find suitable directory source."
+        | None ->
+            failwith
+                "TorDirectory::GetRandomDirectorySource: couldn't find suitable directory source."
 
-    member private self.ConvertToCircuitNodeDetail
-        (entry: ServerDescriptorEntry)
-        =
-        let fingerprintBytes = Hex.ToByteArray(entry.Fingerprint.Value)
-        let nTorOnionKeyBytes = Base64Util.FromString(entry.NTorOnionKey.Value)
+    member self.GetMicroDescriptorByIdentity
+        (identity: string)
+        : Async<MicroDescriptorEntry> =
+        async {
+            let! networkStatus = self.GetLiveNetworkStatus()
 
-        let endpoint =
-            IPEndPoint(
-                IPAddress.Parse(entry.Address.Value),
-                entry.OnionRouterPort.Value
-            )
+            let routerConsensusEntryOpt =
+                networkStatus.Routers
+                |> List.tryFind(fun router -> router.Identity.Value = identity)
 
-        CircuitNodeDetail.Create(endpoint, nTorOnionKeyBytes, fingerprintBytes)
+            match routerConsensusEntryOpt with
+            | None ->
+                return
+                    failwith
+                        "TorDirectory::GetMicroDescriptorByIdentity: router was not in the latest consensus"
+            | Some routerConsensusEntry ->
+                if self.ServerDescriptors
+                   |> Map.containsKey
+                       routerConsensusEntry.MicroDescriptorDigest.Value then
+                    return
+                        self.ServerDescriptors.[routerConsensusEntry.MicroDescriptorDigest.Value]
+                else
+                    let directoryRouter = self.GetRandomDirectorySource()
+
+                    use! guard =
+                        TorGuard.NewClient(
+                            IPEndPoint(
+                                IPAddress.Parse(directoryRouter.IP.Value),
+                                directoryRouter.OnionRouterPort.Value
+                            )
+                        )
+
+                    let circuit = TorCircuit(guard)
+                    let stream = TorStream(circuit)
+
+                    (*
+                        * We always use FastCreate authentication because privacy is not important for mono-hop
+                        * directory browsing, this removes the need of checking descriptors and making sure they
+                        * are no more than one week old (according to spec, routers must accept outdated keys
+                        * until 1 week after key update).
+                        *)
+                    do!
+                        circuit.Create CircuitNodeDetail.FastCreate
+                        |> Async.Ignore
+
+                    do! stream.ConnectToDirectory() |> Async.Ignore
+
+                    let httpClient =
+                        TorHttpClient(stream, directoryRouter.IP.Value)
+
+                    let! response =
+                        httpClient.GetAsString
+                            (sprintf
+                                "/tor/micro/d/%s"
+                                routerConsensusEntry.MicroDescriptorDigest.Value)
+                            false
+
+                    let parsedDescriptorOpt =
+                        MicroDescriptorEntry.ParseMany response
+                        |> Seq.tryExactlyOne
+
+                    match parsedDescriptorOpt with
+                    | None ->
+                        return
+                            failwith
+                                "BUG: can't get microdescriptor, Parse returned no item or more than one"
+                    | Some parsedDescriptor ->
+                        self.ServerDescriptors <-
+                            self.ServerDescriptors
+                            |> Map.add
+                                routerConsensusEntry.MicroDescriptorDigest.Value
+                                parsedDescriptor
+
+                        return parsedDescriptor
+        }
+
+    member private self.GetRouterDetailByIdentity(identity: string) =
+        async {
+            let! networkStatus = self.GetLiveNetworkStatus()
+
+            let routerEntryOpt =
+                networkStatus.Routers
+                |> List.tryFind(fun router -> router.Identity.Value = identity)
+
+            match routerEntryOpt with
+            | None ->
+                return
+                    failwith
+                        "TorDirectory::GetRouterDetailByIdentity: router was not in the latest consensus"
+            | Some routerEntry ->
+                let! descriptor = self.GetMicroDescriptorByIdentity identity
+
+                let fingerprintBytes =
+                    Base64Util.FromString(routerEntry.GetIdentity())
+
+                let nTorOnionKeyBytes =
+                    Base64Util.FromString(descriptor.NTorOnionKey.Value)
+
+                let endpoint =
+                    IPEndPoint(
+                        IPAddress.Parse(routerEntry.IP.Value),
+                        routerEntry.OnionRouterPort.Value
+                    )
+
+                return
+                    endpoint,
+                    CircuitNodeDetail.Create(
+                        endpoint,
+                        nTorOnionKeyBytes,
+                        fingerprintBytes
+                    )
+        }
+
 
     member self.GetRouter(filter: RouterType) =
         async {
             do! self.UpdateConsensusIfNotLive()
 
-            let rec getRandomRouter() =
-                async {
-                    let descriptor =
-                        let randomServerOpt =
-                            self.NetworkStatus.Routers
-                            |> match filter with
-                               | Normal -> Seq.ofList
-                               | Directory ->
-                                   Seq.filter(fun router ->
-                                       router.DirectoryPort.IsSome
-                                       && router.DirectoryPort.Value > 0
-                                   )
-                               | Guard ->
-                                   Seq.filter(fun router ->
-                                       Seq.contains "Guard" router.Flags
-                                   )
-                            |> SeqUtils.TakeRandom 1
-                            |> Seq.tryHead
+            let randomServerOpt =
+                self.NetworkStatus.Routers
+                |> match filter with
+                   | Normal -> Seq.ofList
+                   | Directory ->
+                       Seq.filter(fun router ->
+                           router.DirectoryPort.IsSome
+                           && router.DirectoryPort.Value > 0
+                       )
+                   | Guard ->
+                       Seq.filter(fun router ->
+                           Seq.contains "Guard" router.Flags
+                       )
+                |> SeqUtils.TakeRandom 1
+                |> Seq.tryHead
 
-                        match randomServerOpt with
-                        | Some randomServer ->
-                            self.GetDescriptorByIdentity(
-                                randomServer.GetIdentity()
-                            )
-                        | None -> failwith "Couldn't find suitable router"
-
-                    if descriptor.Hibernating
-                       || descriptor.NTorOnionKey.IsNone
-                       || descriptor.Fingerprint.IsNone then
-                        return! getRandomRouter()
-                    else
-                        return descriptor
-                }
-
-            let! randomDescriptor = getRandomRouter()
-
-            let endpoint =
-                IPEndPoint(
-                    IPAddress.Parse(randomDescriptor.Address.Value),
-                    randomDescriptor.OnionRouterPort.Value
-                )
-
-            return (endpoint, self.ConvertToCircuitNodeDetail randomDescriptor)
+            match randomServerOpt with
+            | Some randomServer ->
+                return!
+                    randomServer.GetIdentity() |> self.GetRouterDetailByIdentity
+            | None -> return failwith "Couldn't find suitable router"
         }
 
     member self.GetRouterAsync(filter: RouterType) =
         self.GetRouter filter |> Async.StartAsTask
 
     member self.GetCircuitNodeDetailByIdentity(identity: string) =
-        self.GetDescriptorByIdentity identity |> self.ConvertToCircuitNodeDetail
+        async {
+            let! _endpoint, circuitNodeDetail =
+                self.GetRouterDetailByIdentity identity
+
+            return circuitNodeDetail
+        }
 
     member private self.UpdateConsensusIfNotLive() =
         async {
@@ -147,7 +232,7 @@ type TorDirectory =
 
                 let! response =
                     httpClient.GetAsString
-                        "/tor/status-vote/current/consensus"
+                        "/tor/status-vote/current/consensus-microdesc"
                         false
 
                 self.NetworkStatus <- NetworkStatusDocument.Parse response
@@ -167,37 +252,52 @@ type TorDirectory =
 
             let! consensusStr =
                 consensusHttpClient.GetAsString
-                    "/tor/status-vote/current/consensus"
+                    "/tor/status-vote/current/consensus-microdesc"
                     false
 
-            let descriptorsStream = TorStream circuit
-            do! descriptorsStream.ConnectToDirectory() |> Async.Ignore
+            let networkStatus = NetworkStatusDocument.Parse consensusStr
 
-            let descriptorsHttpClient =
-                TorHttpClient(descriptorsStream, Constants.DefaultHttpHost)
+            let downloadDescriptorsForChunk(digestsChunk: array<string>) =
+                async {
+                    let descriptorsStream = TorStream circuit
+                    do! descriptorsStream.ConnectToDirectory() |> Async.Ignore
 
-            let! descriptorsStr =
-                descriptorsHttpClient.GetAsString "/tor/server/all" false
+                    let descriptorsHttpClient =
+                        TorHttpClient(
+                            descriptorsStream,
+                            Constants.DefaultHttpHost
+                        )
 
-            let routers =
-                (ServerDescriptorsDocument.Parse descriptorsStr)
-                    .Routers
+                    let! descriptorsStr =
+                        descriptorsHttpClient.GetAsString
+                            (sprintf
+                                "/tor/micro/d/%s"
+                                (String.concat "-" digestsChunk))
+                            false
 
-            let serverDescriptors =
-                routers
-                |> Seq.map(fun router ->
-                    (router.Fingerprint.Value
-                     |> Hex.ToByteArray
-                     |> Convert.ToBase64String,
-                     router)
-                )
-                |> Map.ofSeq
+                    let trimmedDescriptors = descriptorsStr.TrimEnd('\n')
+
+                    return
+                        MicroDescriptorEntry.ParseMany trimmedDescriptors
+                        |> List.map(fun descriptor ->
+                            descriptor.Digest.Value, descriptor
+                        )
+                }
+
+            let chunkedJobs =
+                networkStatus.Routers
+                |> Seq.choose(fun router -> router.MicroDescriptorDigest)
+                |> Seq.chunkBySize 96
+                |> Seq.map downloadDescriptorsForChunk
+
+            let! downloadResults = Async.Parallel(chunkedJobs, 16)
+
+            let descriptorsMap = downloadResults |> List.concat |> Map.ofList
 
             return
                 {
-                    TorDirectory.NetworkStatus =
-                        NetworkStatusDocument.Parse consensusStr
-                    ServerDescriptors = serverDescriptors
+                    TorDirectory.NetworkStatus = networkStatus
+                    ServerDescriptors = descriptorsMap
                 }
         }
 
@@ -208,8 +308,19 @@ type TorDirectory =
             return self.NetworkStatus
         }
 
+    /// WARNING: this function is scary and might throw KeyNotFoundException.
+    /// This function is currently used to calculate hidden service directory
+    /// hashring which is done in a non-async fashion, hence why we don't try
+    /// to find missing descriptors.
     member self.GetDescriptorByIdentity(b64Identity: string) =
-        self.ServerDescriptors.[b64Identity]
+        let routerEntryOpt =
+            self.NetworkStatus.Routers
+            |> List.tryFind(fun router -> router.Identity.Value = b64Identity)
+
+        match routerEntryOpt with
+        | None -> failwith "can't find router in the main consensus"
+        | Some routerEntry ->
+            self.ServerDescriptors.[routerEntry.MicroDescriptorDigest.Value]
 
     static member BootstrapAsync(nodeEndPoint: IPEndPoint) =
         TorDirectory.Bootstrap nodeEndPoint |> Async.StartAsTask
@@ -262,7 +373,7 @@ type TorDirectory =
                                  "node-idx" |> Encoding.ASCII.GetBytes
                                  (node.GetIdentity()
                                   |> self.GetDescriptorByIdentity)
-                                     .MasterKeyEd25519
+                                     .Ed25519Identity
                                      .Value
                                  |> Base64Util.FromString
                                  sharedRandomValue |> Convert.FromBase64String

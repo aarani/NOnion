@@ -83,7 +83,9 @@ type RouterStatusEntry =
     {
         NickName: Option<string>
         Identity: Option<string>
-        Digest: Option<string>
+        /// This is the digest of router's microdescriptor and can't be used
+        /// as digest of router's server descriptor
+        MicroDescriptorDigest: Option<string>
         PublicationTime: Option<DateTime>
         IP: Option<string>
         OnionRouterPort: Option<int>
@@ -101,7 +103,7 @@ type RouterStatusEntry =
         {
             RouterStatusEntry.NickName = None
             Identity = None
-            Digest = None
+            MicroDescriptorDigest = None
             PublicationTime = None
             IP = None
             DirectoryPort = None
@@ -143,13 +145,19 @@ type RouterStatusEntry =
                         { state with
                             NickName = readWord() |> Some
                             Identity = readWord() |> Some
-                            Digest = readWord() |> Some
                             PublicationTime = readDateTime() |> Some
                             IP = readWord() |> Some
                             OnionRouterPort = readInteger() |> Some
                             DirectoryPort = readInteger() |> Some
                         }
                 | "r" when state.NickName <> None -> state
+                | "m" ->
+                    lines.Dequeue() |> ignore<string>
+
+                    innerParse
+                        { state with
+                            MicroDescriptorDigest = readWord() |> Some
+                        }
                 | "a" ->
                     lines.Dequeue() |> ignore<string>
 
@@ -204,7 +212,7 @@ type RouterStatusEntry =
     member self.GetIdentity() =
         match self.Identity with
         | None -> failwith "BUG: identity doesn't exist in RouterStatusEntry"
-        | Some identity -> identity.Trim() |> Base64Util.FixMissingPadding
+        | Some identity -> identity
 
 type DirectorySignature =
     {
@@ -525,6 +533,7 @@ type NetworkStatusDocument =
         self.Routers
         |> List.filter(fun router ->
             router.Flags |> Seq.contains "HSDir"
+            && router.Flags |> Seq.contains "NoEdConsensus" |> not
             && (router.Protocols.Value.Contains("HSDir=1-2")
                 || router.Protocols.Value.Contains("HSDir=2"))
         )

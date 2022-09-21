@@ -1,4 +1,7 @@
-﻿namespace NOnion.Directory
+﻿// Types in this file are marked as obsolete and this file has self-references which cause pointless warnings
+#nowarn "44"
+
+namespace NOnion.Directory
 
 open System
 open System.Text
@@ -9,6 +12,7 @@ open NOnion.Utility
 
 type internal MutableQueue<'T> = System.Collections.Generic.Queue<'T>
 
+[<Obsolete("Use micro-descriptors instead")>]
 type ServerDescriptorEntry =
     {
         Nickname: Option<string>
@@ -402,7 +406,7 @@ type ServerDescriptorEntry =
 
         innerParse ServerDescriptorEntry.Empty
 
-
+[<Obsolete("Use micro-descriptors instead")>]
 type ServerDescriptorsDocument =
     {
         Routers: List<ServerDescriptorEntry>
