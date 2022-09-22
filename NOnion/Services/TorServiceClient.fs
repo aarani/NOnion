@@ -34,11 +34,10 @@ type TorServiceClient =
 
     static member Connect (directory: TorDirectory) (url: string) =
         async {
-            let getIntroductionPointInfo url =
-                async {
-                    let publicKey =
-                        HiddenServicesUtility.GetPublicKeyFromUrl url
+            let publicKey, port = HiddenServicesUtility.DecodeOnionUrl url
 
+            let getIntroductionPointInfo() =
+                async {
                     let! networkStatus = directory.GetLiveNetworkStatus()
 
                     let periodNum, periodLength = networkStatus.GetTimePeriod()
@@ -370,7 +369,7 @@ type TorServiceClient =
             let! introductionPointAuthKey,
                  introductionPointEncKey,
                  introductionPointNodeDetail,
-                 pubKey = getIntroductionPointInfo url
+                 pubKey = getIntroductionPointInfo()
 
             let randomGeneratedCookie =
                 Array.zeroCreate Constants.RendezvousCookieLength
@@ -483,7 +482,7 @@ type TorServiceClient =
                     |> Async.Ignore
 
                 let serviceStream = TorStream rendezvousCircuit
-                do! serviceStream.ConnectToService() |> Async.Ignore
+                do! serviceStream.ConnectToService port |> Async.Ignore
 
                 return
                     {
