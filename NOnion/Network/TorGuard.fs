@@ -55,15 +55,25 @@ type TorGuard private (client: TcpClient, sslStream: SslStream) =
             |> sprintf "TorGuard: creating ssl connection to %s guard node"
             |> TorLogger.Log
 
-            do!
-                sslStream.AuthenticateAsClientAsync(
-                    String.Empty,
-                    null,
-                    SslProtocols.Tls12,
-                    false
-                )
-                |> Async.AwaitTask
-                |> FSharpUtil.WithTimeout Constants.CircuitOperationTimeout
+            try
+                do!
+                    sslStream.AuthenticateAsClientAsync(
+                        String.Empty,
+                        null,
+                        SslProtocols.Tls12,
+                        false
+                    )
+                    |> Async.AwaitTask
+                    |> FSharpUtil.WithTimeout Constants.CircuitOperationTimeout
+            with
+            | exn ->
+                let authExOpt =
+                    FSharpUtil.FindException<AuthenticationException> exn
+
+                match authExOpt with
+                | None -> return raise <| FSharpUtil.ReRaise exn
+                | Some authEx ->
+                    return raise <| GuardConnectionFailedException authEx
 
             ipEndpoint.ToString()
             |> sprintf "TorGuard: ssl connection to %s guard node authenticated"
