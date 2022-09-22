@@ -114,7 +114,7 @@ type TorStream(circuit: TorCircuit) =
     member self.SendDataAsync data =
         self.SendData data |> Async.StartAsTask
 
-    member self.ConnectToService() =
+    member self.ConnectToService(port: int) =
         let startConnectionProcess() =
             async {
                 let streamId = circuit.RegisterStream self None
@@ -134,7 +134,7 @@ type TorStream(circuit: TorCircuit) =
                         streamId
                         (RelayBegin
                             {
-                                RelayBegin.Address = ":80"
+                                RelayBegin.Address = (sprintf ":%i" port)
                                 Flags = 0u
                             })
                         None

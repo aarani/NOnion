@@ -74,10 +74,15 @@ module HiddenServicesUtility =
         not(now >= srvStartTime && now < tpStartTime)
 
     // https://github.com/torproject/torspec/blob/cb4ae84a20793a00f35a70aad5df47d4e4c7da7c/rend-spec-v3.txt#L2161
-    let GetPublicKeyFromUrl(url: string) =
+    let DecodeOnionUrl(url: string) =
+        //Add a fake protocol
+        let parsedUrl = Uri(sprintf "http://%s" url)
+
         //Remove .onion suffix and decode
         let keyBytesOpt =
-            url.Split '.' |> Seq.tryHead |> Option.map Base32Util.DecodeBase32
+            parsedUrl.DnsSafeHost.Split '.'
+            |> Seq.tryHead
+            |> Option.map Base32Util.DecodeBase32
 
         // PublicKey (32 bytes) + Checksum (2 bytes) + Version (1 byte)
         let expectedOnionUrlLength =
@@ -87,5 +92,6 @@ module HiddenServicesUtility =
 
         match keyBytesOpt with
         | Some keyBytes when keyBytes.Length = expectedOnionUrlLength ->
-            keyBytes.[0 .. Constants.HiddenServices.OnionUrl.PublicKeyLength - 1]
+            keyBytes.[0 .. Constants.HiddenServices.OnionUrl.PublicKeyLength - 1],
+            parsedUrl.Port
         | _ -> failwith "Invalid onion service url"
