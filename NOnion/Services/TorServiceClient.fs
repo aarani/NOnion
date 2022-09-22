@@ -126,12 +126,22 @@ type TorServiceClient =
                         downloadDescriptor responsibleDirs
 
                     let readEncryptedPayload(encryptedPayload: array<byte>) =
-                        encryptedPayload |> Array.take 16,
                         encryptedPayload
-                        |> Array.skip 16
-                        |> Array.take(encryptedPayload.Length - 48),
+                        |> Array.take
+                            Constants.HiddenServices.DirectoryEncryption.SaltLength,
                         encryptedPayload
-                        |> Array.skip(encryptedPayload.Length - 32)
+                        |> Array.skip
+                            Constants.HiddenServices.DirectoryEncryption.SaltLength
+                        |> Array.take(
+                            encryptedPayload.Length
+                            - Constants.HiddenServices.DirectoryEncryption.SaltLength
+                            - Constants.HiddenServices.DirectoryEncryption.MacKeyLength
+                        ),
+                        encryptedPayload
+                        |> Array.skip(
+                            encryptedPayload.Length
+                            - Constants.HiddenServices.DirectoryEncryption.MacKeyLength
+                        )
 
                     let getDecryptionKeys(input: array<byte>) =
                         let keyBytes =
