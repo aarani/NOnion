@@ -394,7 +394,7 @@ type ServerDescriptorEntry =
                     { state with
                         RouterSignature = Some signature
                         Digest =
-                            Base64Util.EncodeNoPaddding documentDigest |> Some
+                            Base64Util.EncodeNoPadding documentDigest |> Some
                     }
                 | "router" when state.Nickname <> None ->
                     failwith

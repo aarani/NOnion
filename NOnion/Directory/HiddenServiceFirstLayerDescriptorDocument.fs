@@ -269,7 +269,7 @@ type HiddenServiceFirstLayerDescriptorDocument =
         match self.Signature with
         | Some signature when signature.Length > 0 ->
             appendLine(
-                sprintf "signature %s" (Base64Util.EncodeNoPaddding signature)
+                sprintf "signature %s" (Base64Util.EncodeNoPadding signature)
             )
             |> ignore<StringBuilder>
         | _ -> ()

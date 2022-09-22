@@ -67,7 +67,7 @@ type MicroDescriptorEntry =
 
             digestEngine.DoFinal(documentDigest, 0) |> ignore<int>
 
-            documentDigest |> Base64Util.EncodeNoPaddding
+            documentDigest |> Base64Util.EncodeNoPadding
 
         let rec innerParse
             (state: MicroDescriptorEntry)

@@ -24,5 +24,5 @@ module Base64Util =
     let FromString(input: string) =
         FixMissingPadding input |> System.Convert.FromBase64String
 
-    let EncodeNoPaddding(input: array<byte>) =
+    let EncodeNoPadding(input: array<byte>) =
         (Convert.ToBase64String input).TrimEnd '='
