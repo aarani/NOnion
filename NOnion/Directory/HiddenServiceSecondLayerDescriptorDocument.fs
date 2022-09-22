@@ -105,9 +105,9 @@ type HiddenServiceSecondLayerDescriptorDocument =
 
             sprintf
                 "%s %s %s"
-                (Base64Util.EncodeNoPaddding clientId)
-                (Base64Util.EncodeNoPaddding iv)
-                (Base64Util.EncodeNoPaddding cookie)
+                (Base64Util.EncodeNoPadding clientId)
+                (Base64Util.EncodeNoPadding iv)
+                (Base64Util.EncodeNoPadding cookie)
 
         appendLine(sprintf "auth-client %s" authClientLine)
         |> ignore<StringBuilder>
