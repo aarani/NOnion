@@ -2,6 +2,7 @@
 
 open System
 open System.IO
+open System.Text
 open System.Net
 open System.Net.Security
 open System.Net.Sockets
@@ -24,25 +25,124 @@ type TorGuard private (client: TcpClient, sslStream: SslStream) =
 
     static member NewClient(ipEndpoint: IPEndPoint) =
         async {
-            let tcpClient = new TcpClient()
+            let! tcpClient =
+                async {
+                    try
+                        let socket =
+                            new Socket(
+                                AddressFamily.InterNetwork,
+                                SocketType.Stream,
+                                ProtocolType.Tcp
+                            )
 
-            try
-                ipEndpoint.ToString()
-                |> sprintf "TorGuard: trying to connect to %s guard node"
-                |> TorLogger.Log
+                        let isBypassed, proxyUri =
+                            let defaultProxy = WebRequest.GetSystemWebProxy()
 
-                do!
-                    tcpClient.ConnectAsync(ipEndpoint.Address, ipEndpoint.Port)
-                    |> Async.AwaitTask
+                            let destinationUri =
+                                sprintf
+                                    "tcp://%s:%i"
+                                    (ipEndpoint.Address.ToString())
+                                    ipEndpoint.Port
+                                |> Uri
 
-            with
-            | exn ->
-                let socketExOpt = FSharpUtil.FindException<SocketException> exn
+                            defaultProxy.IsBypassed destinationUri,
+                            defaultProxy.GetProxy destinationUri
 
-                match socketExOpt with
-                | None -> return raise <| FSharpUtil.ReRaise exn
-                | Some socketEx ->
-                    return raise <| GuardConnectionFailedException socketEx
+                        if isNull proxyUri || isBypassed then
+                            let tcpClient = new TcpClient()
+
+                            ipEndpoint.ToString()
+                            |> sprintf
+                                "TorGuard: trying to connect to %s guard node"
+                            |> TorLogger.Log
+
+                            do!
+                                tcpClient.ConnectAsync(
+                                    ipEndpoint.Address,
+                                    ipEndpoint.Port
+                                )
+                                |> Async.AwaitTask
+
+                            return tcpClient
+                        else
+                            let! resolvedProxy =
+                                Dns.GetHostEntryAsync(proxyUri.DnsSafeHost)
+                                |> Async.AwaitTask
+
+                            let proxyIpOpt =
+                                resolvedProxy.AddressList
+                                |> Seq.filter(fun ip ->
+                                    ip.AddressFamily = AddressFamily.InterNetwork
+                                )
+                                |> Seq.tryHead
+
+                            match proxyIpOpt with
+                            | None ->
+                                return
+                                    failwith
+                                        "Failed to resolve your proxy server to an IPv4 address"
+                            | Some proxyIp ->
+                                sprintf
+                                    "TorGuard: trying to connect to %s guard node using proxy(%s:%i)"
+                                    (ipEndpoint.ToString())
+                                    (proxyIp.ToString())
+                                    proxyUri.Port
+                                |> TorLogger.Log
+
+                                do!
+                                    socket.ConnectAsync(proxyIp, proxyUri.Port)
+                                    |> Async.AwaitTask
+
+                                let connectMessage =
+                                    sprintf
+                                        "CONNECT %s:%i HTTP/1.1\r\n\r\n"
+                                        (ipEndpoint.Address.ToString())
+                                        ipEndpoint.Port
+                                    |> Encoding.UTF8.GetBytes
+
+                                do!
+                                    socket.SendAsync(
+                                        ArraySegment connectMessage,
+                                        SocketFlags.None
+                                    )
+                                    |> Async.AwaitTask
+                                    |> Async.Ignore
+
+                                let receiveBuffer = Array.zeroCreate<byte> 1024
+                                let received = socket.Receive receiveBuffer
+
+                                let response =
+                                    Encoding.ASCII.GetString(
+                                        receiveBuffer,
+                                        0,
+                                        received
+                                    )
+
+                                if not(response.Contains("HTTP/1.1 200")) then
+                                    let ex =
+                                        sprintf
+                                            "Error connecting to destination (using proxy server) %s:%i. Response: %s"
+                                            (ipEndpoint.Address.ToString())
+                                            ipEndpoint.Port
+                                            response
+                                        |> Exception
+
+                                    return
+                                        raise
+                                        <| GuardConnectionFailedException ex
+
+                                return new TcpClient(Client = socket)
+                    with
+                    | exn ->
+                        let socketExOpt =
+                            FSharpUtil.FindException<SocketException> exn
+
+                        match socketExOpt with
+                        | None -> return raise <| FSharpUtil.ReRaise exn
+                        | Some socketEx ->
+                            return
+                                raise <| GuardConnectionFailedException socketEx
+                }
 
             let sslStream =
                 new SslStream(
