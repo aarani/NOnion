@@ -28,6 +28,27 @@ let commitMsgWithNoSpaceBeforeColonButAtTheEnd = 'foo: a tale of bar:baz'
 test('type-space-after-colon3', () => {
     let typeSpaceAfterColon3 = spawnSync('npx', ['commitlint', '--verbose'], { input: commitMsgWithNoSpaceBeforeColonButAtTheEnd });
 
-    //console.log("=============>" + typeSpaceAfterColon3.stdout);
     expect(typeSpaceAfterColon3.status).toBe(0);
+});
+
+let commitMsgWithUppercaseAfterColon = "foo: Bar baz"
+test('subject-lowercase1', () => {
+    let subjectLowerCase1 = spawnSync('npx', ['commitlint', '--verbose'], { input: commitMsgWithUppercaseAfterColon });
+
+    expect(subjectLowerCase1.status).not.toBe(0);
+});
+
+let commitMsgWithLowercaseAfterColon = "foo: bar baz"
+test('subject-lowercase2', () => {
+    let subjectLowerCase2 = spawnSync('npx', ['commitlint', '--verbose'], { input: commitMsgWithLowercaseAfterColon });
+
+    expect(subjectLowerCase2.status).toBe(0);
+});
+
+let commitMsgWithAcronymAfterColon = "foo: BAR baz"
+test('subject-lowercase3', () => {
+    let subjectLowerCase3 = spawnSync('npx', ['commitlint', '--verbose'], { input: commitMsgWithAcronymAfterColon });
+
+    //console.log("=============>" + subjectLowerCase3.stdout);
+    expect(subjectLowerCase3.status).toBe(0);
 });
