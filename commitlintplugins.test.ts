@@ -49,6 +49,13 @@ let commitMsgWithAcronymAfterColon = "foo: BAR baz"
 test('subject-lowercase3', () => {
     let subjectLowerCase3 = spawnSync('npx', ['commitlint', '--verbose'], { input: commitMsgWithAcronymAfterColon });
 
-    //console.log("=============>" + subjectLowerCase3.stdout);
     expect(subjectLowerCase3.status).toBe(0);
+});
+
+let commitMsgWithNonAlphanumericAfterColon = "foo: 3 tests added"
+test('subject-lowercase4', () => {
+    let subjectLowerCase4 = spawnSync('npx', ['commitlint', '--verbose'], { input: commitMsgWithNonAlphanumericAfterColon });
+
+    //console.log("=============>" + subjectLowerCase4.stdout);
+    expect(subjectLowerCase4.status).toBe(0);
 });
