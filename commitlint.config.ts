@@ -52,9 +52,12 @@ module.exports = {
 
                     let offence = false;
                     if (subjectStr != null && subjectStr.length > 1) {
-                        offence = subjectStr[0].toUpperCase() == subjectStr[0]
+                        let firstIsUpperCase = subjectStr[0].toUpperCase() == subjectStr[0];
+                        let secondIsLowerCase = subjectStr[1].toLowerCase() == subjectStr[1];
+
+                        offence = firstIsUpperCase
                             // to whitelist acronyms
-                            && subjectStr[1].toLowerCase() == subjectStr[1];
+                            && secondIsLowerCase;
                     }
 
                     return [
