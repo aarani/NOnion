@@ -24,6 +24,9 @@ module Constants =
     [<Literal>]
     let KeyS256Length = 32
 
+    [<Literal>]
+    let IVS256Length = 16
+
     (* Amount of bytes needed for generating keys and digest during KDF = 2 * KeyLength + 3 * HashLength *)
     [<Literal>]
     let KdfLength = 92
@@ -80,12 +83,15 @@ module Constants =
     let internal StreamCreationTimeout = TimeSpan.FromSeconds 10.
 
     // Time limit used for http requests
-    let internal HttpResponseTimeout = TimeSpan.FromMinutes 3.
+    let internal HttpGetResponseTimeout = TimeSpan.FromMinutes 3.
+    let internal HttpPostResponseTimeout = TimeSpan.FromSeconds 30.
 
     // Time limit used for receving data in stream
     let internal StreamReceiveTimeout = TimeSpan.FromSeconds 1.
 
     let internal HttpClientBufferSize = 1024
+
+    let internal DefaultHttpHost = "127.0.0.1"
 
     // NTor Handshake Constants
     let private nTorProtoIdStr = "ntor-curve25519-sha256-1"
@@ -111,6 +117,8 @@ module Constants =
 
     let internal DefaultHSDirInterval = 1440
 
+    let internal UnixEpoch = DateTime(1970, 1, 1)
+
     let internal RotationTimeOffset = TimeSpan.FromHours 12.0
 
     let internal Ed25519BasePointString =
@@ -125,26 +133,63 @@ module Constants =
 
     let internal RelayIntroduceKeyType = 1
 
-    // HS NTor Handshake Constants
-    module HiddenServiceNTor =
-        let private protoIdStr = "tor-hs-ntor-curve25519-sha3-256-1"
+    module internal HiddenServices =
+        let IntroductionPointCount = 3
 
-        let internal ProtoId = protoIdStr |> Encoding.ASCII.GetBytes
-        let internal TMac = protoIdStr + ":hs_mac" |> Encoding.ASCII.GetBytes
+        let Version = 3
 
-        let internal TKey =
-            protoIdStr + ":key_extract" |> Encoding.ASCII.GetBytes
+        // HS NTor Handshake Constants
+        module NTorEncryption =
+            let private protoIdStr = "tor-hs-ntor-curve25519-sha3-256-1"
 
-        let internal TVerify =
-            protoIdStr + ":hs_verify" |> Encoding.ASCII.GetBytes
+            let ProtoId = protoIdStr |> Encoding.ASCII.GetBytes
+            let TMac = protoIdStr + ":hs_mac" |> Encoding.ASCII.GetBytes
 
-        let internal MExpand =
-            protoIdStr + ":hs_key_expand" |> Encoding.ASCII.GetBytes
+            let TKey = protoIdStr + ":key_extract" |> Encoding.ASCII.GetBytes
 
-        let internal TEncrypt =
-            protoIdStr + ":hs_key_extract" |> Encoding.ASCII.GetBytes
+            let TVerify = protoIdStr + ":hs_verify" |> Encoding.ASCII.GetBytes
 
-        let internal AuthInputSuffix =
-            protoIdStr + "Server" |> Encoding.ASCII.GetBytes
+            let MExpand =
+                protoIdStr + ":hs_key_expand" |> Encoding.ASCII.GetBytes
+
+            let TEncrypt =
+                protoIdStr + ":hs_key_extract" |> Encoding.ASCII.GetBytes
+
+            let AuthInputSuffix =
+                protoIdStr + "Server" |> Encoding.ASCII.GetBytes
+
+        module DirectoryEncryption =
+            let SuperEncrypted = "hsdir-superencrypted-data"
+            let Encrypted = "hsdir-encrypted-data"
+
+            let SaltLength = 16
+            let MacKeyLength = 32
+
+        module Hashring =
+            let ReplicasNum = 2
+            let SpreadFetch = 3
+            let SpreadStore = 4
+
+        module Descriptor =
+            let CertificateLifetime = TimeSpan.FromHours 5.
+
+            let Lifetime = (TimeSpan.FromMinutes 3.).TotalMinutes |> int
+
+            let SigningPrefix = "Tor onion service descriptor sig v3"
+
+        module OnionUrl =
+            let ChecksumLength = 2
+            let ChecksumPrefix = ".onion checksum"
+            let PublicKeyLength = 32
+
 
     let internal NewConnectionCheckDelay = TimeSpan.FromSeconds 1.
+
+    // https://github.com/torproject/tor/blob/22552ad88e1e95ef9d2c6655c7602b7b25836075/src/feature/hs_common/shared_random_client.h#L33
+    let internal SharedRandomNRounds = 12u
+    let internal SharedRandomNPhases = 2u
+
+    let internal DirectoryBlockLineLength = 64
+
+    let internal CertificateCertifiedKeyLength = 32
+    let internal CertificateSignatureLength = 64

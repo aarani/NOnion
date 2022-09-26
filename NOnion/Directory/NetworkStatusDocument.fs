@@ -1,6 +1,7 @@
 ﻿namespace NOnion.Directory
 
 open System
+open System.Text
 
 open NOnion
 open NOnion.Utility
@@ -82,7 +83,9 @@ type RouterStatusEntry =
     {
         NickName: Option<string>
         Identity: Option<string>
-        Digest: Option<string>
+        /// This is the digest of router's microdescriptor and can't be used
+        /// as digest of router's server descriptor
+        MicroDescriptorDigest: Option<string>
         PublicationTime: Option<DateTime>
         IP: Option<string>
         OnionRouterPort: Option<int>
@@ -100,7 +103,7 @@ type RouterStatusEntry =
         {
             RouterStatusEntry.NickName = None
             Identity = None
-            Digest = None
+            MicroDescriptorDigest = None
             PublicationTime = None
             IP = None
             DirectoryPort = None
@@ -142,13 +145,19 @@ type RouterStatusEntry =
                         { state with
                             NickName = readWord() |> Some
                             Identity = readWord() |> Some
-                            Digest = readWord() |> Some
                             PublicationTime = readDateTime() |> Some
                             IP = readWord() |> Some
                             OnionRouterPort = readInteger() |> Some
                             DirectoryPort = readInteger() |> Some
                         }
                 | "r" when state.NickName <> None -> state
+                | "m" ->
+                    lines.Dequeue() |> ignore<string>
+
+                    innerParse
+                        { state with
+                            MicroDescriptorDigest = readWord() |> Some
+                        }
                 | "a" ->
                     lines.Dequeue() |> ignore<string>
 
@@ -203,7 +212,7 @@ type RouterStatusEntry =
     member self.GetIdentity() =
         match self.Identity with
         | None -> failwith "BUG: identity doesn't exist in RouterStatusEntry"
-        | Some identity -> identity.Trim() |> Base64Util.FixMissingPadding
+        | Some identity -> identity
 
 type DirectorySignature =
     {
@@ -433,13 +442,15 @@ type NetworkStatusDocument =
                     lines.Dequeue() |> ignore<string>
 
                     { state with
-                        SharedRandomPreviousValue = readRestAsString() |> Some
+                        SharedRandomPreviousValue =
+                            readRestAsString().Split(' ').[1] |> Some
                     }
                 | "shared-rand-current-value" ->
                     lines.Dequeue() |> ignore<string>
 
                     { state with
-                        SharedRandomCurrentValue = readRestAsString() |> Some
+                        SharedRandomCurrentValue =
+                            readRestAsString().Split(' ').[1] |> Some
                     }
                 | "bandwidth-weights" ->
                     lines.Dequeue() |> ignore<string>
@@ -489,19 +500,45 @@ type NetworkStatusDocument =
             failwith "BUG: valid-until field does not exist in the consensus"
         | Some validUntil -> validUntil
 
+    member self.GetFreshUntil() =
+        match self.FreshUntil with
+        | None ->
+            failwith "BUG: fresh-until field does not exist in the consensus"
+        | Some freshUntil -> freshUntil
+
+    member self.GetVotingInterval() =
+        self.GetFreshUntil() - self.GetValidAfter()
+
+    member self.IsLive() =
+        let now = DateTime.UtcNow
+
+        self.GetValidAfter() < now && self.GetValidUntil() > now
 
     member self.GetTimePeriod() =
-        let validAfterInMinutes =
-            let validAfterSinceEpoch =
-                self.GetValidAfter() |> DateTimeUtils.GetTimeSpanSinceEpoch
-
-            validAfterSinceEpoch
-                .Subtract(
-                    Constants.RotationTimeOffset
-                )
-                .TotalMinutes
-
         let hsDirInterval = self.GetHiddenServicesDirectoryInterval()
 
-        validAfterInMinutes / (hsDirInterval |> float) |> Math.Floor |> uint64,
+        HiddenServicesUtility.GetTimePeriod (self.GetValidAfter()) hsDirInterval
+        |> uint64,
         hsDirInterval |> uint64
+
+    member self.GetCurrentSRVForClient() =
+        let isInBetweenTpAndSRV =
+            HiddenServicesUtility.InPeriodBetweenTPAndSRV
+                (self.GetValidAfter())
+                (self.GetVotingInterval())
+                (self.GetHiddenServicesDirectoryInterval())
+
+        if isInBetweenTpAndSRV then
+            self.SharedRandomCurrentValue.Value
+        else
+            self.SharedRandomPreviousValue.Value
+
+    //HACK: document parser needs to parse ranges but here we use string search instead
+    member self.GetHiddenServiceDirectories() =
+        self.Routers
+        |> List.filter(fun router ->
+            router.Flags |> Seq.contains "HSDir"
+            && router.Flags |> Seq.contains "NoEdConsensus" |> not
+            && (router.Protocols.Value.Contains("HSDir=1-2")
+                || router.Protocols.Value.Contains("HSDir=2"))
+        )

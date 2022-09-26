@@ -36,5 +36,18 @@ namespace NOnion.Tests
 
             Assert.That(serverDescriptorsJson, Is.EqualTo(expectedServerDescriptorsJson));
         }
+
+        [Test]
+        public void CanParseMicroDescriptorAndConvertToJson()
+        {
+            // Tor directory spec enforces documents to use \n (The ascii LF character (hex value 0x0a)
+            var microDescriptorsStr = File.ReadAllText($"Directory-Samples{Path.DirectorySeparatorChar}MicroDescriptor.txt").Replace("\r\n", "\n");
+            var expectedMicroDescriptorsJson = File.ReadAllText($"Directory-Samples{Path.DirectorySeparatorChar}MicroDescriptor.json");
+
+            var microDescriptor = MicroDescriptorEntry.ParseMany(microDescriptorsStr);
+            var microDescriptorJson = JsonConvert.SerializeObject(microDescriptor, Formatting.Indented);
+
+            Assert.That(microDescriptorJson, Is.EqualTo(expectedMicroDescriptorsJson));
+        }
     }
 }

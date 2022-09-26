@@ -21,12 +21,15 @@
     <Compile Include="Utility\StreamUtil.fs" />
     <Compile Include="Utility\SemaphoreLocker.fs" />
     <Compile Include="Utility\Base64Util.fs" />
+    <Compile Include="Utility\Base32Util.fs" />
     <Compile Include="Utility\SeqUtils.fs" />
     <Compile Include="Utility\DigestUtils.fs" />
     <Compile Include="Utility\BigIntegerSerialization.fs" />
     <Compile Include="Utility\DateTimeUtils.fs" />
+    <Compile Include="Utility\HiddenServicesUtility.fs" />
     <Compile Include="Utility\IntegerSerialization.fs" />
     <Compile Include="Utility\BinaryIO.fs" />
+    <Compile Include="Utility\CertificateUtil.fs" />
     <Compile Include="Utility\Hex.fs" />
     <Compile Include="Crypto\TorStreamCipher.fs" />
     <Compile Include="Crypto\HiddenServicesCipher.fs" />
@@ -70,6 +73,10 @@
     <Compile Include="Http\TorHttpClient.fs" />
     <Compile Include="Directory\ServerDescriptorsDocument.fs" />
     <Compile Include="Directory\NetworkStatusDocument.fs" />
+    <Compile Include="Directory\ServerMicrodescriptorDocument.fs" />
+    <Compile Include="Directory\HiddenServiceDescriptorDocument.fs" />
+    <Compile Include="Directory\HiddenServiceFirstLayerDescriptorDocument.fs" />
+    <Compile Include="Directory\HiddenServiceSecondLayerDescriptorDocument.fs" />
     <Compile Include="Directory\TorDirectory.fs" />
     <Compile Include="Services\TorServiceHost.fs" />
     <Compile Include="Services\TorServiceClient.fs" />
@@ -79,6 +86,7 @@
     <PackageReference Include="Fsharpx.Collections" Version="3.0.1" />
     <PackageReference Include="Portable.BouncyCastle" Version="1.8.10" />
     <PackageReference Include="System.Memory" Version="4.5.4" />
+    <PackageReference Include="System.Text.Json" Version="6.0.6" />
     <PackageReference Include="System.Threading.Tasks.DataFlow" Version="5.0.0" />
   </ItemGroup>
 

@@ -38,11 +38,11 @@ type TorHttpClient(stream: TorStream, host: string) =
                     "Host", host
                     "Accept-Encoding", supportedCompressionAlgorithms
                 ]
-                |> List.map(fun (k, v) -> sprintf "%s: %s" k v)
-                |> String.concat "\r\n"
+                |> List.map(fun (k, v) -> sprintf "%s: %s\r\n" k v)
+                |> String.concat ""
 
             do!
-                sprintf "GET %s HTTP/1.0\r\n%s\r\n\r\n" path headers
+                sprintf "GET %s HTTP/1.0\r\n%s\r\n" path headers
                 |> Encoding.UTF8.GetBytes
                 |> stream.SendData
 
@@ -50,7 +50,95 @@ type TorHttpClient(stream: TorStream, host: string) =
 
             do!
                 ReceiveAll memStream
-                |> FSharpUtil.WithTimeout Constants.HttpResponseTimeout
+                |> FSharpUtil.WithTimeout Constants.HttpGetResponseTimeout
+
+            let httpResponse = memStream.ToArray()
+
+            let header, body =
+                let delimiter = ReadOnlySpan(Encoding.ASCII.GetBytes "\r\n\r\n")
+
+                let headerEndIndex =
+                    MemoryExtensions.IndexOf(httpResponse.AsSpan(), delimiter)
+
+                Encoding.UTF8.GetString(httpResponse, 0, headerEndIndex),
+                Array.skip (headerEndIndex + delimiter.Length) httpResponse
+
+            TorLogger.Log(
+                sprintf
+                    "TorHttpClient: read %i bytes in response"
+                    httpResponse.Length
+            )
+
+            let headerLines =
+                header.Split(Array.singleton "\r\n", StringSplitOptions.None)
+
+            let _protocol, status =
+                let responseLine = headerLines.[0].Split ' '
+                responseLine.[0], responseLine.[1]
+
+            if status <> "200" then
+                raise <| UnsuccessfulHttpRequestException status
+
+            let parseHeaderLine(header: string) =
+                let splittedHeader =
+                    header.Split(Array.singleton ": ", StringSplitOptions.None)
+
+                splittedHeader.[0], splittedHeader.[1]
+
+            let headersMap =
+                headerLines
+                |> Array.skip 1
+                |> Array.map parseHeaderLine
+                |> Map.ofArray
+
+            match headersMap.TryGetValue "Content-Encoding" with
+            | false, _ ->
+                return
+                    failwith "GetAsString: Content-Encoding header is missing"
+            | true, "identity" -> return body |> Encoding.UTF8.GetString
+            | true, "deflate" ->
+                // DeflateStream needs the zlib header to be chopped off first
+                let body = Array.skip Constants.DeflateStreamHeaderLength body
+                use outMemStream = new MemoryStream()
+                use inMemStream = new MemoryStream(body)
+
+                use compressedStream =
+                    new DeflateStream(
+                        inMemStream,
+                        CompressionMode.Decompress,
+                        false
+                    )
+
+                do! compressedStream.CopyToAsync outMemStream |> Async.AwaitTask
+
+                return outMemStream.ToArray() |> Encoding.UTF8.GetString
+            | true, compressionMethod ->
+                return
+                    failwithf
+                        "Unknown content-encoding value, %s"
+                        compressionMethod
+        }
+
+    member __.PostString (path: string) (payload: string) =
+        async {
+            let headers =
+                [
+                    "Host", host
+                    "Content-Length", payload.Length.ToString()
+                ]
+                |> List.map(fun (k, v) -> sprintf "%s: %s\r\n" k v)
+                |> String.concat ""
+
+            do!
+                sprintf "POST %s HTTP/1.0\r\n%s\r\n%s" path headers payload
+                |> Encoding.ASCII.GetBytes
+                |> stream.SendData
+
+            use memStream = new MemoryStream()
+
+            do!
+                ReceiveAll memStream
+                |> FSharpUtil.WithTimeout Constants.HttpPostResponseTimeout
 
             let httpResponse = memStream.ToArray()
 
@@ -71,7 +159,7 @@ type TorHttpClient(stream: TorStream, host: string) =
                 responseLine.[0], responseLine.[1]
 
             if status <> "200" then
-                return failwithf "Non-200 status code received, code: %s" status
+                raise <| UnsuccessfulHttpRequestException status
 
             let parseHeaderLine(header: string) =
                 let splittedHeader =
@@ -86,7 +174,9 @@ type TorHttpClient(stream: TorStream, host: string) =
                 |> Map.ofArray
 
             match headersMap.TryGetValue "Content-Encoding" with
-            | false, _ -> return failwith "Content-Encoding header is missing"
+            | false, _ when body.Length = 0 -> return ""
+            | false, _ ->
+                return failwith "PostString: Content-Encoding header is missing"
             | true, "identity" -> return body |> Encoding.UTF8.GetString
             | true, "deflate" ->
                 // DeflateStream needs the zlib header to be chopped off first
