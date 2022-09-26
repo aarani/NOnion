@@ -27,6 +27,7 @@
     <Compile Include="Utility\DateTimeUtils.fs" />
     <Compile Include="Utility\IntegerSerialization.fs" />
     <Compile Include="Utility\BinaryIO.fs" />
+    <Compile Include="Utility\CertificateUtil.fs" />
     <Compile Include="Utility\Hex.fs" />
     <Compile Include="Crypto\TorStreamCipher.fs" />
     <Compile Include="Crypto\HiddenServicesCipher.fs" />
