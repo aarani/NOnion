@@ -411,19 +411,16 @@ type TorDirectory =
             return self.NetworkStatus
         }
 
-    /// WARNING: this function is scary and might throw KeyNotFoundException.
-    /// This function is currently used to calculate hidden service directory
-    /// hashring which is done in a non-async fashion, hence why we don't try
-    /// to find missing descriptors.
-    member self.GetDescriptorByIdentity(b64Identity: string) =
+    member self.TryGetDescriptorByIdentityFromCache(b64Identity: string) =
         let routerEntryOpt =
             self.NetworkStatus.Routers
             |> List.tryFind(fun router -> router.Identity.Value = b64Identity)
 
         match routerEntryOpt with
-        | None -> failwith "can't find router in the main consensus"
+        | None -> None
         | Some routerEntry ->
-            self.ServerDescriptors.[routerEntry.MicroDescriptorDigest.Value]
+            self.ServerDescriptors
+            |> Map.tryFind routerEntry.MicroDescriptorDigest.Value
 
     static member BootstrapAsync
         (
@@ -473,28 +470,24 @@ type TorDirectory =
             let directories =
                 networkStatus.GetHiddenServiceDirectories()
                 |> List.choose(fun node ->
-                    try
-                        (node.GetIdentity(),
-                         Array.concat
-                             [
-                                 "node-idx" |> Encoding.ASCII.GetBytes
-                                 (node.GetIdentity()
-                                  |> self.GetDescriptorByIdentity)
-                                     .Ed25519Identity
-                                     .Value
-                                 |> Base64Util.FromString
-                                 sharedRandomValue |> Convert.FromBase64String
-                                 periodNumber
-                                 |> IntegerSerialization.FromUInt64ToBigEndianByteArray
-                                 periodLength
-                                 |> IntegerSerialization.FromUInt64ToBigEndianByteArray
-                             ]
-                         |> HiddenServicesCipher.SHA3256)
-                        |> Some
-                    with
-                    | :? System.Collections.Generic.KeyNotFoundException ->
-                        //We don't have the descriptor for this server
-                        None
+                    let identity = node.GetIdentity()
+
+                    self.TryGetDescriptorByIdentityFromCache identity
+                    |> Option.bind(fun node -> node.Ed25519Identity)
+                    |> Option.map(fun ed25519Identity ->
+                        identity,
+                        Array.concat
+                            [
+                                "node-idx" |> Encoding.ASCII.GetBytes
+                                ed25519Identity |> Base64Util.FromString
+                                sharedRandomValue |> Convert.FromBase64String
+                                periodNumber
+                                |> IntegerSerialization.FromUInt64ToBigEndianByteArray
+                                periodLength
+                                |> IntegerSerialization.FromUInt64ToBigEndianByteArray
+                            ]
+                        |> HiddenServicesCipher.SHA3256
+                    )
                 )
                 |> List.sortWith(fun (_, idx1) (_, idx2) ->
                     ByteArrayCompare idx1 idx2
