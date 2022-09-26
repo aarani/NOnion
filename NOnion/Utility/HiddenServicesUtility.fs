@@ -40,7 +40,8 @@ module HiddenServicesUtility =
         =
         let timePeriodNum = (GetTimePeriod now hsDirInterval) + 1
 
-        DateTime(1970, 1, 1, 12, 0, 0)
+        Constants.UnixEpoch
+        + Constants.RotationTimeOffset
         + TimeSpan.FromMinutes(timePeriodNum * hsDirInterval |> float)
 
     (*

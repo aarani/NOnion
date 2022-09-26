@@ -2,12 +2,14 @@
 
 open System
 
+open NOnion
+
 module DateTimeUtils =
     let internal GetTimeSpanSinceEpoch(dt: DateTime) =
-        dt - DateTime(1970, 1, 1)
+        dt - Constants.UnixEpoch
 
     let internal ToUnixTimestamp(dt: DateTime) =
         (GetTimeSpanSinceEpoch dt).TotalSeconds |> uint
 
     let internal FromUnixTimestamp(num: uint) =
-        num |> float |> DateTime(1970, 1, 1).AddSeconds
+        num |> float |> Constants.UnixEpoch.AddSeconds

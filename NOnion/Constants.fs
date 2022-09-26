@@ -117,6 +117,8 @@ module Constants =
 
     let internal DefaultHSDirInterval = 1440
 
+    let internal UnixEpoch = DateTime(1970, 1, 1)
+
     let internal RotationTimeOffset = TimeSpan.FromHours 12.0
 
     let internal Ed25519BasePointString =
