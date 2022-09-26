@@ -72,3 +72,16 @@ module HSUtility =
             GetStartTimeOfNextTimePeriod srvStartTime hsDirInterval
 
         not(now >= srvStartTime && now < tpStartTime)
+
+    // https://github.com/torproject/torspec/blob/cb4ae84a20793a00f35a70aad5df47d4e4c7da7c/rend-spec-v3.txt#L2161
+    let GetPublicKeyFromUrl(url: string) =
+        //Remove .onion suffix and decode
+        let keyBytesOpt =
+            url.Split('.') |> Seq.tryHead |> Option.map Base32Util.DecodeBase32
+
+        let expectedOnionUrlLength = 32 + 2 + 1
+
+        match keyBytesOpt with
+        | Some keyBytes when keyBytes.Length = expectedOnionUrlLength ->
+            keyBytes.[0..31]
+        | _ -> failwith "Invalid onion service url"
