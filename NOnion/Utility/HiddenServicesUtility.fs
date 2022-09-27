@@ -34,6 +34,22 @@ module HiddenServicesUtility =
 
         unixNow - timeElapsedSinceStartOfRun |> FromUnixTimestamp
 
+    let GetStartTimeOfPreviousSRVProtocolRun
+        (now: DateTime)
+        (votingInterval: TimeSpan)
+        =
+        let totalRounds =
+            Constants.SharedRandomNPhases * Constants.SharedRandomNRounds
+
+        let votingIntervalInSec = votingInterval.TotalSeconds |> uint
+
+        let currentRunStartTime =
+            GetStartTimeOfCurrentSRVProtocolRun now votingInterval
+
+        currentRunStartTime
+        - (totalRounds * votingIntervalInSec |> float |> TimeSpan.FromSeconds)
+
+
     let private GetStartTimeOfNextTimePeriod
         (now: DateTime)
         (hsDirInterval: int)
