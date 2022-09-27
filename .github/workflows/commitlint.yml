@@ -1,4 +1,4 @@
-name: commitlint check
+name: Lint commit messages
 
 on: pull_request
 
