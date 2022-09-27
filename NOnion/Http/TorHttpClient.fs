@@ -77,6 +77,12 @@ type TorHttpClient(stream: TorStream, host: string) =
                 responseLine.[0], responseLine.[1]
 
             if status <> "200" then
+                TorLogger.Log(
+                    sprintf
+                        "TorHttpClient: returned non-200 status code(%s)"
+                        status
+                )
+
                 raise <| UnsuccessfulHttpRequestException status
 
             let parseHeaderLine(header: string) =
@@ -159,6 +165,12 @@ type TorHttpClient(stream: TorStream, host: string) =
                 responseLine.[0], responseLine.[1]
 
             if status <> "200" then
+                TorLogger.Log(
+                    sprintf
+                        "TorHttpClient: returned non-200 status code(%s)"
+                        status
+                )
+
                 raise <| UnsuccessfulHttpRequestException status
 
             let parseHeaderLine(header: string) =
