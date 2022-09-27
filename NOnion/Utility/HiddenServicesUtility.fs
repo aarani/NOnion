@@ -6,9 +6,10 @@ open NOnion
 open DateTimeUtils
 
 module HiddenServicesUtility =
-    let GetTimePeriod (now: DateTime) (hsDirInterval: int) =
-        let nowInMinutes =
-            let validAfterSinceEpoch = now |> GetTimeSpanSinceEpoch
+    let GetTimePeriod (liveConsensusValidAfter: DateTime) (hsDirInterval: int) =
+        let liveConsensusValidAfterInMinutes =
+            let validAfterSinceEpoch =
+                GetTimeSpanSinceEpoch liveConsensusValidAfter
 
             validAfterSinceEpoch
                 .Subtract(
@@ -17,28 +18,53 @@ module HiddenServicesUtility =
                 .TotalMinutes
             |> int
 
-        nowInMinutes / hsDirInterval
+        liveConsensusValidAfterInMinutes / hsDirInterval
 
     let GetStartTimeOfCurrentSRVProtocolRun
-        (now: DateTime)
+        (liveConsensusValidAfter: DateTime)
         (votingInterval: TimeSpan)
         =
 
         let totalRounds =
             Constants.SharedRandomNPhases * Constants.SharedRandomNRounds
 
-        let unixNow = ToUnixTimestamp(now)
+        let unixLiveConsensusValidAfter =
+            ToUnixTimestamp liveConsensusValidAfter
+
         let votingIntervalInSec = votingInterval.TotalSeconds |> uint
-        let currRoundSlot = (unixNow / votingIntervalInSec) % totalRounds
+
+        let currRoundSlot =
+            (unixLiveConsensusValidAfter / votingIntervalInSec) % totalRounds
+
         let timeElapsedSinceStartOfRun = currRoundSlot * votingIntervalInSec
 
-        unixNow - timeElapsedSinceStartOfRun |> FromUnixTimestamp
+        unixLiveConsensusValidAfter - timeElapsedSinceStartOfRun
+        |> FromUnixTimestamp
+
+    let GetStartTimeOfPreviousSRVProtocolRun
+        (liveConsensusValidAfter: DateTime)
+        (votingInterval: TimeSpan)
+        =
+        let totalRounds =
+            Constants.SharedRandomNPhases * Constants.SharedRandomNRounds
+
+        let votingIntervalInSec = votingInterval.TotalSeconds |> uint
+
+        let currentRunStartTime =
+            GetStartTimeOfCurrentSRVProtocolRun
+                liveConsensusValidAfter
+                votingInterval
+
+        currentRunStartTime
+        - (totalRounds * votingIntervalInSec |> float |> TimeSpan.FromSeconds)
+
 
     let private GetStartTimeOfNextTimePeriod
-        (now: DateTime)
+        (liveConsensusValidAfter: DateTime)
         (hsDirInterval: int)
         =
-        let timePeriodNum = (GetTimePeriod now hsDirInterval) + 1
+        let timePeriodNum =
+            (GetTimePeriod liveConsensusValidAfter hsDirInterval) + 1
 
         Constants.UnixEpoch
         + Constants.RotationTimeOffset
@@ -62,17 +88,22 @@ module HiddenServicesUtility =
      *)
 
     let InPeriodBetweenTPAndSRV
-        (now: DateTime)
+        (liveConsensusValidAfter: DateTime)
         (votingInterval: TimeSpan)
         (hsDirInterval: int)
         =
         let srvStartTime =
-            GetStartTimeOfCurrentSRVProtocolRun now votingInterval
+            GetStartTimeOfCurrentSRVProtocolRun
+                liveConsensusValidAfter
+                votingInterval
 
         let tpStartTime =
             GetStartTimeOfNextTimePeriod srvStartTime hsDirInterval
 
-        not(now >= srvStartTime && now < tpStartTime)
+        not(
+            liveConsensusValidAfter >= srvStartTime
+            && liveConsensusValidAfter < tpStartTime
+        )
 
     // https://github.com/torproject/torspec/blob/cb4ae84a20793a00f35a70aad5df47d4e4c7da7c/rend-spec-v3.txt#L2161
     let DecodeOnionUrl(url: string) =

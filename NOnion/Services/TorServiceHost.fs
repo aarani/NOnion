@@ -411,7 +411,7 @@ type TorServiceHost
         periodNum
         periodLength
         srv
-        (networkStatus: NetworkStatusDocument)
+        (srvStartTime: DateTime)
         =
         async {
             let blindedPublicKey =
@@ -430,15 +430,7 @@ type TorServiceHost
             let revisionCounter =
                 //FIXME(PRIVACY): this should be encrypted with an OPE cipher
                 //to mask server's time skew
-                let currentSrvStartTime =
-                    HiddenServicesUtility.GetStartTimeOfCurrentSRVProtocolRun
-                        DateTime.UtcNow
-                        (networkStatus.GetVotingInterval())
-
-                (DateTime.UtcNow - currentSrvStartTime)
-                    .TotalSeconds
-                |> int64
-                |> Some
+                (DateTime.UtcNow - srvStartTime).TotalSeconds |> int64 |> Some
 
             let getEncryptionKeys(input: array<byte>) =
                 let keyBytes =
@@ -690,6 +682,11 @@ type TorServiceHost
     member self.UpdateSecondDescriptor(networkStatus: NetworkStatusDocument) =
         let srv = networkStatus.SharedRandomCurrentValue.Value
 
+        let srvStartTime =
+            HiddenServicesUtility.GetStartTimeOfCurrentSRVProtocolRun
+                (networkStatus.GetValidAfter())
+                (networkStatus.GetVotingInterval())
+
         let periodNum, periodLength =
             let periodNum, periodLength = networkStatus.GetTimePeriod()
 
@@ -702,10 +699,15 @@ type TorServiceHost
             else
                 periodNum + 1UL, periodLength
 
-        self.BuildAndUploadDescriptor periodNum periodLength srv networkStatus
+        self.BuildAndUploadDescriptor periodNum periodLength srv srvStartTime
 
     member self.UpdateFirstDescriptor(networkStatus: NetworkStatusDocument) =
         let srv = networkStatus.SharedRandomPreviousValue.Value
+
+        let srvStartTime =
+            HiddenServicesUtility.GetStartTimeOfPreviousSRVProtocolRun
+                (networkStatus.GetValidAfter())
+                (networkStatus.GetVotingInterval())
 
         let periodNum, periodLength =
             let periodNum, periodLength = networkStatus.GetTimePeriod()
@@ -719,7 +721,7 @@ type TorServiceHost
             else
                 periodNum, periodLength
 
-        self.BuildAndUploadDescriptor periodNum periodLength srv networkStatus
+        self.BuildAndUploadDescriptor periodNum periodLength srv srvStartTime
 
     //TODO: this should refresh every 60-120min
     member self.KeepDescriptorsUpToDate() =
