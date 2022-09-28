@@ -729,7 +729,48 @@ type TorCircuit
 
         lock streamSetupLock safeRegister
 
+    member private self.KillChildStreams() =
+        TorLogger.Log "TorCircuit: circuit is dead, telling children..."
+
+        let killStreams() =
+            streamsMap
+            |> Map.iter(fun _sid stream -> stream.HandleDestroyedCircuit())
+
+        lock streamSetupLock killStreams
+
     interface ITorCircuit with
+        member self.HandleDestroyedGuard() =
+            let handleDestroyed() =
+                match circuitState with
+                | CircuitState.Initialized
+                | Disconnected _ ->
+                    // Circuit isn't created yet or is already dead!
+                    ()
+                | Creating(circuitId, _, tcs)
+                | Extending(circuitId, _, _, tcs) ->
+                    circuitState <- Disconnected circuitId
+
+                    tcs.SetException(GuardDisconnectionException())
+                | RegisteringAsRendezvousPoint(circuitId, _, tcs)
+                | RegisteringAsIntroductionPoint(circuitId, _, _, _, tcs, _)
+                | WaitingForRendezvousRequest(circuitId, _, _, _, _, _, tcs) ->
+                    circuitState <- Disconnected circuitId
+
+                    tcs.SetException(GuardDisconnectionException())
+                | WaitingForIntroduceAcknowledge(circuitId, _, tcs) ->
+                    circuitState <- Disconnected circuitId
+
+                    tcs.SetException(GuardDisconnectionException())
+                | Ready(circuitId, _)
+                | ReadyAsIntroductionPoint(circuitId, _, _, _, _)
+                | ReadyAsRendezvousPoint(circuitId, _)
+                | Destroyed(circuitId, _)
+                | Truncated(circuitId, _) ->
+                    circuitState <- Disconnected circuitId
+                    self.KillChildStreams()
+
+            controlLock.RunSyncWithSemaphore handleDestroyed
+
         member self.HandleIncomingCell(cell: ICell) =
             async {
                 //TODO: Handle circuit-level cells like destroy/truncate etc..
@@ -866,8 +907,9 @@ type TorCircuit
                     | RelayTruncated reason ->
                         let handleTruncated() =
                             match circuitState with
-                            | CircuitState.Initialized ->
-                                // Circuit isn't created yet!
+                            | CircuitState.Initialized
+                            | Disconnected _ ->
+                                // Circuit isn't created yet or is already dead!
                                 ()
                             | Creating(circuitId, _, tcs)
                             | Extending(circuitId, _, _, tcs) ->
@@ -904,6 +946,8 @@ type TorCircuit
                             | Destroyed(circuitId, _)
                             | Truncated(circuitId, _) ->
                                 circuitState <- Truncated(circuitId, reason)
+
+                                self.KillChildStreams()
 
                         controlLock.RunSyncWithSemaphore handleTruncated
                     | RelayData.RelayIntroduceAck ackMsg ->
@@ -996,8 +1040,9 @@ type TorCircuit
                     let handleDestroyed() =
 
                         match circuitState with
-                        | CircuitState.Initialized ->
-                            // Circuit isn't created yet!
+                        | CircuitState.Initialized
+                        | Disconnected _ ->
+                            // Circuit isn't created yet or is already dead!
                             ()
                         | Creating(circuitId, _, tcs)
                         | Extending(circuitId, _, _, tcs) ->
@@ -1040,6 +1085,8 @@ type TorCircuit
                         | Truncated(circuitId, _) ->
                             circuitState <-
                                 Destroyed(circuitId, destroyCell.Reason)
+
+                            self.KillChildStreams()
 
                     controlLock.RunSyncWithSemaphore handleDestroyed
                 | _ -> ()

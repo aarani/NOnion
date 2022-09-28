@@ -19,6 +19,9 @@ type CircuitTruncatedException(reason: DestroyReason) =
 type CircuitDestroyedException(reason: DestroyReason) =
     inherit NOnionException(sprintf "Circuit got destroyed, reason %A" reason)
 
+type GuardDisconnectionException() =
+    inherit NOnionException("Guard got disconnected")
+
 type TimeoutErrorException() =
     inherit NOnionException("Time limit exceeded for operation")
 

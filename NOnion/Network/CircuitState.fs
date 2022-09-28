@@ -63,7 +63,7 @@ type CircuitState =
         circuitNodes: List<TorCircuitNode>
     | Destroyed of circuitId: uint16 * reason: DestroyReason
     | Truncated of circuitId: uint16 * reason: DestroyReason
-
+    | Disconnected of circuitId: uint16
 
     member self.Name =
         match self with
@@ -79,3 +79,4 @@ type CircuitState =
         | ReadyAsRendezvousPoint _ -> "ReadyAsRendezvousPoint"
         | Destroyed _ -> "Destroyed"
         | Truncated _ -> "Truncated"
+        | Disconnected _ -> "Disconnected"

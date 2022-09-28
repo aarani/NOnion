@@ -1,6 +1,7 @@
 ﻿namespace NOnion.Network
 
 open System
+open System.Threading
 open System.Threading.Tasks
 open System.Threading.Tasks.Dataflow
 
@@ -26,6 +27,9 @@ type TorStream(circuit: TorCircuit) =
 
     let incomingCells: BufferBlock<RelayData> = BufferBlock<RelayData>()
     let receiveLock: SemaphoreLocker = SemaphoreLocker()
+
+    let circuitDisconnectionToken: CancellationTokenSource =
+        new CancellationTokenSource()
 
     static member Accept (streamId: uint16) (circuit: TorCircuit) =
         async {
@@ -218,7 +222,10 @@ type TorStream(circuit: TorCircuit) =
             let processIncomingCell() =
                 async {
                     let! nextCell =
-                        incomingCells.ReceiveAsync() |> Async.AwaitTask
+                        incomingCells.ReceiveAsync(
+                            circuitDisconnectionToken.Token
+                        )
+                        |> Async.AwaitTask
 
                     match nextCell with
                     | RelayData data ->
@@ -342,6 +349,9 @@ type TorStream(circuit: TorCircuit) =
         self.Receive buffer offset length |> Async.StartAsTask
 
     interface ITorStream with
+        member __.HandleDestroyedCircuit() =
+            circuitDisconnectionToken.Cancel()
+
         member __.HandleIncomingData(message: RelayData) =
             async {
                 match message with
