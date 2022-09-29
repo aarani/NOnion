@@ -158,7 +158,11 @@ type TorGuard private (client: TcpClient, sslStream: SslStream) =
                     |> Array.tryHead
 
                 match commandOpt with
-                | None -> return failwith "Incomplete message header"
+                | None ->
+                    return
+                        raise
+                        <| GuardConnectionFailedException
+                            "Incomplete message header"
                 | Some command ->
                     let! maybeBodyLength =
                         async {
@@ -202,12 +206,16 @@ type TorGuard private (client: TcpClient, sslStream: SslStream) =
             match maybeMessage with
             | None ->
                 return
-                    failwith
+                    raise
+                    <| GuardConnectionFailedException
                         "Socket got closed before receiving an expected cell"
             | Some(_circuitId, command, body) ->
                 //FIXME: maybe continue instead of failing?
                 if command <> expectedCommandType then
-                    failwithf "Unexpected msg type %i" command
+                    raise
+                    <| GuardConnectionFailedException(
+                        sprintf "Unexpected msg type %i" command
+                    )
 
                 use memStream = new MemoryStream(body)
                 use reader = new BinaryReader(memStream)

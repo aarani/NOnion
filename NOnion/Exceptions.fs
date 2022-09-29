@@ -10,8 +10,16 @@ type NOnionException =
     new(msg: string, innerException: Exception) =
         { inherit Exception(msg, innerException) }
 
-type GuardConnectionFailedException(innerException: Exception) =
-    inherit NOnionException("Connecting to guard node failed", innerException)
+type GuardConnectionFailedException =
+    inherit NOnionException
+
+    new(innerException: Exception) =
+        { inherit NOnionException("Connecting to guard node failed",
+                                  innerException) }
+
+    new(message: string) =
+        { inherit NOnionException("Connecting to guard node failed: " + message) }
+
 
 type CircuitTruncatedException(reason: DestroyReason) =
     inherit NOnionException(sprintf "Circuit got truncated, reason %A" reason)
