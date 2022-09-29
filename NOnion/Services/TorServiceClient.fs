@@ -482,9 +482,8 @@ type TorServiceClient =
 
                         if ack.Status <> RelayIntroduceStatus.Success then
                             return
-                                failwithf
-                                    "Unsuccessful introduction: %A"
-                                    ack.Status
+                                raise
+                                <| UnsuccessfulIntroductionException ack.Status
                     }
 
                 do!
