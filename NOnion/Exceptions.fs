@@ -26,3 +26,6 @@ type UnsuccessfulHttpRequestException(statusCode: string) =
     inherit NOnionException(sprintf
                                 "Non-200 status code received, code: %s"
                                 statusCode)
+
+type UnsuccessfulIntroductionException(status: RelayIntroduceStatus) =
+    inherit NOnionException(sprintf "Unsuccessful introduction: %A" status)
