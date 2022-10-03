@@ -237,15 +237,14 @@ type TorDirectory =
                 self.NetworkStatus <- NetworkStatusDocument.Parse response
         }
 
-    static member Bootstrap
-        (nodeEndPoint: IPEndPoint)
+    static member BootstrapWithGuard
+        (guard: TorGuard)
         (cacheDirectory: DirectoryInfo)
         =
         async {
             let! networkStatus =
                 let downloadConsensus(consensusPathOpt: Option<string>) =
                     async {
-                        use! guard = TorGuard.NewClient nodeEndPoint
                         let circuit = TorCircuit guard
 
                         do!
@@ -258,7 +257,7 @@ type TorDirectory =
                         let consensusHttpClient =
                             TorHttpClient(
                                 consensusStream,
-                                nodeEndPoint.Address.ToString()
+                                Constants.DefaultHttpHost
                             )
 
                         let! consensusStr =
@@ -330,7 +329,6 @@ type TorDirectory =
             let! downloadResults =
                 async {
                     if Seq.length descriptorsToDownload > 0 then
-                        use! guard = TorGuard.NewClient nodeEndPoint
                         let circuit = TorCircuit guard
 
                         do!
@@ -405,6 +403,15 @@ type TorDirectory =
         }
 
 
+    static member Bootstrap
+        (nodeEndPoint: IPEndPoint)
+        (cacheDirectory: DirectoryInfo)
+        =
+        async {
+            use! guard = TorGuard.NewClient nodeEndPoint
+            return! TorDirectory.BootstrapWithGuard guard cacheDirectory
+        }
+
     member self.GetLiveNetworkStatus() =
         async {
             do! self.UpdateConsensusIfNotLive()
@@ -428,6 +435,14 @@ type TorDirectory =
             cacheDirectory: DirectoryInfo
         ) =
         TorDirectory.Bootstrap nodeEndPoint cacheDirectory |> Async.StartAsTask
+
+    static member BootstrapWithGuardAsync
+        (
+            guard: TorGuard,
+            cacheDirectory: DirectoryInfo
+        ) =
+        TorDirectory.BootstrapWithGuard guard cacheDirectory
+        |> Async.StartAsTask
 
     member self.GetResponsibleHiddenServiceDirectories
         (blindedPublicKey: array<byte>)
