@@ -37,3 +37,10 @@ type UnsuccessfulHttpRequestException(statusCode: string) =
 
 type UnsuccessfulIntroductionException(status: RelayIntroduceStatus) =
     inherit NOnionException(sprintf "Unsuccessful introduction: %A" status)
+
+type NOnionSocketException(innerException: Net.Sockets.SocketException) =
+    inherit NOnionException
+        (
+            "Got socket exception during data transfer",
+            innerException
+        )

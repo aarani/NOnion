@@ -105,29 +105,36 @@ type TorGuard private (client: TcpClient, sslStream: SslStream) =
                 // (We assume every cell that is being sent here uses 0 as circuitId
                 // because we haven't completed the handshake yet to have a circuit
                 // up.)
-
-                do!
-                    circuidId
-                    |> IntegerSerialization.FromUInt16ToBigEndianByteArray
-                    |> StreamUtil.Write sslStream
-
-                do!
-                    Array.singleton cellToSend.Command
-                    |> StreamUtil.Write sslStream
-
-                if Command.IsVariableLength cellToSend.Command then
+                try
                     do!
-                        memStream.Length
-                        |> uint16
+                        circuidId
                         |> IntegerSerialization.FromUInt16ToBigEndianByteArray
                         |> StreamUtil.Write sslStream
-                else
-                    Array.zeroCreate<byte>(
-                        Constants.FixedPayloadLength - int memStream.Position
-                    )
-                    |> writer.Write
 
-                do! memStream.ToArray() |> StreamUtil.Write sslStream
+                    do!
+                        Array.singleton cellToSend.Command
+                        |> StreamUtil.Write sslStream
+
+                    if Command.IsVariableLength cellToSend.Command then
+                        do!
+                            memStream.Length
+                            |> uint16
+                            |> IntegerSerialization.FromUInt16ToBigEndianByteArray
+                            |> StreamUtil.Write sslStream
+                    else
+                        Array.zeroCreate<byte>(
+                            Constants.FixedPayloadLength
+                            - int memStream.Position
+                        )
+                        |> writer.Write
+
+                    do! memStream.ToArray() |> StreamUtil.Write sslStream
+                with
+                | exn ->
+                    match FSharpUtil.FindException<SocketException> exn with
+                    | Some socketExn ->
+                        return raise <| NOnionSocketException socketExn
+                    | None -> return raise exn
             }
 
         sendLock.RunAsyncWithSemaphore safeSend
