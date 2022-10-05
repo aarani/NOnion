@@ -4,7 +4,8 @@ open System
 open System.IO
 open System.Net
 open System.Text
-open System.Text.Json
+
+open Newtonsoft.Json
 
 open NOnion
 open NOnion.Crypto
@@ -306,7 +307,7 @@ type TorDirectory =
                     if File.Exists consensusPath then
                         let oldDescriptorCache =
                             File.ReadAllText consensusPath
-                            |> JsonSerializer.Deserialize<List<string * MicroDescriptorEntry>>
+                            |> JsonConvert.DeserializeObject<List<string * MicroDescriptorEntry>>
 
                         oldDescriptorCache
                         |> List.filter(fun (digest, _) ->
@@ -386,7 +387,7 @@ type TorDirectory =
                 List.append downloadResults stillValidOldDescriptors
 
             if not(isNull cacheDirectory) then
-                let jsonRep = JsonSerializer.Serialize allResults
+                let jsonRep = JsonConvert.SerializeObject allResults
 
                 File.WriteAllText(
                     Path.Combine(cacheDirectory.FullName, "descriptor.json"),
