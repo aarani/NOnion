@@ -76,6 +76,9 @@ module Constants =
 
     let internal DeflateStreamHeaderLength = 2
 
+    // Time limit used for connecting to guards
+    let internal GuardConnectionTimeout = TimeSpan.FromSeconds 10.
+
     // Time limit used for Create and Extend operations
     let internal CircuitOperationTimeout = TimeSpan.FromSeconds 10.
 

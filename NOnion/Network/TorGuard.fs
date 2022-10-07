@@ -34,6 +34,7 @@ type TorGuard private (client: TcpClient, sslStream: SslStream) =
                 do!
                     tcpClient.ConnectAsync(ipEndpoint.Address, ipEndpoint.Port)
                     |> Async.AwaitTask
+                    |> FSharpUtil.WithTimeout Constants.GuardConnectionTimeout
 
             with
             | exn ->
