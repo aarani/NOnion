@@ -67,13 +67,14 @@ type TorGuard private (client: TcpClient, sslStream: SslStream) =
                     |> FSharpUtil.WithTimeout Constants.CircuitOperationTimeout
             with
             | exn ->
-                let authExOpt =
-                    FSharpUtil.FindException<AuthenticationException> exn
-
-                match authExOpt with
-                | None -> return raise <| FSharpUtil.ReRaise exn
+                match FSharpUtil.FindException<AuthenticationException> exn with
                 | Some authEx ->
                     return raise <| GuardConnectionFailedException authEx
+                | None ->
+                    match FSharpUtil.FindException<SocketException> exn with
+                    | Some socketEx ->
+                        return raise <| GuardConnectionFailedException socketEx
+                    | None -> return raise <| FSharpUtil.ReRaise exn
 
             ipEndpoint.ToString()
             |> sprintf "TorGuard: ssl connection to %s guard node authenticated"
