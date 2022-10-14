@@ -13,6 +13,13 @@ open NOnion
 open NOnion.Cells
 open NOnion.Utility
 
+type internal GuardSendMessage =
+    {
+        CircuitId: uint16
+        CellToSend: ICell
+        ReplyChannel: AsyncReplyChannel<OperationResult<unit>>
+    }
+
 type TorGuard private (client: TcpClient, sslStream: SslStream) =
     let shutdownToken = new CancellationTokenSource()
 
@@ -20,7 +27,69 @@ type TorGuard private (client: TcpClient, sslStream: SslStream) =
     // Prevents two circuit setup happening at once (to prevent race condition on writing to CircuitIds list)
     let circuitSetupLock: obj = obj()
 
-    let sendLock = SemaphoreLocker()
+    let rec SendMailBoxProcessor(inbox: MailboxProcessor<GuardSendMessage>) =
+        let innerSend circuitId (cellToSend: ICell) =
+            async {
+                use memStream = new MemoryStream(Constants.FixedPayloadLength)
+
+                use writer = new BinaryWriter(memStream)
+                cellToSend.Serialize writer
+
+                // Write circuitId and command for the cell
+                // (We assume every cell that is being sent here uses 0 as circuitId
+                // because we haven't completed the handshake yet to have a circuit
+                // up.)
+                do!
+                    circuitId
+                    |> IntegerSerialization.FromUInt16ToBigEndianByteArray
+                    |> StreamUtil.Write sslStream
+
+                do!
+                    Array.singleton cellToSend.Command
+                    |> StreamUtil.Write sslStream
+
+                if Command.IsVariableLength cellToSend.Command then
+                    do!
+                        memStream.Length
+                        |> uint16
+                        |> IntegerSerialization.FromUInt16ToBigEndianByteArray
+                        |> StreamUtil.Write sslStream
+                else
+                    Array.zeroCreate<byte>(
+                        Constants.FixedPayloadLength - int memStream.Position
+                    )
+                    |> writer.Write
+
+                do! memStream.ToArray() |> StreamUtil.Write sslStream
+            }
+
+        async {
+            let! cancellationToken = Async.CancellationToken
+            cancellationToken.ThrowIfCancellationRequested()
+
+            let! {
+                     CircuitId = circuitId
+                     CellToSend = cellToSend
+                     ReplyChannel = replyChannel
+                 } = inbox.Receive()
+
+            try
+                do! innerSend circuitId cellToSend
+                OperationResult.Ok() |> replyChannel.Reply
+            with
+            | exn ->
+                match FSharpUtil.FindException<SocketException> exn with
+                | Some socketExn ->
+                    NOnionSocketException socketExn :> exn
+                    |> OperationResult.Failure
+                    |> replyChannel.Reply
+                | None -> OperationResult.Failure exn |> replyChannel.Reply
+
+            return! SendMailBoxProcessor inbox
+        }
+
+    let sendMailBox =
+        MailboxProcessor.Start(SendMailBoxProcessor, shutdownToken.Token)
 
     static member NewClient(ipEndpoint: IPEndPoint) =
         async {
@@ -96,50 +165,22 @@ type TorGuard private (client: TcpClient, sslStream: SslStream) =
     static member NewClientAsync ipEndpoint =
         TorGuard.NewClient ipEndpoint |> Async.StartAsTask
 
-    member __.Send (circuidId: uint16) (cellToSend: ICell) =
-        let safeSend() =
-            async {
-                use memStream = new MemoryStream(Constants.FixedPayloadLength)
-                use writer = new BinaryWriter(memStream)
-                cellToSend.Serialize writer
+    member __.Send (circuitId: uint16) (cellToSend: ICell) =
+        async {
+            let! sendResult =
+                sendMailBox.PostAndAsyncReply(fun replyChannel ->
+                    {
+                        CircuitId = circuitId
+                        CellToSend = cellToSend
+                        ReplyChannel = replyChannel
+                    }
+                )
 
-                // Write circuitId and command for the cell
-                // (We assume every cell that is being sent here uses 0 as circuitId
-                // because we haven't completed the handshake yet to have a circuit
-                // up.)
-                try
-                    do!
-                        circuidId
-                        |> IntegerSerialization.FromUInt16ToBigEndianByteArray
-                        |> StreamUtil.Write sslStream
-
-                    do!
-                        Array.singleton cellToSend.Command
-                        |> StreamUtil.Write sslStream
-
-                    if Command.IsVariableLength cellToSend.Command then
-                        do!
-                            memStream.Length
-                            |> uint16
-                            |> IntegerSerialization.FromUInt16ToBigEndianByteArray
-                            |> StreamUtil.Write sslStream
-                    else
-                        Array.zeroCreate<byte>(
-                            Constants.FixedPayloadLength
-                            - int memStream.Position
-                        )
-                        |> writer.Write
-
-                    do! memStream.ToArray() |> StreamUtil.Write sslStream
-                with
-                | exn ->
-                    match FSharpUtil.FindException<SocketException> exn with
-                    | Some socketExn ->
-                        return raise <| NOnionSocketException socketExn
-                    | None -> return raise exn
-            }
-
-        sendLock.RunAsyncWithSemaphore safeSend
+            match sendResult with
+            | OperationResult.Ok _ -> return ()
+            | OperationResult.Failure exn ->
+                return raise <| FSharpUtil.ReRaise exn
+        }
 
     member self.SendAsync (circuidId: uint16) (cellToSend: ICell) =
         self.Send circuidId cellToSend |> Async.StartAsTask
