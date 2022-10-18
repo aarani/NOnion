@@ -88,38 +88,42 @@ type TorServiceClient =
                                         circuit.Extend randomMiddleNode
                                         |> Async.Ignore
 
-                                    do!
-                                        circuit.Extend hsDirectoryNode
-                                        |> Async.Ignore
+                                    try
+                                        do!
+                                            circuit.Extend hsDirectoryNode
+                                            |> Async.Ignore
 
-                                    let dirStream = TorStream circuit
+                                        let dirStream = TorStream circuit
 
-                                    do!
-                                        dirStream.ConnectToDirectory()
-                                        |> Async.Ignore
+                                        do!
+                                            dirStream.ConnectToDirectory()
+                                            |> Async.Ignore
 
-                                    let! documentInString =
-                                        TorHttpClient(
-                                            dirStream,
-                                            Constants.DefaultHttpHost
-                                        )
-                                            .GetAsString
-                                            (sprintf
-                                                "/tor/hs/%i/%s"
-                                                Constants.HiddenServices.Version
-                                                ((Convert.ToBase64String
-                                                    blindedPublicKey)))
-                                            false
+                                        let! documentInString =
+                                            TorHttpClient(
+                                                dirStream,
+                                                Constants.DefaultHttpHost
+                                            )
+                                                .GetAsString
+                                                (sprintf
+                                                    "/tor/hs/%i/%s"
+                                                    Constants.HiddenServices.Version
+                                                    ((Convert.ToBase64String
+                                                        blindedPublicKey)))
+                                                false
 
-                                    return
-                                        HiddenServiceFirstLayerDescriptorDocument.Parse
-                                            documentInString
+                                        return
+                                            HiddenServiceFirstLayerDescriptorDocument.Parse
+                                                documentInString
+                                    with
+                                    | :? NOnionException ->
+                                        return! downloadDescriptor tail
 
                                 with
                                 | :? NOnionException ->
                                         // Using micro descriptors means we might use servers that are hibernating or etc
                                         // so we need to be able to try multiple servers to receive the descriptor.
-                                    return! downloadDescriptor tail
+                                    return! downloadDescriptor responsibleDirs
                         }
 
                     let! firstLayerDescriptorDocument =
