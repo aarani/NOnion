@@ -1,9 +1,11 @@
-﻿namespace NOnion
+﻿namespace NOnion.Utility
 
 open System
 open System.Runtime.ExceptionServices
 
 open FSharpx.Collections
+
+open NOnion
 
 module FSharpUtil =
     //Implementation copied from https://github.com/nblockchain/geewallet/blob/master/src/GWallet.Backend/FSharpUtil.fs

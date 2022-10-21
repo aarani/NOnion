@@ -2,7 +2,6 @@
 
 open System.Net.Sockets
 
-//FIXME: for some reason FSharpUtil is in NOnion namespace instead of NOnion.Utility
 open NOnion
 
 module internal MailboxResultUtil =
