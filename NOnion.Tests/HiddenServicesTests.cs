@@ -151,6 +151,8 @@ namespace NOnion.Tests
                 });
 
             await TaskUtils.WhenAllFailFast(serverSide, clientSide);
+
+            ((IDisposable) host).Dispose();
         }
         
         [Test]

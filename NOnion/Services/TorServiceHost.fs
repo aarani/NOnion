@@ -819,3 +819,8 @@ type TorServiceHost
 
     member self.ExportPrivateKey() =
         masterPrivateKey
+
+    interface IDisposable with
+        member __.Dispose() =
+            for guard in guardNode do
+                (guard :> IDisposable).Dispose()
