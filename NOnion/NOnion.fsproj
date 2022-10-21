@@ -19,6 +19,8 @@
     <Compile Include="Exceptions.fs" />
     <Compile Include="HandshakeType.fs" />
     <Compile Include="Utility\FSharpUtil.fs" />
+    <Compile Include="Utility\ResultUtil.fs" />
+    <Compile Include="Utility\MailboxUtil.fs" />
     <Compile Include="Utility\StreamUtil.fs" />
     <Compile Include="Utility\SemaphoreLocker.fs" />
     <Compile Include="Utility\Base64Util.fs" />
@@ -97,7 +99,7 @@
 
   <Target Name="CopyProjectReferencesToPackage" DependsOnTargets="ResolveReferences">
     <ItemGroup>
-      <BuildOutputInPackage Include="@(ReferenceCopyLocalPaths->WithMetadataValue('ReferenceSourceTarget', 'ProjectReference'))" />
+      <BuildOutputInPackage Include="@(ReferenceCopyLocalPaths-&gt;WithMetadataValue('ReferenceSourceTarget', 'ProjectReference'))" />
     </ItemGroup>
   </Target>
 </Project>

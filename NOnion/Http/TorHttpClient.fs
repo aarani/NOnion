@@ -7,6 +7,7 @@ open System.IO.Compression
 
 open NOnion
 open NOnion.Network
+open NOnion.Utility
 
 type TorHttpClient(stream: TorStream, host: string) =
 
