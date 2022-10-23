@@ -1234,16 +1234,12 @@ and TorCircuit
             async {
                 //FIXME: add exception handling to mailbox and remove reply from here?
                 let! handleRes =
-                    circuitOperationsMailBox.PostAndAsyncReply(
-                        (fun replyChannel ->
-                            CircuitOperation.HandleIncomingCell(
-                                self,
-                                cell,
-                                replyChannel
-                            )
-                        ),
-                        Constants.CircuitRendezvousTimeout.TotalMilliseconds
-                        |> int
+                    circuitOperationsMailBox.PostAndAsyncReply(fun replyChannel ->
+                        CircuitOperation.HandleIncomingCell(
+                            self,
+                            cell,
+                            replyChannel
+                        )
                     )
 
                 return UnwrapResult handleRes
