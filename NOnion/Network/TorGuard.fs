@@ -73,17 +73,10 @@ type TorGuard private (client: TcpClient, sslStream: SslStream) =
                      ReplyChannel = replyChannel
                  } = inbox.Receive()
 
-            try
-                do! innerSend circuitId cellToSend
-                OperationResult.Ok() |> replyChannel.Reply
-            with
-            | exn ->
-                match FSharpUtil.FindException<SocketException> exn with
-                | Some socketExn ->
-                    NOnionSocketException socketExn :> exn
-                    |> OperationResult.Failure
-                    |> replyChannel.Reply
-                | None -> OperationResult.Failure exn |> replyChannel.Reply
+            do!
+                innerSend circuitId cellToSend
+                |> MailboxResultUtil.TryExecuteAsyncAndReplyAsResult
+                    replyChannel
 
             return! SendMailBoxProcessor inbox
         }
