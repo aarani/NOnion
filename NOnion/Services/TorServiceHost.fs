@@ -45,6 +45,12 @@ type TorServiceHost
     let mutable introductionPointKeys: Map<string, IntroductionPointInfo> =
         Map.empty
 
+    let mutable introductionPointDeadCounter = 0
+    let incrementLock: obj = obj()
+
+    let introductionPointDisconnectionToken: CancellationTokenSource =
+        new CancellationTokenSource()
+
     let mutable guardNode: List<TorGuard> = List.empty
     let introductionPointSemaphore: SemaphoreLocker = SemaphoreLocker()
     let newClientSemaphore = new SemaphoreSlim(0)
@@ -94,6 +100,18 @@ type TorServiceHost
 
             queueLock.RunSyncWithSemaphore registerConnectionRequest
         }
+
+    member private self.IntroductionPointDeathCallback() =
+        lock
+            incrementLock
+            (fun () ->
+                introductionPointDeadCounter <- introductionPointDeadCounter + 1
+
+                //If more than half of the introduction points are dead, TorServiceHost is dead!
+                if introductionPointDeadCounter > Constants.HiddenServices.IntroductionPointCount
+                                                  / 2 then
+                    introductionPointDisconnectionToken.Cancel()
+            )
 
     member private self.RelayIntroduceCallback(introduce: RelayIntroduce) =
         let rec tryConnectingToRendezvous
@@ -293,6 +311,7 @@ type TorServiceHost
                                 circuit.RegisterAsIntroductionPoint
                                     (Some authKeyPair)
                                     self.RelayIntroduceCallback
+                                    self.IntroductionPointDeathCallback
 
                             let safeRegister() =
                                 let introductionPointAlreadyExists =
@@ -755,6 +774,12 @@ type TorServiceHost
             let! cancelToken = Async.CancellationToken
             cancelToken.ThrowIfCancellationRequested()
 
+            let linkedCts =
+                CancellationTokenSource.CreateLinkedTokenSource(
+                    cancelToken,
+                    introductionPointDisconnectionToken.Token
+                )
+
             let tryGetConnectionRequest() =
                 let nextItemOpt = pendingConnectionQueue.TryUncons
 
@@ -766,9 +791,16 @@ type TorServiceHost
 
             let rec getConnectionRequest() =
                 async {
-                    do!
-                        newClientSemaphore.WaitAsync(cancelToken)
-                        |> Async.AwaitTask
+                    try
+                        do!
+                            newClientSemaphore.WaitAsync linkedCts.Token
+                            |> Async.AwaitTask
+                    with
+                    | :? OperationCanceledException as ex ->
+                        if introductionPointDisconnectionToken.IsCancellationRequested then
+                            return raise <| IntroductoinPointsKilledException()
+                        else
+                            return raise <| FSharpUtil.ReRaise ex
 
                     let nextItemOpt =
                         queueLock.RunSyncWithSemaphore tryGetConnectionRequest

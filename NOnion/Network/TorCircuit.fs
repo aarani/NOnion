@@ -60,6 +60,7 @@ type private CircuitOperation =
     | RegisterAsIntroductionPoint of
         authKeyPairOpt: Option<AsymmetricCipherKeyPair> *
         callback: (RelayIntroduce -> Async<unit>) *
+        disconnectionCallback: (unit -> unit) *
         replyChannel: AsyncReplyChannel<TaskResult>
     | RegisterAsRendezvousPoint of
         cookie: array<byte> *
@@ -108,16 +109,22 @@ and TorCircuit
             match circuitState with
             | Creating(circuitId, _, _)
             | Extending(circuitId, _, _, _)
-            | RegisteringAsIntroductionPoint(circuitId, _, _, _, _, _)
+            | RegisteringAsIntroductionPoint(circuitId, _, _, _, _, _, _)
             | RegisteringAsRendezvousPoint(circuitId, _, _)
             | WaitingForIntroduceAcknowledge(circuitId, _, _)
             | WaitingForRendezvousRequest(circuitId, _, _, _, _, _, _)
             | Ready(circuitId, _)
-            | ReadyAsIntroductionPoint(circuitId, _, _, _, _)
+
             | ReadyAsRendezvousPoint(circuitId, _)
             | Destroyed(circuitId, _)
             | Truncated(circuitId, _)
             | Disconnected circuitId -> circuitState <- Disconnected circuitId
+            | ReadyAsIntroductionPoint
+                (
+                    circuitId, _, _, _, _, disconnectionCallback
+                ) ->
+                circuitState <- Disconnected circuitId
+                disconnectionCallback()
             | CircuitState.Initialized ->
                 failwith
                     "Should not happen: a non-initialized circuit can't die"
@@ -146,7 +153,7 @@ and TorCircuit
                 | Extending(circuitId, _, nodesStates, _)
                 | RegisteringAsIntroductionPoint
                     (
-                        circuitId, nodesStates, _, _, _, _
+                        circuitId, nodesStates, _, _, _, _, _
                     )
                 | WaitingForIntroduceAcknowledge(circuitId, nodesStates, _)
                 | RegisteringAsRendezvousPoint(circuitId, nodesStates, _) ->
@@ -252,9 +259,9 @@ and TorCircuit
         let decryptCell(encryptedRelayCell: CellEncryptedRelay) =
             match circuitState with
             | Ready(circuitId, nodes)
-            | ReadyAsIntroductionPoint(circuitId, nodes, _, _, _)
+            | ReadyAsIntroductionPoint(circuitId, nodes, _, _, _, _)
             | ReadyAsRendezvousPoint(circuitId, nodes)
-            | RegisteringAsIntroductionPoint(circuitId, nodes, _, _, _, _)
+            | RegisteringAsIntroductionPoint(circuitId, nodes, _, _, _, _, _)
             | RegisteringAsRendezvousPoint(circuitId, nodes, _)
             | WaitingForIntroduceAcknowledge(circuitId, nodes, _)
             | WaitingForRendezvousRequest(circuitId, nodes, _, _, _, _, _)
@@ -411,7 +418,8 @@ and TorCircuit
                                 privateKey,
                                 publicKey,
                                 tcs,
-                                callback
+                                callback,
+                                disconnectionCallback
                             ) ->
                             circuitState <-
                                 ReadyAsIntroductionPoint(
@@ -419,7 +427,8 @@ and TorCircuit
                                     nodes,
                                     privateKey,
                                     publicKey,
-                                    callback
+                                    callback,
+                                    disconnectionCallback
                                 )
 
                             tcs.SetResult()
@@ -440,8 +449,10 @@ and TorCircuit
                         fromNode.Window.PackageIncrease()
                     | RelayIntroduce2 introduceMsg ->
                         match circuitState with
-                        | ReadyAsIntroductionPoint(_, _, _, _, callback) ->
-                            do! callback(introduceMsg)
+                        | ReadyAsIntroductionPoint
+                            (
+                                _, _, _, _, callback, _disconnectionCallback
+                            ) -> do! callback introduceMsg
                         | _ ->
                             return
                                 failwith
@@ -464,7 +475,7 @@ and TorCircuit
                         | RegisteringAsRendezvousPoint(circuitId, _, tcs)
                         | RegisteringAsIntroductionPoint
                             (
-                                circuitId, _, _, _, tcs, _
+                                circuitId, _, _, _, tcs, _, _
                             )
                         | WaitingForRendezvousRequest
                             (
@@ -475,7 +486,7 @@ and TorCircuit
                             tcs.SetException(CircuitTruncatedException reason)
                         //FIXME: how can we tell the user that circuit is destroyed? if we throw here the listening thread with throw and user never finds out why
                         | Ready(circuitId, _)
-                        | ReadyAsIntroductionPoint(circuitId, _, _, _, _)
+                        | ReadyAsIntroductionPoint(circuitId, _, _, _, _, _)
                         | ReadyAsRendezvousPoint(circuitId, _)
                         // The circuit was already dead in our eyes, so we don't care about it being destroyed, just update the state to new destroyed state
                         | Destroyed(circuitId, _)
@@ -574,7 +585,10 @@ and TorCircuit
                             CircuitDestroyedException destroyCell.Reason
                         )
                     | RegisteringAsRendezvousPoint(circuitId, _, tcs)
-                    | RegisteringAsIntroductionPoint(circuitId, _, _, _, tcs, _)
+                    | RegisteringAsIntroductionPoint
+                        (
+                            circuitId, _, _, _, tcs, _, _
+                        )
                     | WaitingForRendezvousRequest(circuitId, _, _, _, _, _, tcs) ->
 
                         circuitState <- Destroyed(circuitId, destroyCell.Reason)
@@ -590,7 +604,7 @@ and TorCircuit
                         )
                     //FIXME: how can we tell the user that circuit is destroyed? if we throw here the listening thread will throw and user never finds out why
                     | Ready(circuitId, _)
-                    | ReadyAsIntroductionPoint(circuitId, _, _, _, _)
+                    | ReadyAsIntroductionPoint(circuitId, _, _, _, _, _)
                     | ReadyAsRendezvousPoint(circuitId, _)
                     // The circuit was already dead in our eyes, so we don't care about it being destroyed, just update the state to new destroyed state
                     | Destroyed(circuitId, _)
@@ -705,7 +719,11 @@ and TorCircuit
                             "Circuit is not in a state suitable for extending"
             }
 
-        let registerAsIntroductionPoint authKeyPairOpt callback =
+        let registerAsIntroductionPoint
+            authKeyPairOpt
+            callback
+            disconnectionCallback
+            =
             async {
                 match circuitState with
                 | Ready(circuitId, nodes) ->
@@ -744,7 +762,8 @@ and TorCircuit
                             authPrivateKey,
                             authPublicKey,
                             connectionCompletionSource,
-                            callback
+                            callback,
+                            disconnectionCallback
                         )
 
                     do!
@@ -954,10 +973,16 @@ and TorCircuit
                     |> TryExecuteAsyncAndReplyAsResult replyChannel
             | CircuitOperation.RegisterAsIntroductionPoint
                 (
-                    authKeyPairOpt, callback, replyChannel
+                    authKeyPairOpt,
+                    callback,
+                    disconnectionCallback,
+                    replyChannel
                 ) ->
                 do!
-                    registerAsIntroductionPoint authKeyPairOpt callback
+                    registerAsIntroductionPoint
+                        authKeyPairOpt
+                        callback
+                        disconnectionCallback
                     |> TryExecuteAsyncAndReplyAsResult replyChannel
             | CircuitOperation.RegisterAsRendezvousPoint(cookie, replyChannel) ->
                 do!
@@ -1028,12 +1053,12 @@ and TorCircuit
         match circuitState with
         | Creating(circuitId, _, _)
         | Extending(circuitId, _, _, _)
-        | RegisteringAsIntroductionPoint(circuitId, _, _, _, _, _)
+        | RegisteringAsIntroductionPoint(circuitId, _, _, _, _, _, _)
         | RegisteringAsRendezvousPoint(circuitId, _, _)
         | WaitingForIntroduceAcknowledge(circuitId, _, _)
         | WaitingForRendezvousRequest(circuitId, _, _, _, _, _, _)
         | Ready(circuitId, _)
-        | ReadyAsIntroductionPoint(circuitId, _, _, _, _)
+        | ReadyAsIntroductionPoint(circuitId, _, _, _, _, _)
         | ReadyAsRendezvousPoint(circuitId, _)
         | Destroyed(circuitId, _)
         | Truncated(circuitId, _)
@@ -1111,6 +1136,7 @@ and TorCircuit
     member __.RegisterAsIntroductionPoint
         (authKeyPairOpt: Option<AsymmetricCipherKeyPair>)
         callback
+        disconnectionCallback
         =
         async {
             let! completionTaskRes =
@@ -1119,6 +1145,7 @@ and TorCircuit
                         CircuitOperation.RegisterAsIntroductionPoint(
                             authKeyPairOpt,
                             callback,
+                            disconnectionCallback,
                             replyChannel
                         )
                     ),
@@ -1238,10 +1265,20 @@ and TorCircuit
     member self.RegisterAsIntroductionPointAsync
         (authKeyPairOpt: Option<AsymmetricCipherKeyPair>)
         (callback: Func<RelayIntroduce, Task>)
+        (disconnectCallback: Action)
         =
-        fun relayIntroduce ->
-            async { return! callback.Invoke(relayIntroduce) |> Async.AwaitTask }
-        |> self.RegisterAsIntroductionPoint authKeyPairOpt
+        let introduceCallback =
+            fun relayIntroduce ->
+                async {
+                    return! callback.Invoke relayIntroduce |> Async.AwaitTask
+                }
+
+        let disconnectCallback = fun () -> disconnectCallback.Invoke()
+
+        self.RegisterAsIntroductionPoint
+            authKeyPairOpt
+            introduceCallback
+            disconnectCallback
         |> Async.StartAsTask
 
     member self.RegisterAsRendezvousPointAsync(cookie: array<byte>) =

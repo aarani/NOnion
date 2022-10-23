@@ -34,7 +34,8 @@ type CircuitState =
         privateKey: Ed25519PrivateKeyParameters *
         publicKey: Ed25519PublicKeyParameters *
         completionTask: TaskCompletionSource<unit> *
-        callback: (RelayIntroduce -> Async<unit>)
+        callback: (RelayIntroduce -> Async<unit>) *
+        disconnectionCallback: (unit -> unit)
     | RegisteringAsRendezvousPoint of
         circuitId: uint16 *
         circuitNodes: List<TorCircuitNode> *
@@ -57,7 +58,8 @@ type CircuitState =
         circuitNodes: List<TorCircuitNode> *
         privateKey: Ed25519PrivateKeyParameters *
         publicKey: Ed25519PublicKeyParameters *
-        callback: (RelayIntroduce -> Async<unit>)
+        callback: (RelayIntroduce -> Async<unit>) *
+        disconnectionCallback: (unit -> unit)
     | ReadyAsRendezvousPoint of
         circuitId: uint16 *
         circuitNodes: List<TorCircuitNode>
