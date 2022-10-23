@@ -37,6 +37,9 @@ type UnsuccessfulHttpRequestException internal (statusCode: string) =
 type UnsuccessfulIntroductionException internal (status: RelayIntroduceStatus) =
     inherit NOnionException(sprintf "Unsuccessful introduction: %A" status)
 
+type IntroductoinPointsKilledException() =
+    inherit NOnionException("Introduction points got disconnected, please try again!")
+
 type NOnionSocketException
     internal
     (
