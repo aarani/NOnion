@@ -20,7 +20,6 @@ type GuardConnectionFailedException =
     internal new(message: string) =
         { inherit NOnionException("Connecting to guard node failed: " + message) }
 
-
 type CircuitTruncatedException internal (reason: DestroyReason) =
     inherit NOnionException(sprintf "Circuit got truncated, reason %A" reason)
 

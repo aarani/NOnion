@@ -80,6 +80,7 @@ type private CircuitOperation =
         introEncPrivateKey: X25519PrivateKeyParameters *
         introEncPublicKey: X25519PublicKeyParameters *
         replyChannel: AsyncReplyChannel<UnitResult>
+    | HandleDeath
 
 and TorCircuit
     private
@@ -95,6 +96,32 @@ and TorCircuit
     let streamSetupLock: obj = obj()
 
     let rec CircuitMailBoxProcessor(inbox: MailboxProcessor<CircuitOperation>) =
+        let announceDeath() =
+            TorLogger.Log "TorCircuit: circuit is dead, telling children..."
+
+            let killStreams() =
+                streamsMap
+                |> Map.iter(fun _sid stream -> stream.HandleDestroyedCircuit())
+
+            lock streamSetupLock killStreams
+
+            match circuitState with
+            | Creating(circuitId, _, _)
+            | Extending(circuitId, _, _, _)
+            | RegisteringAsIntroductionPoint(circuitId, _, _, _, _, _)
+            | RegisteringAsRendezvousPoint(circuitId, _, _)
+            | WaitingForIntroduceAcknowledge(circuitId, _, _)
+            | WaitingForRendezvousRequest(circuitId, _, _, _, _, _, _)
+            | Ready(circuitId, _)
+            | ReadyAsIntroductionPoint(circuitId, _, _, _, _)
+            | ReadyAsRendezvousPoint(circuitId, _)
+            | Destroyed(circuitId, _)
+            | Truncated(circuitId, _)
+            | Disconnected circuitId -> circuitState <- Disconnected circuitId
+            | CircuitState.Initialized ->
+                failwith
+                    "Should not happen: a non-initialized circuit can't die"
+
         let getCircuitLastNode() =
             match circuitState with
             | Ready(_, nodesStates) ->
@@ -300,7 +327,9 @@ and TorCircuit
                                 (decryptedRelayCell.StreamId,
                                  decryptedRelayCell.Data,
                                  node)
-                    | None -> failwith "Decryption failed!"
+                    | None ->
+                        announceDeath()
+                        failwith "Decryption failed!"
 
                 decryptMessage encryptedRelayCell.EncryptedData nodes
             | _ -> failwith "Unexpected state when receiving relay cell"
@@ -419,8 +448,9 @@ and TorCircuit
                                     "Received introduce2 cell over non-introduction-circuit huh?"
                     | RelayTruncated reason ->
                         match circuitState with
-                        | CircuitState.Initialized ->
-                            // Circuit isn't created yet!
+                        | CircuitState.Initialized
+                        | Disconnected _ ->
+                            // Circuit isn't created yet or was already dead!
                             ()
                         | Creating(circuitId, _, tcs)
                         | Extending(circuitId, _, _, tcs) ->
@@ -451,6 +481,7 @@ and TorCircuit
                         | Destroyed(circuitId, _)
                         | Truncated(circuitId, _) ->
                             circuitState <- Truncated(circuitId, reason)
+                            announceDeath()
                     | RelayData.RelayIntroduceAck ackMsg ->
                         match circuitState with
                         | WaitingForIntroduceAcknowledge(circuitId, nodes, tcs) ->
@@ -530,8 +561,9 @@ and TorCircuit
                         | (None, _) -> failwith "Unknown stream"
                 | :? CellDestroy as destroyCell ->
                     match circuitState with
-                    | CircuitState.Initialized ->
-                        // Circuit isn't created yet!
+                    | CircuitState.Initialized
+                    | Disconnected _ ->
+                        // Circuit isn't created yet or is already dead!
                         ()
                     | Creating(circuitId, _, tcs)
                     | Extending(circuitId, _, _, tcs) ->
@@ -564,6 +596,7 @@ and TorCircuit
                     | Destroyed(circuitId, _)
                     | Truncated(circuitId, _) ->
                         circuitState <- Destroyed(circuitId, destroyCell.Reason)
+                        announceDeath()
                 | _ -> ()
             }
 
@@ -966,6 +999,7 @@ and TorCircuit
                         introEncPrivateKey
                         introEncPublicKey
                     |> TryExecuteAsyncAndReplyAsResult replyChannel
+            | CircuitOperation.HandleDeath -> announceDeath()
 
             return! CircuitMailBoxProcessor inbox
         }
@@ -1002,7 +1036,8 @@ and TorCircuit
         | ReadyAsIntroductionPoint(circuitId, _, _, _, _)
         | ReadyAsRendezvousPoint(circuitId, _)
         | Destroyed(circuitId, _)
-        | Truncated(circuitId, _) -> circuitId
+        | Truncated(circuitId, _)
+        | Disconnected circuitId -> circuitId
         | CircuitState.Initialized ->
             failwith
                 "Should not happen: can't get circuitId for non-initialized circuit."
@@ -1230,6 +1265,9 @@ and TorCircuit
         lock streamSetupLock safeRegister
 
     interface ITorCircuit with
+        member self.HandleDestroyedGuard() =
+            circuitOperationsMailBox.Post CircuitOperation.HandleDeath
+
         member self.HandleIncomingCell(cell: ICell) =
             async {
                 //FIXME: add exception handling to mailbox and remove reply from here?

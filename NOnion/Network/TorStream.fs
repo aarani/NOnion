@@ -40,7 +40,7 @@ type private StreamControlMessage =
     | HandleRelayEnd of
         message: RelayData *
         reason: EndReason *
-        replayChannel: AsyncReplyChannel<OperationResult<unit>>
+        replayChannelOpt: Option<AsyncReplyChannel<OperationResult<unit>>>
     | SendSendMe of replayChannel: AsyncReplyChannel<OperationResult<unit>>
 
 type TorStream(circuit: TorCircuit) =
@@ -242,10 +242,13 @@ type TorStream(circuit: TorCircuit) =
                     (fun _ -> registerProcess streamObj streamId)
             | HandleRelayConnected replyChannel ->
                 TryExecuteAndReplyAsResult replyChannel handleRelayConnected
-            | HandleRelayEnd(message, reason, replyChannel) ->
-                TryExecuteAndReplyAsResult
-                    replyChannel
-                    (fun _ -> handleRelayEnd message reason)
+            | HandleRelayEnd(message, reason, replyChannelOpt) ->
+                match replyChannelOpt with
+                | Some replyChannel ->
+                    TryExecuteAndReplyAsResult
+                        replyChannel
+                        (fun _ -> handleRelayEnd message reason)
+                | None -> handleRelayEnd message reason
             | SendSendMe replyChannel ->
                 do! sendSendMe() |> TryExecuteAsyncAndReplyAsResult replyChannel
 
@@ -516,6 +519,18 @@ type TorStream(circuit: TorCircuit) =
         self.Receive buffer offset length |> Async.StartAsTask
 
     interface ITorStream with
+        member __.HandleDestroyedCircuit() =
+            TorLogger.Log
+                "TorStream: circuit got destroyed, faking received relay end cell"
+
+            streamControlMailBox.Post(
+                StreamControlMessage.HandleRelayEnd(
+                    RelayEnd EndReason.Destroy,
+                    EndReason.Destroy,
+                    None
+                )
+            )
+
         member __.HandleIncomingData(message: RelayData) =
             async {
                 match message with
@@ -533,7 +548,7 @@ type TorStream(circuit: TorCircuit) =
                             StreamControlMessage.HandleRelayEnd(
                                 message,
                                 reason,
-                                replyChannel
+                                Some replyChannel
                             )
                         )
 
