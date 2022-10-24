@@ -20,28 +20,28 @@ type private StreamReceiveMessage =
     }
 
 type private StreamControlMessage =
-    | End of replayChannel: AsyncReplyChannel<OperationResult<unit>>
+    | End of replyChannel: AsyncReplyChannel<OperationResult<unit>>
     | Send of
         array<byte> *
-        replayChannel: AsyncReplyChannel<OperationResult<unit>>
+        replyChannel: AsyncReplyChannel<OperationResult<unit>>
     | StartServiceConnectionProcess of
         port: int *
         streamObj: ITorStream *
-        replayChannel: AsyncReplyChannel<OperationResult<Task<uint16>>>
+        replyChannel: AsyncReplyChannel<OperationResult<Task<uint16>>>
     | StartDirectoryConnectionProcess of
         streamObj: ITorStream *
-        replayChannel: AsyncReplyChannel<OperationResult<Task<uint16>>>
+        replyChannel: AsyncReplyChannel<OperationResult<Task<uint16>>>
     | RegisterStream of
         streamObj: ITorStream *
         streamId: uint16 *
-        replayChannel: AsyncReplyChannel<OperationResult<unit>>
+        replyChannel: AsyncReplyChannel<OperationResult<unit>>
     | HandleRelayConnected of
-        replayChannel: AsyncReplyChannel<OperationResult<unit>>
+        replyChannel: AsyncReplyChannel<OperationResult<unit>>
     | HandleRelayEnd of
         message: RelayData *
         reason: EndReason *
-        replayChannelOpt: Option<AsyncReplyChannel<OperationResult<unit>>>
-    | SendSendMe of replayChannel: AsyncReplyChannel<OperationResult<unit>>
+        replyChannelOpt: Option<AsyncReplyChannel<OperationResult<unit>>>
+    | SendSendMe of replyChannel: AsyncReplyChannel<OperationResult<unit>>
 
 type TorStream(circuit: TorCircuit) =
 
