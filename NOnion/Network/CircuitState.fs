@@ -34,7 +34,8 @@ type CircuitState =
         privateKey: Ed25519PrivateKeyParameters *
         publicKey: Ed25519PublicKeyParameters *
         completionTask: TaskCompletionSource<unit> *
-        callback: (RelayIntroduce -> Async<unit>)
+        callback: (RelayIntroduce -> Async<unit>) *
+        disconnectionCallback: (unit -> unit)
     | RegisteringAsRendezvousPoint of
         circuitId: uint16 *
         circuitNodes: List<TorCircuitNode> *
@@ -57,12 +58,14 @@ type CircuitState =
         circuitNodes: List<TorCircuitNode> *
         privateKey: Ed25519PrivateKeyParameters *
         publicKey: Ed25519PublicKeyParameters *
-        callback: (RelayIntroduce -> Async<unit>)
+        callback: (RelayIntroduce -> Async<unit>) *
+        disconnectionCallback: (unit -> unit)
     | ReadyAsRendezvousPoint of
         circuitId: uint16 *
         circuitNodes: List<TorCircuitNode>
     | Destroyed of circuitId: uint16 * reason: DestroyReason
     | Truncated of circuitId: uint16 * reason: DestroyReason
+    | Disconnected of circuitId: uint16
 
 
     member self.Name =
@@ -79,3 +82,4 @@ type CircuitState =
         | ReadyAsRendezvousPoint _ -> "ReadyAsRendezvousPoint"
         | Destroyed _ -> "Destroyed"
         | Truncated _ -> "Truncated"
+        | Disconnected _ -> "Disconnected"

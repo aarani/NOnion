@@ -60,6 +60,7 @@ type private CircuitOperation =
     | RegisterAsIntroductionPoint of
         authKeyPairOpt: Option<AsymmetricCipherKeyPair> *
         callback: (RelayIntroduce -> Async<unit>) *
+        disconnectionCallback: (unit -> unit) *
         replyChannel: AsyncReplyChannel<TaskResult>
     | RegisterAsRendezvousPoint of
         cookie: array<byte> *
@@ -80,6 +81,7 @@ type private CircuitOperation =
         introEncPrivateKey: X25519PrivateKeyParameters *
         introEncPublicKey: X25519PublicKeyParameters *
         replyChannel: AsyncReplyChannel<UnitResult>
+    | HandleDeath
 
 and TorCircuit
     private
@@ -95,6 +97,38 @@ and TorCircuit
     let streamSetupLock: obj = obj()
 
     let rec CircuitMailBoxProcessor(inbox: MailboxProcessor<CircuitOperation>) =
+        let announceDeath() =
+            TorLogger.Log "TorCircuit: circuit is dead, telling children..."
+
+            let killStreams() =
+                streamsMap
+                |> Map.iter(fun _sid stream -> stream.HandleDestroyedCircuit())
+
+            lock streamSetupLock killStreams
+
+            match circuitState with
+            | Creating(circuitId, _, _)
+            | Extending(circuitId, _, _, _)
+            | RegisteringAsIntroductionPoint(circuitId, _, _, _, _, _, _)
+            | RegisteringAsRendezvousPoint(circuitId, _, _)
+            | WaitingForIntroduceAcknowledge(circuitId, _, _)
+            | WaitingForRendezvousRequest(circuitId, _, _, _, _, _, _)
+            | Ready(circuitId, _)
+
+            | ReadyAsRendezvousPoint(circuitId, _)
+            | Destroyed(circuitId, _)
+            | Truncated(circuitId, _)
+            | Disconnected circuitId -> circuitState <- Disconnected circuitId
+            | ReadyAsIntroductionPoint
+                (
+                    circuitId, _, _, _, _, disconnectionCallback
+                ) ->
+                circuitState <- Disconnected circuitId
+                disconnectionCallback()
+            | CircuitState.Initialized ->
+                failwith
+                    "Should not happen: a non-initialized circuit can't die"
+
         let getCircuitLastNode() =
             match circuitState with
             | Ready(_, nodesStates) ->
@@ -119,7 +153,7 @@ and TorCircuit
                 | Extending(circuitId, _, nodesStates, _)
                 | RegisteringAsIntroductionPoint
                     (
-                        circuitId, nodesStates, _, _, _, _
+                        circuitId, nodesStates, _, _, _, _, _
                     )
                 | WaitingForIntroduceAcknowledge(circuitId, nodesStates, _)
                 | RegisteringAsRendezvousPoint(circuitId, nodesStates, _) ->
@@ -225,9 +259,9 @@ and TorCircuit
         let decryptCell(encryptedRelayCell: CellEncryptedRelay) =
             match circuitState with
             | Ready(circuitId, nodes)
-            | ReadyAsIntroductionPoint(circuitId, nodes, _, _, _)
+            | ReadyAsIntroductionPoint(circuitId, nodes, _, _, _, _)
             | ReadyAsRendezvousPoint(circuitId, nodes)
-            | RegisteringAsIntroductionPoint(circuitId, nodes, _, _, _, _)
+            | RegisteringAsIntroductionPoint(circuitId, nodes, _, _, _, _, _)
             | RegisteringAsRendezvousPoint(circuitId, nodes, _)
             | WaitingForIntroduceAcknowledge(circuitId, nodes, _)
             | WaitingForRendezvousRequest(circuitId, nodes, _, _, _, _, _)
@@ -300,7 +334,9 @@ and TorCircuit
                                 (decryptedRelayCell.StreamId,
                                  decryptedRelayCell.Data,
                                  node)
-                    | None -> failwith "Decryption failed!"
+                    | None ->
+                        announceDeath()
+                        failwith "Decryption failed!"
 
                 decryptMessage encryptedRelayCell.EncryptedData nodes
             | _ -> failwith "Unexpected state when receiving relay cell"
@@ -382,7 +418,8 @@ and TorCircuit
                                 privateKey,
                                 publicKey,
                                 tcs,
-                                callback
+                                callback,
+                                disconnectionCallback
                             ) ->
                             circuitState <-
                                 ReadyAsIntroductionPoint(
@@ -390,7 +427,8 @@ and TorCircuit
                                     nodes,
                                     privateKey,
                                     publicKey,
-                                    callback
+                                    callback,
+                                    disconnectionCallback
                                 )
 
                             tcs.SetResult()
@@ -411,16 +449,19 @@ and TorCircuit
                         fromNode.Window.PackageIncrease()
                     | RelayIntroduce2 introduceMsg ->
                         match circuitState with
-                        | ReadyAsIntroductionPoint(_, _, _, _, callback) ->
-                            do! callback(introduceMsg)
+                        | ReadyAsIntroductionPoint
+                            (
+                                _, _, _, _, callback, _disconnectionCallback
+                            ) -> do! callback introduceMsg
                         | _ ->
                             return
                                 failwith
                                     "Received introduce2 cell over non-introduction-circuit huh?"
                     | RelayTruncated reason ->
                         match circuitState with
-                        | CircuitState.Initialized ->
-                            // Circuit isn't created yet!
+                        | CircuitState.Initialized
+                        | Disconnected _ ->
+                            // Circuit isn't created yet or was already dead!
                             ()
                         | Creating(circuitId, _, tcs)
                         | Extending(circuitId, _, _, tcs) ->
@@ -434,7 +475,7 @@ and TorCircuit
                         | RegisteringAsRendezvousPoint(circuitId, _, tcs)
                         | RegisteringAsIntroductionPoint
                             (
-                                circuitId, _, _, _, tcs, _
+                                circuitId, _, _, _, tcs, _, _
                             )
                         | WaitingForRendezvousRequest
                             (
@@ -445,12 +486,13 @@ and TorCircuit
                             tcs.SetException(CircuitTruncatedException reason)
                         //FIXME: how can we tell the user that circuit is destroyed? if we throw here the listening thread with throw and user never finds out why
                         | Ready(circuitId, _)
-                        | ReadyAsIntroductionPoint(circuitId, _, _, _, _)
+                        | ReadyAsIntroductionPoint(circuitId, _, _, _, _, _)
                         | ReadyAsRendezvousPoint(circuitId, _)
                         // The circuit was already dead in our eyes, so we don't care about it being destroyed, just update the state to new destroyed state
                         | Destroyed(circuitId, _)
                         | Truncated(circuitId, _) ->
                             circuitState <- Truncated(circuitId, reason)
+                            announceDeath()
                     | RelayData.RelayIntroduceAck ackMsg ->
                         match circuitState with
                         | WaitingForIntroduceAcknowledge(circuitId, nodes, tcs) ->
@@ -530,8 +572,9 @@ and TorCircuit
                         | (None, _) -> failwith "Unknown stream"
                 | :? CellDestroy as destroyCell ->
                     match circuitState with
-                    | CircuitState.Initialized ->
-                        // Circuit isn't created yet!
+                    | CircuitState.Initialized
+                    | Disconnected _ ->
+                        // Circuit isn't created yet or is already dead!
                         ()
                     | Creating(circuitId, _, tcs)
                     | Extending(circuitId, _, _, tcs) ->
@@ -542,7 +585,10 @@ and TorCircuit
                             CircuitDestroyedException destroyCell.Reason
                         )
                     | RegisteringAsRendezvousPoint(circuitId, _, tcs)
-                    | RegisteringAsIntroductionPoint(circuitId, _, _, _, tcs, _)
+                    | RegisteringAsIntroductionPoint
+                        (
+                            circuitId, _, _, _, tcs, _, _
+                        )
                     | WaitingForRendezvousRequest(circuitId, _, _, _, _, _, tcs) ->
 
                         circuitState <- Destroyed(circuitId, destroyCell.Reason)
@@ -558,12 +604,13 @@ and TorCircuit
                         )
                     //FIXME: how can we tell the user that circuit is destroyed? if we throw here the listening thread will throw and user never finds out why
                     | Ready(circuitId, _)
-                    | ReadyAsIntroductionPoint(circuitId, _, _, _, _)
+                    | ReadyAsIntroductionPoint(circuitId, _, _, _, _, _)
                     | ReadyAsRendezvousPoint(circuitId, _)
                     // The circuit was already dead in our eyes, so we don't care about it being destroyed, just update the state to new destroyed state
                     | Destroyed(circuitId, _)
                     | Truncated(circuitId, _) ->
                         circuitState <- Destroyed(circuitId, destroyCell.Reason)
+                        announceDeath()
                 | _ -> ()
             }
 
@@ -672,7 +719,11 @@ and TorCircuit
                             "Circuit is not in a state suitable for extending"
             }
 
-        let registerAsIntroductionPoint authKeyPairOpt callback =
+        let registerAsIntroductionPoint
+            authKeyPairOpt
+            callback
+            disconnectionCallback
+            =
             async {
                 match circuitState with
                 | Ready(circuitId, nodes) ->
@@ -711,7 +762,8 @@ and TorCircuit
                             authPrivateKey,
                             authPublicKey,
                             connectionCompletionSource,
-                            callback
+                            callback,
+                            disconnectionCallback
                         )
 
                     do!
@@ -921,10 +973,16 @@ and TorCircuit
                     |> TryExecuteAsyncAndReplyAsResult replyChannel
             | CircuitOperation.RegisterAsIntroductionPoint
                 (
-                    authKeyPairOpt, callback, replyChannel
+                    authKeyPairOpt,
+                    callback,
+                    disconnectionCallback,
+                    replyChannel
                 ) ->
                 do!
-                    registerAsIntroductionPoint authKeyPairOpt callback
+                    registerAsIntroductionPoint
+                        authKeyPairOpt
+                        callback
+                        disconnectionCallback
                     |> TryExecuteAsyncAndReplyAsResult replyChannel
             | CircuitOperation.RegisterAsRendezvousPoint(cookie, replyChannel) ->
                 do!
@@ -966,6 +1024,7 @@ and TorCircuit
                         introEncPrivateKey
                         introEncPublicKey
                     |> TryExecuteAsyncAndReplyAsResult replyChannel
+            | CircuitOperation.HandleDeath -> announceDeath()
 
             return! CircuitMailBoxProcessor inbox
         }
@@ -994,15 +1053,16 @@ and TorCircuit
         match circuitState with
         | Creating(circuitId, _, _)
         | Extending(circuitId, _, _, _)
-        | RegisteringAsIntroductionPoint(circuitId, _, _, _, _, _)
+        | RegisteringAsIntroductionPoint(circuitId, _, _, _, _, _, _)
         | RegisteringAsRendezvousPoint(circuitId, _, _)
         | WaitingForIntroduceAcknowledge(circuitId, _, _)
         | WaitingForRendezvousRequest(circuitId, _, _, _, _, _, _)
         | Ready(circuitId, _)
-        | ReadyAsIntroductionPoint(circuitId, _, _, _, _)
+        | ReadyAsIntroductionPoint(circuitId, _, _, _, _, _)
         | ReadyAsRendezvousPoint(circuitId, _)
         | Destroyed(circuitId, _)
-        | Truncated(circuitId, _) -> circuitId
+        | Truncated(circuitId, _)
+        | Disconnected circuitId -> circuitId
         | CircuitState.Initialized ->
             failwith
                 "Should not happen: can't get circuitId for non-initialized circuit."
@@ -1076,6 +1136,7 @@ and TorCircuit
     member __.RegisterAsIntroductionPoint
         (authKeyPairOpt: Option<AsymmetricCipherKeyPair>)
         callback
+        disconnectionCallback
         =
         async {
             let! completionTaskRes =
@@ -1084,6 +1145,7 @@ and TorCircuit
                         CircuitOperation.RegisterAsIntroductionPoint(
                             authKeyPairOpt,
                             callback,
+                            disconnectionCallback,
                             replyChannel
                         )
                     ),
@@ -1203,10 +1265,20 @@ and TorCircuit
     member self.RegisterAsIntroductionPointAsync
         (authKeyPairOpt: Option<AsymmetricCipherKeyPair>)
         (callback: Func<RelayIntroduce, Task>)
+        (disconnectCallback: Action)
         =
-        fun relayIntroduce ->
-            async { return! callback.Invoke(relayIntroduce) |> Async.AwaitTask }
-        |> self.RegisterAsIntroductionPoint authKeyPairOpt
+        let introduceCallback =
+            fun relayIntroduce ->
+                async {
+                    return! callback.Invoke relayIntroduce |> Async.AwaitTask
+                }
+
+        let disconnectCallback = fun () -> disconnectCallback.Invoke()
+
+        self.RegisterAsIntroductionPoint
+            authKeyPairOpt
+            introduceCallback
+            disconnectCallback
         |> Async.StartAsTask
 
     member self.RegisterAsRendezvousPointAsync(cookie: array<byte>) =
@@ -1230,20 +1302,19 @@ and TorCircuit
         lock streamSetupLock safeRegister
 
     interface ITorCircuit with
+        member self.HandleDestroyedGuard() =
+            circuitOperationsMailBox.Post CircuitOperation.HandleDeath
+
         member self.HandleIncomingCell(cell: ICell) =
             async {
                 //FIXME: add exception handling to mailbox and remove reply from here?
                 let! handleRes =
-                    circuitOperationsMailBox.PostAndAsyncReply(
-                        (fun replyChannel ->
-                            CircuitOperation.HandleIncomingCell(
-                                self,
-                                cell,
-                                replyChannel
-                            )
-                        ),
-                        Constants.CircuitRendezvousTimeout.TotalMilliseconds
-                        |> int
+                    circuitOperationsMailBox.PostAndAsyncReply(fun replyChannel ->
+                        CircuitOperation.HandleIncomingCell(
+                            self,
+                            cell,
+                            replyChannel
+                        )
                     )
 
                 return UnwrapResult handleRes

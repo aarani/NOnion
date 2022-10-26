@@ -42,7 +42,7 @@ namespace NOnion.Tests
             var circuit = new TorCircuit(guard);
 
             await circuit.CreateAsync(CircuitNodeDetail.FastCreate);
-            await circuit.RegisterAsIntroductionPointAsync(FSharpOption<AsymmetricCipherKeyPair>.None, StubCallback);
+            await circuit.RegisterAsIntroductionPointAsync(FSharpOption<AsymmetricCipherKeyPair>.None, StubCallback, DisconnectionCallback);
         }
 
         private Task StubCallback(RelayIntroduce _)
@@ -50,6 +50,7 @@ namespace NOnion.Tests
             return Task.CompletedTask;
         }
 
+        private void DisconnectionCallback() { }
 
         [Test]
         [Retry(TestsRetryCount)]
@@ -114,7 +115,7 @@ namespace NOnion.Tests
             int descriptorUploadRetryLimit = 2;
 
             TorDirectory directory = await TorDirectory.BootstrapAsync(FallbackDirectorySelector.GetRandomFallbackDirectory(), new DirectoryInfo(Path.GetTempPath()));
- 
+
             TorLogger.Log("Finished bootstraping");
 
             SecureRandom random = new SecureRandom();
@@ -154,7 +155,7 @@ namespace NOnion.Tests
 
             ((IDisposable) host).Dispose();
         }
-        
+
         [Test]
         [Retry(TestsRetryCount)]
         public void CanEstablishAndCommunicateOverHSConnectionOnionStyle()

@@ -20,7 +20,6 @@ type GuardConnectionFailedException =
     internal new(message: string) =
         { inherit NOnionException("Connecting to guard node failed: " + message) }
 
-
 type CircuitTruncatedException internal (reason: DestroyReason) =
     inherit NOnionException(sprintf "Circuit got truncated, reason %A" reason)
 
@@ -37,6 +36,9 @@ type UnsuccessfulHttpRequestException internal (statusCode: string) =
 
 type UnsuccessfulIntroductionException internal (status: RelayIntroduceStatus) =
     inherit NOnionException(sprintf "Unsuccessful introduction: %A" status)
+
+type IntroductoinPointsKilledException() =
+    inherit NOnionException("Introduction points got disconnected, please try again!")
 
 type NOnionSocketException
     internal

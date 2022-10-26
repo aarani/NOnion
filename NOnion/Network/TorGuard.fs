@@ -73,17 +73,10 @@ type TorGuard private (client: TcpClient, sslStream: SslStream) =
                      ReplyChannel = replyChannel
                  } = inbox.Receive()
 
-            try
-                do! innerSend circuitId cellToSend
-                OperationResult.Ok() |> replyChannel.Reply
-            with
-            | exn ->
-                match FSharpUtil.FindException<SocketException> exn with
-                | Some socketExn ->
-                    NOnionSocketException socketExn :> exn
-                    |> OperationResult.Failure
-                    |> replyChannel.Reply
-                | None -> OperationResult.Failure exn |> replyChannel.Reply
+            do!
+                innerSend circuitId cellToSend
+                |> MailboxResultUtil.TryExecuteAsyncAndReplyAsResult
+                    replyChannel
 
             return! SendMailBoxProcessor inbox
         }
@@ -165,7 +158,7 @@ type TorGuard private (client: TcpClient, sslStream: SslStream) =
     static member NewClientAsync ipEndpoint =
         TorGuard.NewClient ipEndpoint |> Async.StartAsTask
 
-    member __.Send (circuitId: uint16) (cellToSend: ICell) =
+    member self.Send (circuitId: uint16) (cellToSend: ICell) =
         async {
             let! sendResult =
                 sendMailBox.PostAndAsyncReply(fun replyChannel ->
@@ -179,6 +172,7 @@ type TorGuard private (client: TcpClient, sslStream: SslStream) =
             match sendResult with
             | OperationResult.Ok _ -> return ()
             | OperationResult.Failure exn ->
+                self.KillChildCircuits()
                 return raise <| FSharpUtil.ReRaise exn
         }
 
@@ -286,13 +280,35 @@ type TorGuard private (client: TcpClient, sslStream: SslStream) =
             | None -> return None
         }
 
+    member private __.KillChildCircuits() =
+        TorLogger.Log "TorGuard: guard is dead, telling children..."
+
+        shutdownToken.Cancel()
+
+        let killCircuits() =
+            circuitsMap
+            |> Map.iter(fun _cid circuit -> circuit.HandleDestroyedGuard())
+
+        lock circuitSetupLock killCircuits
+
     member private self.StartListening() =
         let rec readFromStream() =
             async {
-                let! maybeCell = self.ReceiveMessage()
+                let! maybeCell =
+                    async {
+                        try
+                            return! self.ReceiveMessage()
+                        with
+                        | exn ->
+                            match FSharpUtil.FindException<SocketException> exn
+                                with
+                            | Some _socketExn -> return None
+                            | None -> return raise <| FSharpUtil.ReRaise exn
+                    }
 
                 match maybeCell with
                 | None ->
+                    self.KillChildCircuits()
                     TorLogger.Log "TorGuard: guard receiving thread stopped"
                 | Some(cid, cell) ->
                     if cid = 0us then
@@ -308,11 +324,15 @@ type TorGuard private (client: TcpClient, sslStream: SslStream) =
                             with
                             | ex ->
                                 sprintf
-                                    "TorGuard: exception when trying to handle incomming cell type=%i, ex=%s"
+                                    "TorGuard: exception when trying to handle incoming cell type=%i, ex=%s"
                                     cell.Command
                                     (ex.ToString())
                                 |> TorLogger.Log
-                        | None -> failwithf "Unknown circuit, Id = %i" cid
+
+                                self.KillChildCircuits()
+                        | None ->
+                            self.KillChildCircuits()
+                            failwithf "Unknown circuit, Id = %i" cid
 
                     return! readFromStream()
             }
@@ -381,8 +401,8 @@ type TorGuard private (client: TcpClient, sslStream: SslStream) =
         lock circuitSetupLock (fun () -> createCircuitId 0)
 
     interface IDisposable with
-        member __.Dispose() =
-            shutdownToken.Cancel()
+        member self.Dispose() =
+            self.KillChildCircuits()
             sslStream.Dispose()
             client.Close()
             client.Dispose()
