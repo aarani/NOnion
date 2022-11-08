@@ -8,6 +8,12 @@
 # Finish renaming solution and projects
 01a34f4973ab0942efb396690348a9a05284352e
 
+# Utility: fix typo in Base64Util
+18431d14465cee4f2393368d9a36018a8335f69f
+
+# Network: typo fix: replay -> reply
+e483680ba2c6e894a33bd88e9b30e84412fa9865
+
 
 ##### fantomless/fantomas related: ###############
 
@@ -34,6 +40,3 @@ e1ed718b1cdeac7870442b28dcd3431a5b5305a2
 
 # CI: add fantomas step
 2c7ba0880073b4726f3342d6c08928a4b4525dcd
-
-# Utility: fix typo in Base64Util
-18431d14465cee4f2393368d9a36018a8335f69f
