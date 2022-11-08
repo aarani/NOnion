@@ -61,8 +61,7 @@ type TorServiceClient =
                             match responsibleDirs with
                             | [] ->
                                 return
-                                    failwith
-                                        "TorServiceClient: can't download descriptor, all requests failed."
+                                    raise <| DescriptorDownloadFailedException()
                             | hsDirectory :: tail ->
                                 try
                                     let! guardEndPoint, randomGuardNode =

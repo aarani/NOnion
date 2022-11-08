@@ -40,6 +40,9 @@ type UnsuccessfulIntroductionException internal (status: RelayIntroduceStatus) =
 type IntroductoinPointsKilledException() =
     inherit NOnionException("Introduction points got disconnected, please try again!")
 
+type DescriptorDownloadFailedException() =
+    inherit NOnionException("Can't download descriptor, all requests failed.")
+
 type NOnionSocketException
     internal
     (
