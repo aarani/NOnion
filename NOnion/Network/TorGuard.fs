@@ -356,16 +356,25 @@ type TorGuard private (client: TcpClient, sslStream: SslStream) =
             //TODO: Client authentication isn't implemented yet!
             do! self.ReceiveExpected<CellAuthChallenge>() |> Async.Ignore
             let! netInfo = self.ReceiveExpected<CellNetInfo>()
+            let maybeOtherAddress = netInfo.MyAddresses |> Seq.tryHead
 
-            do!
-                self.Send
-                    Constants.DefaultCircuitId
-                    {
-                        CellNetInfo.Time =
-                            DateTimeUtils.ToUnixTimestamp DateTime.UtcNow
-                        OtherAddress = netInfo.MyAddresses |> Seq.head
-                        MyAddresses = List.singleton netInfo.OtherAddress
-                    }
+            match maybeOtherAddress with
+            | None ->
+                return
+                    raise
+                    <| GuardConnectionFailedException(
+                        "TorGuard.Handshake: problem in initializing the handshake process"
+                    )
+            | Some otherAddress ->
+                do!
+                    self.Send
+                        Constants.DefaultCircuitId
+                        {
+                            CellNetInfo.Time =
+                                DateTimeUtils.ToUnixTimestamp DateTime.UtcNow
+                            OtherAddress = otherAddress
+                            MyAddresses = List.singleton netInfo.OtherAddress
+                        }
 
             TorLogger.Log "TorGuard: finished handshake process"
         //TODO: do security checks on handshake data
