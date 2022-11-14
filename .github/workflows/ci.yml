@@ -85,7 +85,7 @@ jobs:
           NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
         if: "${{ env.NUGET_API_KEY != '' }}"
         run: |
-          git clone https://github.com/nblockchain/fsx
+          git clone -b stable https://github.com/nblockchain/fsx
           cd fsx
           sudo ./scripts/CI/install_mono_from_microsoft_deb_packages.sh
           cd ../NOnion
