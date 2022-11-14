@@ -20,6 +20,27 @@ type internal GuardSendMessage =
         ReplyChannel: AsyncReplyChannel<OperationResult<unit>>
     }
 
+module ExceptionUtil =
+    let RunGuardJobWithExceptionHandling<'T> job : Async<'T> =
+        async {
+            try
+                return! job
+            with
+            | exn ->
+                match FSharpUtil.FindException<AuthenticationException> exn with
+                | Some authEx ->
+                    return raise <| GuardConnectionFailedException authEx
+                | None ->
+                    match FSharpUtil.FindException<SocketException> exn with
+                    | Some socketEx ->
+                        return raise <| GuardConnectionFailedException socketEx
+                    | None ->
+                        match FSharpUtil.FindException<IOException> exn with
+                        | Some ioEx ->
+                            return raise <| GuardConnectionFailedException ioEx
+                        | None -> return raise <| FSharpUtil.ReRaise exn
+        }
+
 type TorGuard private (client: TcpClient, sslStream: SslStream) =
     let shutdownToken = new CancellationTokenSource()
 
@@ -88,24 +109,23 @@ type TorGuard private (client: TcpClient, sslStream: SslStream) =
         async {
             let tcpClient = new TcpClient()
 
-            try
-                ipEndpoint.ToString()
-                |> sprintf "TorGuard: trying to connect to %s guard node"
-                |> TorLogger.Log
+            let innerConnectAsync(client: TcpClient) =
+                async {
+                    ipEndpoint.ToString()
+                    |> sprintf "TorGuard: trying to connect to %s guard node"
+                    |> TorLogger.Log
 
-                do!
-                    tcpClient.ConnectAsync(ipEndpoint.Address, ipEndpoint.Port)
-                    |> Async.AwaitTask
-                    |> FSharpUtil.WithTimeout Constants.GuardConnectionTimeout
+                    do!
+                        client.ConnectAsync(ipEndpoint.Address, ipEndpoint.Port)
+                        |> Async.AwaitTask
+                        |> FSharpUtil.WithTimeout
+                            Constants.GuardConnectionTimeout
+                }
 
-            with
-            | exn ->
-                let socketExOpt = FSharpUtil.FindException<SocketException> exn
-
-                match socketExOpt with
-                | None -> return raise <| FSharpUtil.ReRaise exn
-                | Some socketEx ->
-                    return raise <| GuardConnectionFailedException socketEx
+            do!
+                ExceptionUtil.RunGuardJobWithExceptionHandling<unit>(
+                    innerConnectAsync tcpClient
+                )
 
             let sslStream =
                 new SslStream(
@@ -118,26 +138,20 @@ type TorGuard private (client: TcpClient, sslStream: SslStream) =
             |> sprintf "TorGuard: creating ssl connection to %s guard node"
             |> TorLogger.Log
 
-            try
-                do!
-                    sslStream.AuthenticateAsClientAsync(
-                        String.Empty,
-                        null,
-                        SslProtocols.Tls12,
-                        false
-                    )
-                    |> Async.AwaitTask
-                    |> FSharpUtil.WithTimeout Constants.CircuitOperationTimeout
-            with
-            | exn ->
-                match FSharpUtil.FindException<AuthenticationException> exn with
-                | Some authEx ->
-                    return raise <| GuardConnectionFailedException authEx
-                | None ->
-                    match FSharpUtil.FindException<SocketException> exn with
-                    | Some socketEx ->
-                        return raise <| GuardConnectionFailedException socketEx
-                    | None -> return raise <| FSharpUtil.ReRaise exn
+            let innerAuthenticateAsClient(stream: SslStream) =
+                stream.AuthenticateAsClientAsync(
+                    String.Empty,
+                    null,
+                    SslProtocols.Tls12,
+                    false
+                )
+                |> Async.AwaitTask
+                |> FSharpUtil.WithTimeout Constants.CircuitOperationTimeout
+
+            do!
+                ExceptionUtil.RunGuardJobWithExceptionHandling<unit>(
+                    innerAuthenticateAsClient sslStream
+                )
 
             ipEndpoint.ToString()
             |> sprintf "TorGuard: ssl connection to %s guard node authenticated"
@@ -296,14 +310,10 @@ type TorGuard private (client: TcpClient, sslStream: SslStream) =
             async {
                 let! maybeCell =
                     async {
-                        try
-                            return! self.ReceiveMessage()
-                        with
-                        | exn ->
-                            match FSharpUtil.FindException<SocketException> exn
-                                with
-                            | Some _socketExn -> return None
-                            | None -> return raise <| FSharpUtil.ReRaise exn
+                        return!
+                            ExceptionUtil.RunGuardJobWithExceptionHandling<Option<(uint16 * ICell)>>(
+                                self.ReceiveMessage()
+                            )
                     }
 
                 match maybeCell with
