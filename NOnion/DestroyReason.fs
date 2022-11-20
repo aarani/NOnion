@@ -14,4 +14,3 @@ type DestroyReason =
     | Timeout = 10uy
     | Destoyed = 11uy
     | NoSuchService = 12uy
-    | DescriptionFail = 13uy

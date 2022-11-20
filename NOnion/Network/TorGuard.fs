@@ -332,7 +332,7 @@ type TorGuard private (client: TcpClient, sslStream: SslStream) =
                             try
                                 do! circuit.HandleIncomingCell cell
                             with
-                            | :? CircuitDestroyedException as ex ->
+                            | ex ->
                                 sprintf
                                     "TorGuard: exception when trying to handle incoming cell type=%i, ex=%s"
                                     cell.Command
@@ -340,7 +340,6 @@ type TorGuard private (client: TcpClient, sslStream: SslStream) =
                                 |> TorLogger.Log
 
                                 self.KillChildCircuits()
-                            | ex -> return raise <| FSharpUtil.ReRaise ex
                         | None ->
                             self.KillChildCircuits()
                             failwithf "Unknown circuit, Id = %i" cid
