@@ -267,6 +267,7 @@
     "tupleOfWildcards": { "enabled": true },
     "favourTypedIgnore": { "enabled": true },
     "favourReRaise": { "enabled": true },
+    "favourStaticEmptyFields": { "enabled": true },
     "favourConsistentThis": {
         "enabled": true,
         "config": {

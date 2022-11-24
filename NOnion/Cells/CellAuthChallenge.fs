@@ -25,7 +25,7 @@ type CellAuthChallenge =
 
         let challenge = reader.ReadBytes Constants.ChallangeLength
         let methodsCount = ReadBigEndianUInt16 reader |> int
-        let methods = readMethod [] methodsCount
+        let methods = readMethod List.Empty methodsCount
 
         {
             Challenge = challenge

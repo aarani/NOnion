@@ -40,7 +40,7 @@ type TorHttpClient(stream: TorStream, host: string) =
                     "Accept-Encoding", supportedCompressionAlgorithms
                 ]
                 |> List.map(fun (k, v) -> sprintf "%s: %s\r\n" k v)
-                |> String.concat ""
+                |> String.concat String.Empty
 
             do!
                 sprintf "GET %s HTTP/1.0\r\n%s\r\n" path headers
@@ -134,7 +134,7 @@ type TorHttpClient(stream: TorStream, host: string) =
                     "Content-Length", payload.Length.ToString()
                 ]
                 |> List.map(fun (k, v) -> sprintf "%s: %s\r\n" k v)
-                |> String.concat ""
+                |> String.concat String.Empty
 
             do!
                 sprintf "POST %s HTTP/1.0\r\n%s\r\n%s" path headers payload
@@ -187,7 +187,7 @@ type TorHttpClient(stream: TorStream, host: string) =
                 |> Map.ofArray
 
             match headersMap.TryGetValue "Content-Encoding" with
-            | false, _ when body.Length = 0 -> return ""
+            | false, _ when body.Length = 0 -> return String.Empty
             | false, _ ->
                 return failwith "PostString: Content-Encoding header is missing"
             | true, "identity" -> return body |> Encoding.UTF8.GetString
