@@ -38,21 +38,24 @@ jobs:
         run: dotnet restore
       - name: Build
         run: dotnet build --configuration Release --no-restore
+
+      # see https://github.com/dotnet/sdk/issues/15254
+      - name: Prepare for installation of dotnet tools
+        run: dotnet new tool-manifest
+
       - name: fsharpLint
         run: |
-          dotnet tool install --global dotnet-fsharplint --version 0.21.3
+          dotnet tool install dotnet-fsharplint --version 0.21.3
 
-          # path taken from https://stackoverflow.com/a/65367006/544947
-          $HOME/.dotnet/tools/dotnet-fsharplint lint NOnion.sln
+          dotnet dotnet-fsharplint lint NOnion.sln
 
       # FIXME: use `continue-on-error: true` when we figure out how to have a
       #        visual warning icon (instead of green tick) on GitHubActionsCI
       - name: fantomless
         run: |
-          dotnet tool update --global fantomless-tool --version 4.7.997-prerelease
+          dotnet tool install fantomless-tool --version 4.7.997-prerelease
 
-          # path taken from https://stackoverflow.com/a/65367006/544947
-          $HOME/.dotnet/tools/fantomless --recurse .
+          dotnet fantomless --recurse .
           git diff --exit-code
 
       - name: Install dependencies of commitlint
