@@ -50,9 +50,12 @@ jobs:
 
           dotnet dotnet-fsharplint lint NOnion.sln
 
-      # FIXME: use `continue-on-error: true` when we figure out how to have a
-      #        visual warning icon (instead of green tick) on GitHubActionsCI
       - name: fantomless
+
+        # see https://stackoverflow.com/a/62112985/544947
+        if: always()
+        continue-on-error: true
+
         run: |
           dotnet tool install fantomless-tool --version 4.7.997-prerelease
 
