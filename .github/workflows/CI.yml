@@ -22,6 +22,7 @@ jobs:
         run: dotnet test --no-restore --verbosity normal
 
   sanity_check:
+    name: Sanity Check
     needs: build_and_test
     runs-on: ubuntu-20.04
     steps:
@@ -66,6 +67,7 @@ jobs:
         run: npx commitlint --from HEAD~1 --to HEAD --verbose
 
   package:
+    name: Package (Nuget)
     needs: sanity_check
     runs-on: ubuntu-20.04
     env:
