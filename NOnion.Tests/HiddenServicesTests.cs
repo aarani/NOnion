@@ -86,7 +86,7 @@ namespace NOnion.Tests
         {
             if (len - off <= 0) return 0;
 
-            var bytesRead = await stream.ReceiveAsync(buffer, off, len - off);
+            var bytesRead = await stream.ReadAsync(buffer, off, len - off);
 
             if (bytesRead == 0 || bytesRead == -1)
                 throw new Exception("Not enough data");
@@ -134,7 +134,7 @@ namespace NOnion.Tests
                 Task.Run(async () => {
                     var stream = await host.AcceptClientAsync();
                     var bytesToSendWithLength = BitConverter.GetBytes(dataToSendAndReceive.Length).Concat(dataToSendAndReceive).ToArray();
-                    await stream.SendDataAsync(bytesToSendWithLength);
+                    await stream.WriteAsync(bytesToSendWithLength, 0, bytesToSendWithLength.Length);
                     await stream.EndAsync();
                 });
 

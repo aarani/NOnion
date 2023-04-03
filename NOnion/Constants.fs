@@ -95,8 +95,6 @@ module Constants =
     // Time limit used for receving data in stream
     let internal StreamReceiveTimeout = TimeSpan.FromSeconds 1.
 
-    let internal HttpClientBufferSize = 1024
-
     let internal DefaultHttpHost = "127.0.0.1"
 
     // NTor Handshake Constants

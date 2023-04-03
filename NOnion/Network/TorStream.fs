@@ -1,6 +1,8 @@
 ﻿namespace NOnion.Network
 
 open System
+open System.IO
+open System.Threading
 open System.Threading.Tasks
 open System.Threading.Tasks.Dataflow
 
@@ -22,7 +24,9 @@ type private StreamReceiveMessage =
 type private StreamControlMessage =
     | End of replyChannel: AsyncReplyChannel<OperationResult<unit>>
     | Send of
-        array<byte> *
+        data: array<byte> *
+        offset: int *
+        length: int *
         replyChannel: AsyncReplyChannel<OperationResult<unit>>
     | StartServiceConnectionProcess of
         port: int *
@@ -44,6 +48,7 @@ type private StreamControlMessage =
     | SendSendMe of replyChannel: AsyncReplyChannel<OperationResult<unit>>
 
 type TorStream(circuit: TorCircuit) =
+    inherit Stream()
 
     let mutable streamState: StreamState = StreamState.Initialized
 
@@ -79,12 +84,15 @@ type TorStream(circuit: TorCircuit) =
                 | _ -> failwith "Unexpected state when trying to end the stream"
             }
 
-        let safeSend(data: array<byte>) =
+        let safeSend (data: array<byte>) (offset: int) (length: int) =
             async {
                 match streamState with
                 | Connected streamId ->
                     let dataChunks =
-                        SeqUtils.Chunk Constants.MaximumRelayPayloadLength data
+                        data
+                        |> Seq.skip offset
+                        |> Seq.take length
+                        |> SeqUtils.Chunk Constants.MaximumRelayPayloadLength
 
                     let rec sendChunks dataChunks =
                         async {
@@ -98,7 +106,7 @@ type TorStream(circuit: TorCircuit) =
                                     circuit.SendRelayCell
                                         streamId
                                         (head
-                                         |> Array.ofSeq
+                                         |> Seq.toArray
                                          |> RelayData.RelayData)
                                         None
 
@@ -224,9 +232,9 @@ type TorStream(circuit: TorCircuit) =
             match command with
             | End replyChannel ->
                 do! safeEnd() |> TryExecuteAsyncAndReplyAsResult replyChannel
-            | Send(data, replyChannel) ->
+            | Send(data, offset, length, replyChannel) ->
                 do!
-                    safeSend data
+                    safeSend data offset length
                     |> TryExecuteAsyncAndReplyAsResult replyChannel
             | StartServiceConnectionProcess(port, streamObj, replyChannel) ->
                 do!
@@ -348,7 +356,7 @@ type TorStream(circuit: TorCircuit) =
                     do! refillBufferIfNeeded()
 
                     if isEOF then
-                        return -1
+                        return 0
                     else
                         let rec tryRead bytesRead bytesRemaining =
                             async {
@@ -401,9 +409,31 @@ type TorStream(circuit: TorCircuit) =
     let streamReceiveMailBox =
         MailboxProcessor.Start StreamReceiveMailBoxProcessor
 
+    override _.CanRead = not isEOF
+    override _.CanWrite = not isEOF
+
+    override _.CanSeek = false
+
+    override _.Length = failwith "Length is not supported"
+
+    override _.SetLength _ =
+        failwith "SetLength is not supported"
+
+    override _.Position
+        with get () = failwith "No seek, GetPosition is not supported"
+        and set _position = failwith "No seek, SetPosition is not supported"
+
+    override _.Seek(_, _) =
+        failwith "No seek, Seek is not supported"
+
+    override _.Flush() =
+        ()
+
     static member Accept (streamId: uint16) (circuit: TorCircuit) =
         async {
-            let stream = TorStream circuit
+            // We can't use the "use" keyword since this stream needs
+            // to outlive this function.
+            let stream = new TorStream(circuit)
             do! stream.RegisterIncomingStream streamId
 
             do! circuit.SendRelayCell streamId (RelayConnected Array.empty) None
@@ -427,20 +457,6 @@ type TorStream(circuit: TorCircuit) =
 
     member self.EndAsync() =
         self.End() |> Async.StartAsTask
-
-
-    member __.SendData(data: array<byte>) =
-        async {
-            let! sendResult =
-                streamControlMailBox.PostAndAsyncReply(fun replyChannel ->
-                    StreamControlMessage.Send(data, replyChannel)
-                )
-
-            return UnwrapResult sendResult
-        }
-
-    member self.SendDataAsync data =
-        self.SendData data |> Async.StartAsTask
 
     member self.ConnectToService(port: int) =
         async {
@@ -500,7 +516,34 @@ type TorStream(circuit: TorCircuit) =
             return UnwrapResult registerationResult
         }
 
-    member self.Receive (buffer: array<byte>) (offset: int) (length: int) =
+    override _.Read(buffer: array<byte>, offset: int, length: int) =
+        let receiveResult =
+            streamReceiveMailBox.PostAndReply(fun replyChannel ->
+                {
+                    StreamBuffer = buffer
+                    BufferOffset = offset
+                    BufferLength = length
+                    ReplyChannel = replyChannel
+                }
+            )
+
+        UnwrapResult receiveResult
+
+    override _.Write(buffer: array<byte>, offset: int, length: int) =
+        let sendResult =
+            streamControlMailBox.PostAndReply(fun replyChannel ->
+                StreamControlMessage.Send(buffer, offset, length, replyChannel)
+            )
+
+        UnwrapResult sendResult
+
+    override _.ReadAsync
+        (
+            buffer: array<byte>,
+            offset: int,
+            length: int,
+            _cancelToken: CancellationToken
+        ) =
         async {
             let! receiveResult =
                 streamReceiveMailBox.PostAndAsyncReply(fun replyChannel ->
@@ -514,9 +557,30 @@ type TorStream(circuit: TorCircuit) =
 
             return UnwrapResult receiveResult
         }
+        |> Async.StartAsTask
 
-    member self.ReceiveAsync(buffer: array<byte>, offset: int, length: int) =
-        self.Receive buffer offset length |> Async.StartAsTask
+    override _.WriteAsync
+        (
+            buffer: array<byte>,
+            offset: int,
+            length: int,
+            _cancelToken: CancellationToken
+        ) =
+        async {
+            let! sendResult =
+                streamControlMailBox.PostAndAsyncReply(fun replyChannel ->
+                    StreamControlMessage.Send(
+                        buffer,
+                        offset,
+                        length,
+                        replyChannel
+                    )
+                )
+
+            return UnwrapResult sendResult
+        }
+        |> Async.StartAsTask
+        :> Task
 
     interface ITorStream with
         member __.HandleDestroyedCircuit() =

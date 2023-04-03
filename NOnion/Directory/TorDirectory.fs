@@ -76,7 +76,7 @@ type TorDirectory =
                         )
 
                     let circuit = TorCircuit(guard)
-                    let stream = TorStream(circuit)
+                    use stream = new TorStream(circuit)
 
                     (*
                         * We always use FastCreate authentication because privacy is not important for mono-hop
@@ -216,7 +216,7 @@ type TorDirectory =
                     )
 
                 let circuit = TorCircuit(guard)
-                let stream = TorStream(circuit)
+                use stream = new TorStream(circuit)
 
                 (*
                  * We always use FastCreate authentication because privacy is not important for mono-hop
@@ -252,7 +252,7 @@ type TorDirectory =
                             circuit.Create CircuitNodeDetail.FastCreate
                             |> Async.Ignore
 
-                        let consensusStream = TorStream circuit
+                        use consensusStream = new TorStream(circuit)
                         do! consensusStream.ConnectToDirectory() |> Async.Ignore
 
                         let consensusHttpClient =
@@ -340,7 +340,7 @@ type TorDirectory =
                             (digestsChunk: array<string>)
                             =
                             async {
-                                let descriptorsStream = TorStream circuit
+                                use descriptorsStream = new TorStream(circuit)
 
                                 do!
                                     descriptorsStream.ConnectToDirectory()
