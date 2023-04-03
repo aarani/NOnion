@@ -384,7 +384,7 @@ type TorServiceHost
                     do! circuit.Extend randomMiddleNode |> Async.Ignore
                     do! circuit.Extend hsDirectoryNode |> Async.Ignore
 
-                    let dirStream = TorStream circuit
+                    use dirStream = new TorStream(circuit)
                     do! dirStream.ConnectToDirectory() |> Async.Ignore
 
                     let! _response =
@@ -811,6 +811,9 @@ type TorServiceHost
                 }
 
             let! (streamId, senderCircuit) = getConnectionRequest()
+            // We can't use the "use" keyword since this stream needs
+            // to outlive this function. Hopefully the caller will dispose
+            // this after they're done using it.
             let! stream = TorStream.Accept streamId senderCircuit
             return stream
         }

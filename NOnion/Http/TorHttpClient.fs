@@ -18,7 +18,8 @@ type TorHttpClient(stream: TorStream, host: string) =
 
             // Try to fill the buffer
             let! bytesRead =
-                stream.Receive buffer 0 Constants.HttpClientBufferSize
+                stream.ReadAsync(buffer, 0, Constants.HttpClientBufferSize)
+                |> Async.AwaitTask
 
             if bytesRead > 0 then
                 memStream.Write(buffer, 0, bytesRead)
@@ -42,10 +43,11 @@ type TorHttpClient(stream: TorStream, host: string) =
                 |> List.map(fun (k, v) -> sprintf "%s: %s\r\n" k v)
                 |> String.concat String.Empty
 
-            do!
+            let buffer =
                 sprintf "GET %s HTTP/1.0\r\n%s\r\n" path headers
-                |> Encoding.UTF8.GetBytes
-                |> stream.SendData
+                |> Encoding.ASCII.GetBytes
+
+            do! stream.WriteAsync(buffer, 0, buffer.Length) |> Async.AwaitTask
 
             use memStream = new MemoryStream()
 
@@ -136,10 +138,11 @@ type TorHttpClient(stream: TorStream, host: string) =
                 |> List.map(fun (k, v) -> sprintf "%s: %s\r\n" k v)
                 |> String.concat String.Empty
 
-            do!
+            let buffer =
                 sprintf "POST %s HTTP/1.0\r\n%s\r\n%s" path headers payload
                 |> Encoding.ASCII.GetBytes
-                |> stream.SendData
+
+            do! stream.WriteAsync(buffer, 0, buffer.Length) |> Async.AwaitTask
 
             use memStream = new MemoryStream()
 
