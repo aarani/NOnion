@@ -383,7 +383,7 @@ type TorGuard private (client: TcpClient, sslStream: SslStream) =
                             CellNetInfo.Time =
                                 DateTimeUtils.ToUnixTimestamp DateTime.UtcNow
                             OtherAddress = otherAddress
-                            MyAddresses = List.singleton netInfo.OtherAddress
+                            MyAddresses = List.Empty
                         }
 
             TorLogger.Log "TorGuard: finished handshake process"
