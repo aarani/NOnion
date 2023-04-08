@@ -92,7 +92,7 @@ type TorStream(circuit: TorCircuit) =
                         data
                         |> Seq.skip offset
                         |> Seq.take length
-                        |> SeqUtils.Chunk Constants.MaximumRelayPayloadLength
+                        |> Seq.chunkBySize Constants.MaximumRelayPayloadLength
 
                     let rec sendChunks dataChunks =
                         async {
