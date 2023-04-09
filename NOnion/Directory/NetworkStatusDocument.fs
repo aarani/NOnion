@@ -1,7 +1,6 @@
 ﻿namespace NOnion.Directory
 
 open System
-open System.Text
 
 open NOnion
 open NOnion.Utility
@@ -216,6 +215,7 @@ type RouterStatusEntry =
 
 type DirectorySignature =
     {
+        Algorithm: Option<string>
         Identity: Option<string>
         Digest: Option<string>
         Signature: Option<string>
@@ -223,7 +223,8 @@ type DirectorySignature =
 
     static member Empty =
         {
-            DirectorySignature.Identity = None
+            DirectorySignature.Algorithm = None
+            Identity = None
             Digest = None
             Signature = None
         }
@@ -252,12 +253,25 @@ type DirectorySignature =
                 | "directory-signature" when state.Identity = None ->
                     lines.Dequeue() |> ignore<string>
 
-                    innerParse
-                        { state with
-                            DirectorySignature.Identity = readWord() |> Some
-                            Digest = readWord() |> Some
-                            Signature = readBlock String.Empty |> Some
-                        }
+                    let algos = [ "sha1"; "sha256" ]
+                    let maybeAlgo = readWord()
+
+                    if Seq.contains maybeAlgo algos then
+                        innerParse
+                            { state with
+                                DirectorySignature.Algorithm = maybeAlgo |> Some
+                                Identity = readWord() |> Some
+                                Digest = readWord() |> Some
+                                Signature = readBlock String.Empty |> Some
+                            }
+                    else
+                        innerParse
+                            { state with
+                                DirectorySignature.Algorithm = "sha1" |> Some
+                                Identity = maybeAlgo |> Some
+                                Digest = readWord() |> Some
+                                Signature = readBlock String.Empty |> Some
+                            }
                 | "directory-signature" when state.Identity <> None -> state
                 | _ -> state
 
