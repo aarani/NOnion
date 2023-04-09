@@ -158,7 +158,7 @@ type TorGuard private (client: TcpClient, sslStream: SslStream) =
             |> TorLogger.Log
 
             let guard = new TorGuard(tcpClient, sslStream)
-            do! guard.Handshake()
+            do! guard.Handshake ipEndpoint
 
             ipEndpoint.ToString()
             |> sprintf "TorGuard: connection with %s established"
@@ -349,7 +349,7 @@ type TorGuard private (client: TcpClient, sslStream: SslStream) =
 
         Async.Start(readFromStream(), shutdownToken.Token)
 
-    member private self.Handshake() =
+    member private self.Handshake(expectedIPEndPoint: IPEndPoint) =
         async {
             TorLogger.Log "TorGuard: started handshake process"
 
@@ -366,25 +366,35 @@ type TorGuard private (client: TcpClient, sslStream: SslStream) =
             //TODO: Client authentication isn't implemented yet!
             do! self.ReceiveExpected<CellAuthChallenge>() |> Async.Ignore
             let! netInfo = self.ReceiveExpected<CellNetInfo>()
-            let maybeOtherAddress = netInfo.MyAddresses |> Seq.tryHead
 
-            match maybeOtherAddress with
-            | None ->
-                return
-                    raise
-                    <| GuardConnectionFailedException(
-                        "TorGuard.Handshake: problem in initializing the handshake process"
-                    )
-            | Some otherAddress ->
-                do!
-                    self.Send
-                        Constants.DefaultCircuitId
-                        {
-                            CellNetInfo.Time =
-                                DateTimeUtils.ToUnixTimestamp DateTime.UtcNow
-                            OtherAddress = otherAddress
-                            MyAddresses = List.Empty
-                        }
+            let expectedRouterAddress =
+                let ipAddress = expectedIPEndPoint.Address
+
+                {
+                    RouterAddress.Type =
+                        match ipAddress.AddressFamily with
+                        | AddressFamily.InterNetwork -> 04uy //IPv4
+                        | AddressFamily.InterNetworkV6 -> 06uy //IPv6
+                        | _ ->
+                            failwith
+                                "Should not happen: router's IPAddress is not either v4 or v6"
+                    Value = ipAddress.GetAddressBytes()
+                }
+
+            if netInfo.MyAddresses |> Seq.contains expectedRouterAddress |> not then
+                raise
+                <| GuardConnectionFailedException
+                    "Expected router address is not listed in NETINFO"
+
+            do!
+                self.Send
+                    Constants.DefaultCircuitId
+                    {
+                        CellNetInfo.Time =
+                            DateTimeUtils.ToUnixTimestamp DateTime.UtcNow
+                        OtherAddress = expectedRouterAddress
+                        MyAddresses = List.Empty
+                    }
 
             TorLogger.Log "TorGuard: finished handshake process"
         //TODO: do security checks on handshake data
