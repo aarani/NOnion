@@ -128,7 +128,10 @@ type TorServiceHost
                 let! endPoint, randomNodeDetails =
                     directory.GetRouter RouterType.Guard
 
-                let! guard = TorGuard.NewClient endPoint
+                let! guard =
+                    TorGuard.NewClientWithIdentity
+                        endPoint
+                        (randomNodeDetails.GetIdentityKey() |> Some)
 
                 let rendezvousCircuit =
                     TorCircuit(guard, self.IncomingServiceStreamCallback)
@@ -273,7 +276,11 @@ type TorServiceHost
                                 failwith
                                     "Unreachable, directory always returns non-fast connection info"
                         | Create(address, onionKey, fingerprint) ->
-                            let! guard = TorGuard.NewClient guardEndPoint
+                            let! guard =
+                                TorGuard.NewClientWithIdentity
+                                    guardEndPoint
+                                    (guardNodeDetail.GetIdentityKey() |> Some)
+
                             let circuit = TorCircuit guard
 
                             let encKeyPair, authKeyPair =
@@ -378,7 +385,11 @@ type TorServiceHost
                     let! _, randomMiddleNode =
                         directory.GetRouter RouterType.Normal
 
-                    use! guardNode = TorGuard.NewClient guardEndPoint
+                    use! guardNode =
+                        TorGuard.NewClientWithIdentity
+                            guardEndPoint
+                            (randomGuardNode.GetIdentityKey() |> Some)
+
                     let circuit = TorCircuit guardNode
                     do! circuit.Create randomGuardNode |> Async.Ignore
                     do! circuit.Extend randomMiddleNode |> Async.Ignore
