@@ -390,8 +390,8 @@ type TorGuard private (client: TcpClient, sslStream: SslStream) =
                 self.Send
                     Constants.DefaultCircuitId
                     {
-                        CellNetInfo.Time =
-                            DateTimeUtils.ToUnixTimestamp DateTime.UtcNow
+                        //Clients SHOULD send "0" as their timestamp, to avoid fingerprinting.
+                        CellNetInfo.Time = 0u
                         OtherAddress = expectedRouterAddress
                         MyAddresses = List.Empty
                     }
