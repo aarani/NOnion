@@ -7,6 +7,11 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Remove="Directory-Samples\KeyCertificate.json" />
+    <None Remove="Directory-Samples\KeyCertificate.txt" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="NUnit" Version="3.12.0" />
     <PackageReference Include="NUnit3TestAdapter" Version="3.16.1" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.5.0" />
@@ -18,6 +23,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Content Include="Directory-Samples\KeyCertificate.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Directory-Samples\KeyCertificate.txt">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
     <Content Include="Directory-Samples\MicroDescriptor.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>

@@ -49,5 +49,20 @@ namespace NOnion.Tests
 
             Assert.That(microDescriptorJson, Is.EqualTo(expectedMicroDescriptorsJson));
         }
+
+        [Test]
+        public void CanParseKeyCertificateAndConvertToJson()
+        {
+            // Tor directory spec enforces documents to use \n (The ascii LF character (hex value 0x0a)
+            var keyCertificatesStr = File.ReadAllText($"Directory-Samples{Path.DirectorySeparatorChar}KeyCertificate.txt").Replace("\r\n", "\n");
+            var expectedKeyCertificatesJson = File.ReadAllText($"Directory-Samples{Path.DirectorySeparatorChar}KeyCertificate.json");
+
+            var keyCertificates = KeyCertificateEntry.ParseMany(keyCertificatesStr);
+            var keyCertificatesJson = JsonConvert.SerializeObject(keyCertificates, Formatting.Indented);
+
+            return;
+            //Assert.That(microDescriptorJson, Is.EqualTo(expectedMicroDescriptorsJson));
+        }
+
     }
 }

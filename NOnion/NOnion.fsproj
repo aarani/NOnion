@@ -12,6 +12,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Content Include="auth_dirs.inc" />
     <Compile Include="TorLogger.fs" />
     <Compile Include="Constants.fs" />
     <Compile Include="DestroyReason.fs" />
@@ -77,6 +78,7 @@
     <Compile Include="Directory\ServerDescriptorsDocument.fs" />
     <Compile Include="Directory\NetworkStatusDocument.fs" />
     <Compile Include="Directory\ServerMicrodescriptorDocument.fs" />
+    <Compile Include="Directory\KeyCertificatesDocument.fs" />
     <Compile Include="Directory\HiddenServiceDescriptorDocument.fs" />
     <Compile Include="Directory\HiddenServiceFirstLayerDescriptorDocument.fs" />
     <Compile Include="Directory\HiddenServiceSecondLayerDescriptorDocument.fs" />
