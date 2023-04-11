@@ -13,18 +13,7 @@ type TorHttpClient(stream: TorStream, host: string) =
 
     // Receives all the data stream until it reaches EOF (until stream receive a RELAY_END)
     let rec ReceiveAll(memStream: MemoryStream) =
-        async {
-            let buffer = Array.zeroCreate Constants.HttpClientBufferSize
-
-            // Try to fill the buffer
-            let! bytesRead =
-                stream.ReadAsync(buffer, 0, Constants.HttpClientBufferSize)
-                |> Async.AwaitTask
-
-            if bytesRead > 0 then
-                memStream.Write(buffer, 0, bytesRead)
-                return! ReceiveAll memStream
-        }
+        async { do! stream.CopyToAsync(memStream) |> Async.AwaitTask }
 
     member __.GetAsString (path: string) (forceUncompressed: bool) =
         async {

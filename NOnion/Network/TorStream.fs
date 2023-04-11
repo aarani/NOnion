@@ -356,7 +356,7 @@ type TorStream(circuit: TorCircuit) =
                     do! refillBufferIfNeeded()
 
                     if isEOF then
-                        return -1
+                        return 0
                     else
                         let rec tryRead bytesRead bytesRemaining =
                             async {
