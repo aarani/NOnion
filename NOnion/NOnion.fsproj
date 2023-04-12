@@ -12,12 +12,16 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Content Include="auth_dirs.inc">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
     <Compile Include="TorLogger.fs" />
     <Compile Include="Constants.fs" />
     <Compile Include="DestroyReason.fs" />
     <Compile Include="RelayIntroduceStatus.fs" />
     <Compile Include="Exceptions.fs" />
     <Compile Include="HandshakeType.fs" />
+    <Compile Include="Utility\PemUtility.fs" />
     <Compile Include="Utility\FSharpUtil.fs" />
     <Compile Include="Utility\ResultUtil.fs" />
     <Compile Include="Utility\MailboxUtil.fs" />
@@ -34,6 +38,7 @@
     <Compile Include="Utility\BinaryIO.fs" />
     <Compile Include="Utility\CertificateUtil.fs" />
     <Compile Include="Utility\Hex.fs" />
+    <Compile Include="Crypto\DirectoryCipher.fs" />
     <Compile Include="Crypto\TorStreamCipher.fs" />
     <Compile Include="Crypto\HiddenServicesCipher.fs" />
     <Compile Include="Crypto\Kdf\KdfResult.fs" />
@@ -77,6 +82,7 @@
     <Compile Include="Directory\ServerDescriptorsDocument.fs" />
     <Compile Include="Directory\NetworkStatusDocument.fs" />
     <Compile Include="Directory\ServerMicrodescriptorDocument.fs" />
+    <Compile Include="Directory\KeyCertificatesDocument.fs" />
     <Compile Include="Directory\HiddenServiceDescriptorDocument.fs" />
     <Compile Include="Directory\HiddenServiceFirstLayerDescriptorDocument.fs" />
     <Compile Include="Directory\HiddenServiceSecondLayerDescriptorDocument.fs" />
