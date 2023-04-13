@@ -12,15 +12,14 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Content Include="auth_dirs.inc">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
+    <EmbeddedResource Include="auth_dirs.inc" />
     <Compile Include="TorLogger.fs" />
     <Compile Include="Constants.fs" />
     <Compile Include="DestroyReason.fs" />
     <Compile Include="RelayIntroduceStatus.fs" />
     <Compile Include="Exceptions.fs" />
     <Compile Include="HandshakeType.fs" />
+    <Compile Include="Utility\EmbeddedResourceUtility.fs" />
     <Compile Include="Utility\PemUtility.fs" />
     <Compile Include="Utility\FSharpUtil.fs" />
     <Compile Include="Utility\ResultUtil.fs" />

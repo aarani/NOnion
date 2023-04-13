@@ -47,7 +47,8 @@ type TorDirectory =
 
     static member private GetTrustedAuthorities() =
         let authDirText =
-            (File.ReadAllText "auth_dirs.inc")
+            EmbeddedResourceUtility
+                .ExtractEmbeddedResourceFileContents("auth_dirs.inc")
                 .Replace("\r\n", "\n")
 
         let regexPattern = "\"(\w+) orport=\d+ \"\n  \"v3ident=(\w+) \""
