@@ -17,6 +17,7 @@ type RouterType =
     | Normal
     | Guard
     | Directory
+    | Exit
 
 type TorDirectory =
     private
@@ -173,6 +174,9 @@ type TorDirectory =
                    | Guard ->
                        Seq.filter(fun router ->
                            Seq.contains "Guard" router.Flags
+                       )
+                   | Exit ->
+                       Seq.filter(fun router -> Seq.contains "Exit" router.Flags
                        )
                 |> SeqUtils.TakeRandom 1
                 |> Seq.tryHead
