@@ -9,7 +9,7 @@ open NOnion
 open NOnion.Network
 open NOnion.Utility
 
-type TorHttpClient(stream: TorStream, host: string) =
+type TorHttpClient(stream: Stream, host: string) =
 
     // Receives all the data stream until it reaches EOF (until stream receive a RELAY_END)
     let ReceiveAll memStream =
@@ -90,9 +90,7 @@ type TorHttpClient(stream: TorStream, host: string) =
                 |> Map.ofArray
 
             match headersMap.TryGetValue "Content-Encoding" with
-            | false, _ ->
-                return
-                    failwith "GetAsString: Content-Encoding header is missing"
+            | false, _
             | true, "identity" -> return body |> Encoding.UTF8.GetString
             | true, "deflate" ->
                 // DeflateStream needs the zlib header to be chopped off first
@@ -180,8 +178,7 @@ type TorHttpClient(stream: TorStream, host: string) =
 
             match headersMap.TryGetValue "Content-Encoding" with
             | false, _ when body.Length = 0 -> return String.Empty
-            | false, _ ->
-                return failwith "PostString: Content-Encoding header is missing"
+            | false, _
             | true, "identity" -> return body |> Encoding.UTF8.GetString
             | true, "deflate" ->
                 // DeflateStream needs the zlib header to be chopped off first

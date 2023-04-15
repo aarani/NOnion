@@ -2,6 +2,8 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Net.Security;
+using System.Security.Authentication;
 using System.Security.Cryptography;
 using System.Threading.Tasks;
 
@@ -108,6 +110,27 @@ namespace NOnion.Tests
         public void CanBrowseFacebookOverHS()
         {
             Assert.ThrowsAsync(typeof(UnsuccessfulHttpRequestException), BrowseFacebookOverHS);
+        }
+
+        public async Task BrowseFacebookOverHSWithTLS()
+        {
+            TorDirectory directory = await TorDirectory.BootstrapAsync(FallbackDirectorySelector.GetRandomFallbackDirectory(), new DirectoryInfo(Path.GetTempPath()));
+
+            var client = await TorServiceClient.ConnectAsync(directory, "facebookwkhpilnemxj7asaniu7vnjjbiltxjqhye3mhbshg7kx5tfyd.onion:443");
+
+            var sslStream = new SslStream(client.GetStream(), true, (sender, cert, chain, sslPolicyErrors) => true);
+            await sslStream.AuthenticateAsClientAsync(string.Empty, null, SslProtocols.Tls12, false);
+
+            var httpClientOverSslStream = new TorHttpClient(sslStream, "www.facebookwkhpilnemxj7asaniu7vnjjbiltxjqhye3mhbshg7kx5tfyd.onion");
+            var facebookResponse = await httpClientOverSslStream.GetAsStringAsync("/", false);
+            Assert.That(facebookResponse.Contains("<html"), "Response from facebook was invalid.");
+        }
+
+        [Test]
+        [Retry(TestsRetryCount)]
+        public void CanBrowseFacebookOverHSWithTLS()
+        {
+            Assert.DoesNotThrowAsync(BrowseFacebookOverHSWithTLS);
         }
 
         public async Task EstablishAndCommunicateOverHSConnectionOnionStyle()
