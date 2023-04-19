@@ -123,8 +123,8 @@ type TorServiceClient =
 
                                 with
                                 | :? NOnionException ->
-                                        // Using micro descriptors means we might use servers that are hibernating or etc
-                                        // so we need to be able to try multiple servers to receive the descriptor.
+                                    // Using micro descriptors means we might use servers that are hibernating or etc
+                                    // so we need to be able to try multiple servers to receive the descriptor.
                                     return! downloadDescriptor responsibleDirs
                         }
 

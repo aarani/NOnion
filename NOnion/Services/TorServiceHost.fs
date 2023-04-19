@@ -9,12 +9,11 @@ open System.Text
 open System.Threading
 open FSharpx.Collections
 
-open Chaos.NaCl
 open Org.BouncyCastle.Crypto
 open Org.BouncyCastle.Crypto.Parameters
 open Org.BouncyCastle.Crypto.Generators
-open Org.BouncyCastle.Crypto.Signers
 open Org.BouncyCastle.Security
+open Org.BouncyCastle.Math.EC.Rfc8032
 
 open NOnion
 open NOnion.Cells.Relay
@@ -541,17 +540,11 @@ type TorServiceHost
 
                                 let encKeyCert =
                                     let convertedX25519Key =
-                                        match
-                                            Ed25519.Ed25519PublicKeyFromCurve25519
-                                                (
-                                                    encKeyBytes,
-                                                    false
-                                                )
-                                            with
-                                        | true, output -> output
-                                        | false, _ ->
-                                            failwith
-                                                "Should not happen, Ed25519PublicKeyFromCurve25519 will never return false"
+                                        Ed25519.Ed25519PublicKeyFromCurve25519(
+                                            encKeyBytes,
+                                            0,
+                                            false
+                                        )
 
                                     Certificate.CreateNew
                                         CertType.IntroPointEncKeySignedByDescriptorSigningKey

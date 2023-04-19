@@ -92,14 +92,13 @@
 
   <ItemGroup>
     <PackageReference Include="Fsharpx.Collections" Version="3.0.1" />
-    <PackageReference Include="Portable.BouncyCastle" Version="1.8.10" />
     <PackageReference Include="System.Memory" Version="4.5.4" />
     <PackageReference Include="Newtonsoft.Json" Version="12.0.2" />
     <PackageReference Include="System.Threading.Tasks.DataFlow" Version="5.0.0" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Chaos.NaCl\Chaos.NaCl\Chaos.NaCl-Portable.csproj" PrivateAssets="all" />
+    <ProjectReference Include="..\bc-csharp\crypto\src\BouncyCastle.Crypto.csproj" />
   </ItemGroup>
 
   <Target Name="CopyProjectReferencesToPackage" DependsOnTargets="ResolveReferences">

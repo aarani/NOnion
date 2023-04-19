@@ -10,13 +10,13 @@ open Org.BouncyCastle.Security
 module PemUtility =
     let GetRsaKeyParametersFromPem(pem: string) =
         use stringReader = new StringReader(pem)
-        let pemReader = PemReader stringReader
+        use pemReader = new PemReader(stringReader)
         let publicKey = pemReader.ReadObject() :?> AsymmetricKeyParameter
         publicKey :?> RsaKeyParameters
 
     let GetRsaParametersFromPem(pem: string) =
         use stringReader = new StringReader(pem)
-        let pemReader = PemReader stringReader
+        use pemReader = new PemReader(stringReader)
         let publicKey = pemReader.ReadObject() :?> AsymmetricKeyParameter
 
         let rsaParams =
@@ -26,5 +26,5 @@ module PemUtility =
 
     let PemToByteArray(pem: string) =
         use stringReader = new StringReader(pem)
-        let pemReader = PemReader stringReader
+        use pemReader = new PemReader(stringReader)
         pemReader.ReadPemObject().Content
