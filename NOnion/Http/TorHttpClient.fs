@@ -9,21 +9,11 @@ open NOnion
 open NOnion.Network
 open NOnion.Utility
 
-type TorHttpClient(stream: TorStream, host: string) =
+type TorHttpClient(stream: Stream, host: string) =
 
     // Receives all the data stream until it reaches EOF (until stream receive a RELAY_END)
-    let rec ReceiveAll(memStream: MemoryStream) =
-        async {
-            let buffer = Array.zeroCreate Constants.HttpClientBufferSize
-
-            // Try to fill the buffer
-            let! bytesRead =
-                stream.Receive buffer 0 Constants.HttpClientBufferSize
-
-            if bytesRead > 0 then
-                memStream.Write(buffer, 0, bytesRead)
-                return! ReceiveAll memStream
-        }
+    let ReceiveAll memStream =
+        stream.CopyToAsync memStream |> Async.AwaitTask
 
     member __.GetAsString (path: string) (forceUncompressed: bool) =
         async {
@@ -42,10 +32,11 @@ type TorHttpClient(stream: TorStream, host: string) =
                 |> List.map(fun (k, v) -> sprintf "%s: %s\r\n" k v)
                 |> String.concat String.Empty
 
-            do!
+            let buffer =
                 sprintf "GET %s HTTP/1.0\r\n%s\r\n" path headers
-                |> Encoding.UTF8.GetBytes
-                |> stream.SendData
+                |> Encoding.ASCII.GetBytes
+
+            do! stream.AsyncWrite(buffer, 0, buffer.Length)
 
             use memStream = new MemoryStream()
 
@@ -99,9 +90,7 @@ type TorHttpClient(stream: TorStream, host: string) =
                 |> Map.ofArray
 
             match headersMap.TryGetValue "Content-Encoding" with
-            | false, _ ->
-                return
-                    failwith "GetAsString: Content-Encoding header is missing"
+            | false, _
             | true, "identity" -> return body |> Encoding.UTF8.GetString
             | true, "deflate" ->
                 // DeflateStream needs the zlib header to be chopped off first
@@ -136,10 +125,11 @@ type TorHttpClient(stream: TorStream, host: string) =
                 |> List.map(fun (k, v) -> sprintf "%s: %s\r\n" k v)
                 |> String.concat String.Empty
 
-            do!
+            let buffer =
                 sprintf "POST %s HTTP/1.0\r\n%s\r\n%s" path headers payload
                 |> Encoding.ASCII.GetBytes
-                |> stream.SendData
+
+            do! stream.AsyncWrite(buffer, 0, buffer.Length)
 
             use memStream = new MemoryStream()
 
@@ -188,8 +178,7 @@ type TorHttpClient(stream: TorStream, host: string) =
 
             match headersMap.TryGetValue "Content-Encoding" with
             | false, _ when body.Length = 0 -> return String.Empty
-            | false, _ ->
-                return failwith "PostString: Content-Encoding header is missing"
+            | false, _
             | true, "identity" -> return body |> Encoding.UTF8.GetString
             | true, "deflate" ->
                 // DeflateStream needs the zlib header to be chopped off first

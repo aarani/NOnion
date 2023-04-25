@@ -92,7 +92,7 @@ type TorServiceClient =
                                             circuit.Extend hsDirectoryNode
                                             |> Async.Ignore
 
-                                        let dirStream = TorStream circuit
+                                        use dirStream = new TorStream(circuit)
 
                                         do!
                                             dirStream.ConnectToDirectory()
@@ -493,7 +493,9 @@ type TorServiceClient =
                     Async.Parallel [ introduceJob; rendezvousJoin ]
                     |> Async.Ignore
 
-                let serviceStream = TorStream rendezvousCircuit
+                // We can't use the "use" keyword since this stream needs
+                // to outlive this function.
+                let serviceStream = new TorStream(rendezvousCircuit)
                 do! serviceStream.ConnectToService port |> Async.Ignore
 
                 return

@@ -2,6 +2,8 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Net.Security;
+using System.Security.Authentication;
 using System.Security.Cryptography;
 using System.Threading.Tasks;
 
@@ -86,7 +88,7 @@ namespace NOnion.Tests
         {
             if (len - off <= 0) return 0;
 
-            var bytesRead = await stream.ReceiveAsync(buffer, off, len - off);
+            var bytesRead = await stream.ReadAsync(buffer, off, len - off);
 
             if (bytesRead == 0 || bytesRead == -1)
                 throw new Exception("Not enough data");
@@ -108,6 +110,27 @@ namespace NOnion.Tests
         public void CanBrowseFacebookOverHS()
         {
             Assert.ThrowsAsync(typeof(UnsuccessfulHttpRequestException), BrowseFacebookOverHS);
+        }
+
+        public async Task BrowseFacebookOverHSWithTLS()
+        {
+            TorDirectory directory = await TorDirectory.BootstrapAsync(FallbackDirectorySelector.GetRandomFallbackDirectory(), new DirectoryInfo(Path.GetTempPath()));
+
+            var client = await TorServiceClient.ConnectAsync(directory, "facebookwkhpilnemxj7asaniu7vnjjbiltxjqhye3mhbshg7kx5tfyd.onion:443");
+
+            var sslStream = new SslStream(client.GetStream(), true, (sender, cert, chain, sslPolicyErrors) => true);
+            await sslStream.AuthenticateAsClientAsync(string.Empty, null, SslProtocols.Tls12, false);
+
+            var httpClientOverSslStream = new TorHttpClient(sslStream, "www.facebookwkhpilnemxj7asaniu7vnjjbiltxjqhye3mhbshg7kx5tfyd.onion");
+            var facebookResponse = await httpClientOverSslStream.GetAsStringAsync("/", false);
+            Assert.That(facebookResponse.Contains("<html"), "Response from facebook was invalid.");
+        }
+
+        [Test]
+        [Retry(TestsRetryCount)]
+        public void CanBrowseFacebookOverHSWithTLS()
+        {
+            Assert.DoesNotThrowAsync(BrowseFacebookOverHSWithTLS);
         }
 
         public async Task EstablishAndCommunicateOverHSConnectionOnionStyle()
@@ -134,7 +157,7 @@ namespace NOnion.Tests
                 Task.Run(async () => {
                     var stream = await host.AcceptClientAsync();
                     var bytesToSendWithLength = BitConverter.GetBytes(dataToSendAndReceive.Length).Concat(dataToSendAndReceive).ToArray();
-                    await stream.SendDataAsync(bytesToSendWithLength);
+                    await stream.WriteAsync(bytesToSendWithLength, 0, bytesToSendWithLength.Length);
                     await stream.EndAsync();
                 });
 
