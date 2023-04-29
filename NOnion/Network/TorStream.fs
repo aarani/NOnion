@@ -28,8 +28,8 @@ type private StreamControlMessage =
         offset: int *
         length: int *
         replyChannel: AsyncReplyChannel<OperationResult<unit>>
-    | StartServiceConnectionProcess of
-        port: int *
+    | StartStreamConnectionProcess of
+        address: string *
         streamObj: ITorStream *
         replyChannel: AsyncReplyChannel<OperationResult<Task<uint16>>>
     | StartDirectoryConnectionProcess of
@@ -120,7 +120,10 @@ type TorStream(circuit: TorCircuit) =
                         "Unexpected state when trying to send data over stream"
             }
 
-        let startServiceConnectionProcess (port: int) (streamObj: ITorStream) =
+        let startStreamConnectionProcess
+            (address: string)
+            (streamObj: ITorStream)
+            =
             async {
                 let streamId = circuit.RegisterStream streamObj None
 
@@ -139,7 +142,7 @@ type TorStream(circuit: TorCircuit) =
                         streamId
                         (RelayBegin
                             {
-                                RelayBegin.Address = (sprintf ":%i" port)
+                                RelayBegin.Address = address
                                 Flags = 0u
                             })
                         None
@@ -236,9 +239,9 @@ type TorStream(circuit: TorCircuit) =
                 do!
                     safeSend data offset length
                     |> TryExecuteAsyncAndReplyAsResult replyChannel
-            | StartServiceConnectionProcess(port, streamObj, replyChannel) ->
+            | StartStreamConnectionProcess(address, streamObj, replyChannel) ->
                 do!
-                    startServiceConnectionProcess port streamObj
+                    startStreamConnectionProcess address streamObj
                     |> TryExecuteAsyncAndReplyAsResult replyChannel
             | StartDirectoryConnectionProcess(streamObj, replyChannel) ->
                 do!
@@ -463,8 +466,8 @@ type TorStream(circuit: TorCircuit) =
             let! completionTaskRes =
                 streamControlMailBox.PostAndAsyncReply(
                     (fun replyChannel ->
-                        StreamControlMessage.StartServiceConnectionProcess(
-                            port,
+                        StreamControlMessage.StartStreamConnectionProcess(
+                            sprintf ":%i" port,
                             self,
                             replyChannel
                         )
@@ -501,6 +504,30 @@ type TorStream(circuit: TorCircuit) =
 
     member self.ConnectToDirectoryAsync() =
         self.ConnectToDirectory() |> Async.StartAsTask
+
+    member self.ConnectToOutside (address: string) (port: int) =
+        async {
+            let! completionTaskRes =
+                streamControlMailBox.PostAndAsyncReply(
+                    (fun replyChannel ->
+                        StreamControlMessage.StartStreamConnectionProcess(
+                            sprintf "%s:%i" address port,
+                            self,
+                            replyChannel
+                        )
+                    ),
+                    Constants.StreamCreationTimeout.TotalMilliseconds |> int
+                )
+
+            return!
+                completionTaskRes
+                |> UnwrapResult
+                |> Async.AwaitTask
+                |> FSharpUtil.WithTimeout Constants.StreamCreationTimeout
+        }
+
+    member self.ConnectToOutsideAsync(address, port) =
+        self.ConnectToOutside address port |> Async.StartAsTask
 
     member private self.RegisterIncomingStream(streamId: uint16) =
         async {
