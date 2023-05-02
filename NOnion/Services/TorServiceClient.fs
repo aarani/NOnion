@@ -75,7 +75,10 @@ type TorServiceClient =
                                             hsDirectory
 
                                     use! guardNode =
-                                        TorGuard.NewClient guardEndPoint
+                                        TorGuard.NewClientWithIdentity
+                                            guardEndPoint
+                                            (randomGuardNode.GetIdentityKey()
+                                             |> Some)
 
                                     let circuit = TorCircuit guardNode
 
@@ -394,7 +397,11 @@ type TorServiceClient =
             let! endpoint, guardnode = directory.GetRouter RouterType.Guard
             let! _, rendezvousNode = directory.GetRouter RouterType.Normal
 
-            let! rendezvousGuard = TorGuard.NewClient endpoint
+            let! rendezvousGuard =
+                TorGuard.NewClientWithIdentity
+                    endpoint
+                    (guardnode.GetIdentityKey() |> Some)
+
             let rendezvousCircuit = TorCircuit rendezvousGuard
 
             do! rendezvousCircuit.Create guardnode |> Async.Ignore

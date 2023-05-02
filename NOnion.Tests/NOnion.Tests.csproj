@@ -18,6 +18,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Content Include="Directory-Samples\KeyCertificate.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Directory-Samples\KeyCertificate.txt">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
     <Content Include="Directory-Samples\MicroDescriptor.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
