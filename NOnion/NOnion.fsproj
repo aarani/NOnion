@@ -30,7 +30,6 @@
     <Compile Include="Utility\Base32Util.fs" />
     <Compile Include="Utility\SeqUtils.fs" />
     <Compile Include="Utility\DigestUtils.fs" />
-    <Compile Include="Utility\BigIntegerSerialization.fs" />
     <Compile Include="Utility\DateTimeUtils.fs" />
     <Compile Include="Utility\HiddenServicesUtility.fs" />
     <Compile Include="Utility\IntegerSerialization.fs" />
