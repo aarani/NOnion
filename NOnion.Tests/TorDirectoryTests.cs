@@ -27,8 +27,6 @@ namespace NOnion.Tests
                     )
                 );
             cachePath.Create();
-
-            TorLogger.Init(TestContext.Progress.WriteLine);
         }
 
         private DirectoryInfo cachePath = null;
