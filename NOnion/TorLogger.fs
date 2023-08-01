@@ -6,6 +6,8 @@ module TorLogger =
     let mutable LoggerOpt: Option<Action<string>> = None
 
     let Init(loggingFunc: Action<string>) =
+        if LoggerOpt.IsSome then
+            failwith "TorLogger.Init() called more than once"
         LoggerOpt <- Some loggingFunc
 
     let Log(msg: string) =
