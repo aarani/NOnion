@@ -75,7 +75,7 @@ type TorHttpClient(stream: Stream, host: string) =
                         status
                 )
 
-                raise <| UnsuccessfulHttpRequestException status
+                raise <| UnsuccessfulHttpResponseException status
 
             let parseHeaderLine(header: string) =
                 let splittedHeader =
@@ -162,7 +162,7 @@ type TorHttpClient(stream: Stream, host: string) =
                         status
                 )
 
-                raise <| UnsuccessfulHttpRequestException status
+                raise <| UnsuccessfulHttpResponseException status
 
             let parseHeaderLine(header: string) =
                 let splittedHeader =

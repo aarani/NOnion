@@ -12,12 +12,6 @@ namespace NOnion.Tests
 {
     internal class OutsideWorldConnectionTest
     {
-        [SetUp]
-        public void Init()
-        {
-            TorLogger.Init(TestContext.Progress.WriteLine);
-        }
-
         /* It's possible that the router returned by GetRandomFallbackDirectory or
          * GetRandomRoutersForDirectoryBrowsing be inaccessable so we need to continue
          * retrying if an exceptions happened to make sure the issues are not related
@@ -49,7 +43,7 @@ namespace NOnion.Tests
         [Retry(TestsRetryCount)]
         public void CanBrowseGoogle()
         {
-            Assert.ThrowsAsync(typeof(UnsuccessfulHttpRequestException), BrowseGoogle);
+            Assert.ThrowsAsync(typeof(UnsuccessfulHttpResponseException), BrowseGoogle);
         }
     }
 }

@@ -29,7 +29,7 @@ type CircuitDestroyedException internal (reason: DestroyReason) =
 type TimeoutErrorException internal () =
     inherit NOnionException("Time limit exceeded for operation")
 
-type UnsuccessfulHttpRequestException internal (statusCode: string) =
+type UnsuccessfulHttpResponseException internal (statusCode: string) =
     inherit NOnionException(sprintf
                                 "Non-200 status code received, code: %s"
                                 statusCode)
