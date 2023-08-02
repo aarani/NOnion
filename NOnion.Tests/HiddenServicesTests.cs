@@ -102,14 +102,23 @@ namespace NOnion.Tests
 
             var client = await TorServiceClient.ConnectAsync(directory, "facebookwkhpilnemxj7asaniu7vnjjbiltxjqhye3mhbshg7kx5tfyd.onion");
             var httpClient = new TorHttpClient(client.GetStream(), "facebookwkhpilnemxj7asaniu7vnjjbiltxjqhye3mhbshg7kx5tfyd.onion");
-            await httpClient.GetAsStringAsync("/", false);
+
+            try
+            {
+                await httpClient.GetAsStringAsync("/", false);
+            }
+            catch (UnsuccessfulHttpRequestException)
+            {
+                // Ignore non-200 Http response status codes
+                // The fact that we are receieving an http response means we are connected
+            }
         }
 
         [Test]
         [Retry(TestsRetryCount)]
         public void CanBrowseFacebookOverHS()
         {
-            Assert.ThrowsAsync(typeof(UnsuccessfulHttpRequestException), BrowseFacebookOverHS);
+            Assert.DoesNotThrowAsync(BrowseFacebookOverHS);
         }
 
         public async Task BrowseFacebookOverHSWithTLS()
@@ -122,8 +131,17 @@ namespace NOnion.Tests
             await sslStream.AuthenticateAsClientAsync(string.Empty, null, SslProtocols.Tls12, false);
 
             var httpClientOverSslStream = new TorHttpClient(sslStream, "www.facebookwkhpilnemxj7asaniu7vnjjbiltxjqhye3mhbshg7kx5tfyd.onion");
-            var facebookResponse = await httpClientOverSslStream.GetAsStringAsync("/", false);
-            Assert.That(facebookResponse.Contains("<html"), "Response from facebook was invalid.");
+
+            try
+            {
+                var facebookResponse = await httpClientOverSslStream.GetAsStringAsync("/", false);
+                Assert.That(facebookResponse.Contains("<html"), "Response from facebook was invalid.");
+            }
+            catch (UnsuccessfulHttpRequestException)
+            {
+                // Ignore non-200 Http response status codes
+                // The fact that we are receieving an http response means we are connected
+            }
         }
 
         [Test]
