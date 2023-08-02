@@ -43,7 +43,7 @@ namespace NOnion.Tests
         [Retry(TestsRetryCount)]
         public void CanBrowseGoogle()
         {
-            Assert.ThrowsAsync(typeof(UnsuccessfulHttpRequestException), BrowseGoogle);
+            Assert.ThrowsAsync(typeof(UnsuccessfulHttpResponseException), BrowseGoogle);
         }
     }
 }

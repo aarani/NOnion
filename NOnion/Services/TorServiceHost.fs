@@ -417,7 +417,7 @@ type TorServiceHost
 
                     return ()
                 with
-                | :? UnsuccessfulHttpRequestException ->
+                | :? UnsuccessfulHttpResponseException ->
                     // During testing, after migration to microdescriptor, we saw instances of
                     // 404 error msg when trying to publish our descriptors which mean for
                     // some reason we're trying to upload descriptor to a directory that

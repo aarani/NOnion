@@ -101,7 +101,7 @@ namespace NOnion.Tests
             {
                 await httpClient.GetAsStringAsync("/", false);
             }
-            catch (UnsuccessfulHttpRequestException)
+            catch (UnsuccessfulHttpResponseException)
             {
                 // Ignore non-200 Http response status codes
                 // The fact that we are receieving an http response means we are connected
@@ -131,7 +131,7 @@ namespace NOnion.Tests
                 var facebookResponse = await httpClientOverSslStream.GetAsStringAsync("/", false);
                 Assert.That(facebookResponse.Contains("<html"), "Response from facebook was invalid.");
             }
-            catch (UnsuccessfulHttpRequestException)
+            catch (UnsuccessfulHttpResponseException)
             {
                 // Ignore non-200 Http response status codes
                 // The fact that we are receieving an http response means we are connected
