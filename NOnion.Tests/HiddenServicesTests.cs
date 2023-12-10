@@ -106,7 +106,8 @@ namespace NOnion.Tests
             using TorClient torClient = await TorClient.BootstrapWithGithubAsync(cachePath);
 
             var serviceClient = await TorServiceClient.ConnectAsync(torClient, "facebookwkhpilnemxj7asaniu7vnjjbiltxjqhye3mhbshg7kx5tfyd.onion");
-            var httpClient = new TorHttpClient(serviceClient.GetStream(), "facebookwkhpilnemxj7asaniu7vnjjbiltxjqhye3mhbshg7kx5tfyd.onion");
+            var stream = await serviceClient.GetStreamAsync();
+            var httpClient = new TorHttpClient(stream, "facebookwkhpilnemxj7asaniu7vnjjbiltxjqhye3mhbshg7kx5tfyd.onion");
 
             try
             {
@@ -131,8 +132,8 @@ namespace NOnion.Tests
             using TorClient torClient = await TorClient.BootstrapWithGithubAsync(cachePath);
             
             var serviceClient = await TorServiceClient.ConnectAsync(torClient, "facebookwkhpilnemxj7asaniu7vnjjbiltxjqhye3mhbshg7kx5tfyd.onion:443");
-
-            var sslStream = new SslStream(serviceClient.GetStream(), true, (sender, cert, chain, sslPolicyErrors) => true);
+            var stream = await serviceClient.GetStreamAsync();
+            var sslStream = new SslStream(stream, true, (sender, cert, chain, sslPolicyErrors) => true);
             await sslStream.AuthenticateAsClientAsync(string.Empty, null, SslProtocols.Tls12, false);
 
             var httpClientOverSslStream = new TorHttpClient(sslStream, "www.facebookwkhpilnemxj7asaniu7vnjjbiltxjqhye3mhbshg7kx5tfyd.onion");
@@ -185,7 +186,7 @@ namespace NOnion.Tests
             var clientSide =
                 Task.Run(async () => {
                     var serviceClient = await TorServiceClient.ConnectAsync(torClient, host.ExportUrl());
-                    var stream = serviceClient.GetStream();
+                    var stream = await serviceClient.GetStreamAsync();
                     var lengthBytes = new byte[sizeof(int)];
                     await ReadExact(stream, lengthBytes, 0, lengthBytes.Length);
                     var length = BitConverter.ToInt32(lengthBytes);

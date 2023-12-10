@@ -24,11 +24,21 @@ type TorServiceClient =
         {
             TorClient: TorClient
             RendezvousCircuit: TorCircuit
-            Stream: TorStream
+            Port: int
         }
 
     member self.GetStream() =
-        self.Stream
+        async {
+            // We can't use the "use" keyword since this stream needs
+            // to outlive this function.
+            let serviceStream = new TorStream(self.RendezvousCircuit)
+            do! serviceStream.ConnectToService self.Port |> Async.Ignore
+
+            return serviceStream
+        }
+
+    member self.GetStreamAsync() =
+        self.GetStream() |> Async.StartAsTask
 
     static member ConnectAsync (client: TorClient) (url: string) =
         TorServiceClient.Connect client url |> Async.StartAsTask
@@ -475,16 +485,11 @@ type TorServiceClient =
                     Async.Parallel [ introduceJob; rendezvousJoin ]
                     |> Async.Ignore
 
-                // We can't use the "use" keyword since this stream needs
-                // to outlive this function.
-                let serviceStream = new TorStream(rendezvousCircuit)
-                do! serviceStream.ConnectToService port |> Async.Ignore
-
                 return
                     {
                         TorClient = client
                         RendezvousCircuit = rendezvousCircuit
-                        Stream = serviceStream
+                        Port = port
                     }
             | _ ->
                 return
