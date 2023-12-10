@@ -71,7 +71,7 @@ To connect to a hidden service using the Tor network, use the folowing command:
 let onionAddress = "facebookwkhpilnemxj7asaniu7vnjjbiltxjqhye3mhbshg7kx5tfyd.onion"
 
 let! serviceClient = TorServiceClient.Connect torClient onionAddress
-let stream = serviceClient.GetStream()
+let! stream = serviceClient.GetStream()
 ```
 Now, utilize the stream just like any other `System.IO.Stream`:
 ```
