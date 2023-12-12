@@ -89,6 +89,7 @@
     <Compile Include="Client\TorClient.fs" />
     <Compile Include="Services\TorServiceHost.fs" />
     <Compile Include="Services\TorServiceClient.fs" />
+    <Compile Include="Proxy\TorProxy.fs" />
   </ItemGroup>
 
   <ItemGroup>
