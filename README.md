@@ -32,7 +32,7 @@ Install via NuGet:
 To utilize the Tor network, start by bootstrapping your directory. This step involves downloading the most recent information about available routers and their identity keys.
 
 To initiate the bootstrapping process, you require a list of initial nodes for communication. In NOnion, there are two methods to obtain this list:
-1- [Download from Github](https://github.com/torproject/tor/blob/main/src/app/config/fallback_dirs.inc)
+1- [Download from GitLab](https://gitlab.torproject.org/tpo/core/tor/-/raw/main/src/app/config/fallback_dirs.inc)
 2- Utilize the embedded list in the NOnion binary (Note: this list could potentially be outdated)
 
 Based on what option you choose use one of the following commands to bootstrap a TorClient object:
@@ -41,7 +41,7 @@ let! torClient = TorClient.AsyncBootstrapWithEmbeddedList None
 ```
 ### OR
 ```
-let! torClient = TorClient.AsyncBootstrapWithGithub None
+let! torClient = TorClient.AsyncBootstrapWithGitlab None
 ```
 ## Browsing the web
 

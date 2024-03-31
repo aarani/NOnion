@@ -10,15 +10,15 @@ namespace NOnion.Tests
 {
     public class TorClientTests
     {
-        private async Task BootstrapWithGithub()
+        private async Task BootstrapWithGitlab()
         {
-            await TorClient.BootstrapWithGithubAsync(FSharpOption<DirectoryInfo>.None);
+            await TorClient.BootstrapWithGitlabAsync(FSharpOption<DirectoryInfo>.None);
         }
 
         [Test]
-        public void CanBootstrapWithGithub()
+        public void CanBootstrapWithGitlab()
         {
-            Assert.DoesNotThrowAsync(BootstrapWithGithub);
+            Assert.DoesNotThrowAsync(BootstrapWithGitlab);
         }
         
         private async Task BootstrapWithEmbeddedList()
