@@ -51,7 +51,7 @@ namespace NOnion.Tests
 
         private async Task CreateIntroductionCircuit()
         {
-            using TorClient torClient = await TorClient.BootstrapWithGithubAsync(cachePath);
+            using TorClient torClient = await TorClient.BootstrapWithGitlabAsync(cachePath);
             var circuit = await torClient.CreateCircuitAsync(1, CircuitPurpose.Unknown, FSharpOption<CircuitNodeDetail>.None);
             await circuit.RegisterAsIntroductionPointAsync(FSharpOption<AsymmetricCipherKeyPair>.None, StubCallback, DisconnectionCallback);
         }
@@ -76,7 +76,7 @@ namespace NOnion.Tests
             var array = new byte[Constants.RendezvousCookieLength];
             RandomNumberGenerator.Create().GetNonZeroBytes(array);
 
-            using TorClient torClient = await TorClient.BootstrapWithGithubAsync(cachePath);
+            using TorClient torClient = await TorClient.BootstrapWithGitlabAsync(cachePath);
             var circuit = await torClient.CreateCircuitAsync(2, CircuitPurpose.Unknown, FSharpOption<CircuitNodeDetail>.None);
             await circuit.RegisterAsRendezvousPointAsync(array);
         }
@@ -103,7 +103,7 @@ namespace NOnion.Tests
 
         public async Task BrowseFacebookOverHS()
         {
-            using TorClient torClient = await TorClient.BootstrapWithGithubAsync(cachePath);
+            using TorClient torClient = await TorClient.BootstrapWithGitlabAsync(cachePath);
 
             var serviceClient = await TorServiceClient.ConnectAsync(torClient, "facebookwkhpilnemxj7asaniu7vnjjbiltxjqhye3mhbshg7kx5tfyd.onion");
             var stream = await serviceClient.GetStreamAsync();
@@ -129,7 +129,7 @@ namespace NOnion.Tests
 
         public async Task BrowseFacebookOverHSWithTLS()
         {
-            using TorClient torClient = await TorClient.BootstrapWithGithubAsync(cachePath);
+            using TorClient torClient = await TorClient.BootstrapWithGitlabAsync(cachePath);
             
             var serviceClient = await TorServiceClient.ConnectAsync(torClient, "facebookwkhpilnemxj7asaniu7vnjjbiltxjqhye3mhbshg7kx5tfyd.onion:443");
             var stream = await serviceClient.GetStreamAsync();
@@ -159,7 +159,7 @@ namespace NOnion.Tests
 
         public async Task EstablishAndCommunicateOverHSConnectionOnionStyle()
         {
-            using TorClient torClient = await TorClient.BootstrapWithGithubAsync(cachePath);
+            using TorClient torClient = await TorClient.BootstrapWithGitlabAsync(cachePath);
             
             TorLogger.Log("Finished bootstraping");
 

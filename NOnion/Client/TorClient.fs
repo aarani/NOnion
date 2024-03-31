@@ -113,7 +113,7 @@ type TorClient internal (directory: TorDirectory) =
         =
         TorClient.AsyncBootstrapWithEmbeddedList cachePath |> Async.StartAsTask
 
-    static member AsyncBootstrapWithGithub(cachePath: Option<DirectoryInfo>) =
+    static member AsyncBootstrapWithGitlab(cachePath: Option<DirectoryInfo>) =
         async {
             // Don't put this inside the fallbackListString or it gets disposed
             // before the task gets executed
@@ -121,15 +121,15 @@ type TorClient internal (directory: TorDirectory) =
 
             let! fallbackListString =
                 let urlToTorServerList =
-                    "https://raw.githubusercontent.com/torproject/tor/main/src/app/config/fallback_dirs.inc"
+                    "https://gitlab.torproject.org/tpo/core/tor/-/raw/main/src/app/config/fallback_dirs.inc"
 
                 httpClient.GetStringAsync urlToTorServerList |> Async.AwaitTask
 
             return! CreateClientFromFallbackString fallbackListString cachePath
         }
 
-    static member BootstrapWithGithubAsync(cachePath: Option<DirectoryInfo>) =
-        TorClient.AsyncBootstrapWithGithub cachePath |> Async.StartAsTask
+    static member BootstrapWithGitlabAsync(cachePath: Option<DirectoryInfo>) =
+        TorClient.AsyncBootstrapWithGitlab cachePath |> Async.StartAsTask
 
     member __.Directory = directory
 
